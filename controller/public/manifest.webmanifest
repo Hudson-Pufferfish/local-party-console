@@ -1,0 +1,8 @@
+{
+  "name": "Party Controller",
+  "short_name": "Party",
+  "display": "standalone",
+  "start_url": "/controller/",
+  "background_color": "#f4f1ea",
+  "theme_color": "#f4f1ea"
+}

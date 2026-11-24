@@ -1,0 +1,1 @@
+Source: ChromeDevTools/chrome-devtools-mcp@1.13.0 (npm package; npx skills add hangs on full git clone)

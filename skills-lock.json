@@ -1,0 +1,355 @@
+{
+  "version": 2,
+  "skills": {
+    "animations": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/animations/SKILL.md",
+      "computedHash": "6d9666a914c4a53e3789302459935352a57c45b264da0ca5132368474b6c20e4"
+    },
+    "audio-and-sound": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/audio-and-sound/SKILL.md",
+      "computedHash": "033ba73aa4d21cfd4f3e1b9c74ad707d1cb8778e05b6a0641f771ad56c490bc4"
+    },
+    "caddy": {
+      "source": "claude-dev-suite/claude-dev-suite",
+      "commit": "b6a8182be20e76fc2744877af3126d1e58779876",
+      "sourceType": "github",
+      "skillPath": "skills/infrastructure/caddy/SKILL.md",
+      "computedHash": "46b883b2f935f227d175e35b9c782ef1186d46469036ae57ae09e241841427df"
+    },
+    "cameras": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/cameras/SKILL.md",
+      "computedHash": "26fd7e70e27c9875923646598b4765bb8dc95cd426dac96231f53e7932287cf3"
+    },
+    "cross-origin-isolation": {
+      "source": "thedaviddias/Front-End-Checklist",
+      "commit": "e8d14d049010e2ce25afcd5e8609dfcbbe63e47e",
+      "sourceType": "github",
+      "skillPath": "skills/cross-origin-isolation/SKILL.md",
+      "computedHash": "230869e1a70705ea53f8db19e19c2fde2e7ea2a043c65ab120625eb78e9ad2d8"
+    },
+    "events-system": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/events-system/SKILL.md",
+      "computedHash": "37c8e5fad2a368ac35b83c47bded8d5071fbb7a6230a2006c94000d579c25819"
+    },
+    "fastify-best-practices": {
+      "source": "mcollina/skills",
+      "commit": "c75d70dbfbe991d8cec42aeda0b64ff14fbb9ac7",
+      "sourceType": "github",
+      "skillPath": "skills/fastify/SKILL.md",
+      "computedHash": "1e47aea2fa16ccb263e95202224d5d50cf7c782ddffa1fe1be40b98a2bd1e815"
+    },
+    "game-networking": {
+      "source": "omer-metin/skills-for-antigravity",
+      "commit": "e8dcf4e8737921a10088bd5c9eb65e81f74c051f",
+      "sourceType": "github",
+      "skillPath": "skills/game-networking/SKILL.md",
+      "computedHash": "c562c4ba7df070c3afa790fc056d604c48e4a98d89b75563db9bb814af546d4f"
+    },
+    "game-object-components": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/game-object-components/SKILL.md",
+      "computedHash": "cc7f7a38efbbaf8329974afabc513b0a099cf9eab8de1874ef865702dc15a060"
+    },
+    "game-setup-and-config": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/game-setup-and-config/SKILL.md",
+      "computedHash": "768aa16da0efb08b22cbf91be3ce656008a88bd929929fee942152fad485e3f3"
+    },
+    "game-state-sync": {
+      "source": "fcsouza/agent-skills",
+      "commit": "ccf5340fafef32a3c882ad63af2f5184fd2a8651",
+      "sourceType": "github",
+      "skillPath": "skills/game-state-sync/SKILL.md",
+      "computedHash": "d982cb00ca419f196c44b087e8ee2dfdfb0e460d6563b6ceeadc0e47d6629ae8"
+    },
+    "geometry-and-math": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/geometry-and-math/SKILL.md",
+      "computedHash": "cc2e8d84c8831e02c2d44887aa8adc1eb1064a47d1066099e6bc644b5b6b4c5e"
+    },
+    "graphics-and-shapes": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/graphics-and-shapes/SKILL.md",
+      "computedHash": "4db88af071242c10cc86ee97f485e001e5cfb8c1d682382470f9cfb6d2e4db5d"
+    },
+    "groups-and-containers": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/groups-and-containers/SKILL.md",
+      "computedHash": "f54a6e890ab20512c9c889a832bb64910b2b7db63a9c840b49b6e473e73f7212"
+    },
+    "input-keyboard-mouse-touch": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/input-keyboard-mouse-touch/SKILL.md",
+      "computedHash": "47d30c918e266c7833322b2495cd31ed28ec85ba03db1f3c495ba379e65fcfc2"
+    },
+    "loading-assets": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/loading-assets/SKILL.md",
+      "computedHash": "91cf0ef9a0ab9adccd6a05939fa1c0aed407ce9a8dfbde7410ddc98bb7356bf2"
+    },
+    "particles": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/particles/SKILL.md",
+      "computedHash": "60d054fa78f529f49ec7020ef8dfb2a347a5f2b8b969bd4ead99fbf0e114bb01"
+    },
+    "render-textures": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/render-textures/SKILL.md",
+      "computedHash": "f8b70972513f62ee7e2e66c656dea277c7dc6a0a5af69a2034cb4e07418f38f8"
+    },
+    "rust-wasm": {
+      "source": "po4yka/rust-skills",
+      "commit": "d9ab525a6566b687980d3b4c05b97a197802876a",
+      "sourceType": "github",
+      "skillPath": "skills/rust-wasm/SKILL.md",
+      "computedHash": "16e3a059aaba3ea604d520341b453b2c3503931b7d88de136d05dc7bec9e1598"
+    },
+    "scale-and-responsive": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/scale-and-responsive/SKILL.md",
+      "computedHash": "70ba549c58fee9a136466dc5d731c553b894d461ee70430aa73e4910f7946483"
+    },
+    "scenes": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/scenes/SKILL.md",
+      "computedHash": "d83a8b7828d7c526210be340ef91db476072d588a2129c3ba1fbc0eaa03283b6"
+    },
+    "solidjs-v2": {
+      "source": "khmm12/solidjs-v2-skills",
+      "commit": "7cfa176aee0ee2e7763d9a77b03f87fdb7f64bdb",
+      "sourceType": "github",
+      "skillPath": "skills/solidjs-v2/SKILL.md",
+      "computedHash": "3a717e4214c08159fe31530aed8a07a4a00a43033ec0d3ca3fd834c0c51c91f1"
+    },
+    "solidjs-v2-migration": {
+      "source": "khmm12/solidjs-v2-skills",
+      "commit": "7cfa176aee0ee2e7763d9a77b03f87fdb7f64bdb",
+      "sourceType": "github",
+      "skillPath": "skills/solidjs-v2-migration/SKILL.md",
+      "computedHash": "98e93f85debcf655d41faf59e144726b99772ed7ebcda618bb7b53ae2aca4e00"
+    },
+    "solidjs-v2-reviewer": {
+      "source": "khmm12/solidjs-v2-skills",
+      "commit": "7cfa176aee0ee2e7763d9a77b03f87fdb7f64bdb",
+      "sourceType": "github",
+      "skillPath": "skills/solidjs-v2-reviewer/SKILL.md",
+      "computedHash": "53cbc1ab4cbaad8611a5298c29d9dd1e823ae5be3ba3e7cb090a6668d53f4a9c"
+    },
+    "sprites-and-images": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/sprites-and-images/SKILL.md",
+      "computedHash": "5cc09bc45e88614494f2eea3da8a51ccfa88900873e2e60744e54a1844417faa"
+    },
+    "tailwind-4-docs": {
+      "source": "Lombiq/Tailwind-Agent-Skills",
+      "commit": "634ec184c36e495fae1d8cf7975df7e6969e3a89",
+      "sourceType": "github",
+      "skillPath": "skills/tailwind-4-docs/SKILL.md",
+      "computedHash": "263961b82698e3defdb26dd6a1b7328044517e67a3bbe91c1b33bb2a4273f4ee"
+    },
+    "tailwind-design-system": {
+      "source": "wshobson/agents",
+      "commit": "34e50fee32114afd9475f25d81492712f08cb71c",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/tailwind-design-system/SKILL.md",
+      "computedHash": "c807f0c9619e8c389879f55846c2e395956f1073ab6d01a93fbb30b340015ab1"
+    },
+    "tauri-v2": {
+      "source": "nodnarbnitram/claude-code-extensions",
+      "commit": "35e7f7deae689e12b94f9c242b8f59efe0f66476",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/tauri-v2/SKILL.md",
+      "computedHash": "785f2858f21d8d6757c136dded755da9ebb16d292391defcb7171e445c03e77d"
+    },
+    "text-and-bitmaptext": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/text-and-bitmaptext/SKILL.md",
+      "computedHash": "0bbd7f5c9e1fa257b90b8aa4403476259983cd9d8281cb36812f388e4def3304"
+    },
+    "threejs-animation": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-animation/SKILL.md",
+      "computedHash": "2686d953e17a59121254760b34b3af59c861a29fac28cd5f40f9b054e916ccfb"
+    },
+    "threejs-asset-pipeline": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-asset-pipeline/SKILL.md",
+      "computedHash": "9187f3f4ccb4961ed13a903a351e8acc84fd3a8fb270d303b38d88f951f4797e"
+    },
+    "threejs-fundamentals": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-fundamentals/SKILL.md",
+      "computedHash": "268a79c9d3f35bd7deffc65293f4bd1bcc141b496c69b0f67e9886fc28def4b2"
+    },
+    "threejs-geometry": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-geometry/SKILL.md",
+      "computedHash": "4762a54ba7a32357b80135b0c33cca56cccfb708c1e23d2f8aabd3bd8acc8a95"
+    },
+    "threejs-interaction": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-interaction/SKILL.md",
+      "computedHash": "160f06e61488f74734eaf75ef51e8a55624777e3ffa3d6a0fd4f325813ceff87"
+    },
+    "threejs-lighting": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-lighting/SKILL.md",
+      "computedHash": "025264a0e58480fe4a573391d8e7cba119f45ea1a35643a8d938fa44cc8df42e"
+    },
+    "threejs-loaders": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-loaders/SKILL.md",
+      "computedHash": "9947526431eff5a4e0b3f813ad1c701daf50cbdfeb3c50d116af697e87e8bdbd"
+    },
+    "threejs-materials": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-materials/SKILL.md",
+      "computedHash": "138b23dd0b365bc6ee2f20eebcf1fcfb426b6acaeeda18c57c88039f8628d9aa"
+    },
+    "threejs-performance": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-performance/SKILL.md",
+      "computedHash": "edc078cf2cb729eb4a808ee3c202f4bdbda40a0beb6e34f2cf7b1f5003f11783"
+    },
+    "threejs-postprocessing": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-postprocessing/SKILL.md",
+      "computedHash": "d64cfe3bd54fe32a7267aa833bdfb320504747576ddc96500e44767792720e86"
+    },
+    "threejs-shaders": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-shaders/SKILL.md",
+      "computedHash": "4ba49c86b4233fb1fb4321509fd7baefaf05fa139c6ce6090a8ef5096616f38d"
+    },
+    "threejs-textures": {
+      "source": "CloudAI-X/threejs-skills",
+      "commit": "0e181866f095b5f06d005133876e926515390d95",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-textures/SKILL.md",
+      "computedHash": "c9d53239206d8d152de16bfa630760f289616c86c43b47e94599be3b19c32d05"
+    },
+    "time-and-timers": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/time-and-timers/SKILL.md",
+      "computedHash": "579217ae7f96cb76fda8ba4c10e3e9b9ae9f347fb0fb9dc1e02a1034a3bebf2a"
+    },
+    "tweens": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/tweens/SKILL.md",
+      "computedHash": "be521f3d4b4a28671f8a8134383ad35651f492ef19ed78aaedaee58779adcfe6"
+    },
+    "v3-to-v4-migration": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/v3-to-v4-migration/SKILL.md",
+      "computedHash": "9299f511a3f48f6a28cda3908fb790a1f1fdbb2efc60320e27bde6b87c11fd29"
+    },
+    "v4-new-features": {
+      "source": "phaserjs/phaser",
+      "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+      "sourceType": "github",
+      "skillPath": "skills/v4-new-features/SKILL.md",
+      "computedHash": "1b54853f511842748249484b830951b8b5932350a0faea00d1d88f39774af336"
+    },
+    "vite": {
+      "source": "antfu/skills",
+      "commit": "4a6bb39e7b45e26402eb215393c51ccf5df1ca4c",
+      "sourceType": "github",
+      "skillPath": "skills/vite/SKILL.md",
+      "computedHash": "db9eea82d8bf6ce0f60a4a1d94a626c718df7d97160b5f1d5b150647e0c401b3"
+    },
+    "vitest": {
+      "source": "antfu/skills",
+      "commit": "4a6bb39e7b45e26402eb215393c51ccf5df1ca4c",
+      "sourceType": "github",
+      "skillPath": "skills/vitest/SKILL.md",
+      "computedHash": "bd95e41d66d76da9008893c9bc48c30f0a68f352cd2b00017767f5e4c129501d"
+    },
+    "webrtc": {
+      "source": "claude-dev-suite/claude-dev-suite",
+      "commit": "b6a8182be20e76fc2744877af3126d1e58779876",
+      "sourceType": "github",
+      "skillPath": "skills/real-time/webrtc/SKILL.md",
+      "computedHash": "00008f409d7b953862eb3f9753b05c670f9d4298744ab72d4b15620b8ce4af6a"
+    },
+    "websocket-development": {
+      "source": "Mindrally/skills",
+      "commit": "7682ca77710e0971eab4e0ae5dddfa281aea0ba5",
+      "sourceType": "github",
+      "skillPath": "websocket-development/SKILL.md",
+      "computedHash": "6368e8cf06e73de2251839490aeb33d49b1a5eff30c66566ba47ff44af9131f3"
+    },
+    "websocket-engineer": {
+      "source": "Jeffallan/claude-skills",
+      "commit": "d98d06edb54c25cfb94017c0ef830342a34a43ba",
+      "sourceType": "github",
+      "skillPath": "plugin/skills/websocket-engineer/SKILL.md",
+      "computedHash": "822b5db15af4796c93a0458c8c84090732f9e7b07de041add148128c5368bc77"
+    }
+  }
+}

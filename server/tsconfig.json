@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@shared/types": ["../shared/src/types/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

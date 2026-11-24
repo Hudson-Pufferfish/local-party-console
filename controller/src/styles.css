@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@import "@fontsource/space-grotesk/700.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "../../shared/src/ui/primitives.css";
+
+:root {
+  color: var(--ink, #111111);
+  background: var(--paper, #f4f1ea);
+  font-family: "Space Grotesk";
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg-surface, var(--paper, #f4f1ea));
+  color: var(--ink-primary, var(--ink, #111111));
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.shell {
+  box-sizing: border-box;
+  height: 100dvh;
+  padding:
+    max(36px, env(safe-area-inset-top))
+    max(36px, env(safe-area-inset-right))
+    max(36px, env(safe-area-inset-bottom))
+    max(36px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  contain: layout paint style;
+  background: var(--bg-surface, var(--paper, #f4f1ea));
+  color: var(--ink-primary, var(--ink, #111111));
+}
+
+.mast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.room-code,
+.cores,
+.notice {
+  margin: 0;
+  font-family: "JetBrains Mono";
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.room-code {
+  font-size: 32px;
+  line-height: 0.9;
+  letter-spacing: 0.08em;
+}
+
+.rev {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.cores {
+  font-size: 12px;
+}
+
+.notice {
+  padding: 14px 12px;
+  background: #111111;
+  color: #ff4d00;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px;
+  border: 2.5px solid #111111;
+  background: #ffffff;
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.pill[data-warn='true'] {
+  background: var(--warn, #ff4d00);
+}
+
+.join-row,
+.actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.name-field {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 36px 16px;
+  border: 2.5px solid #111111;
+  background: #ffffff;
+  color: #111111;
+  font-size: 22px;
+  text-transform: uppercase;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.name-field:disabled {
+  background: #f4f1ea;
+}
+
+.arcade-button:focus-visible,
+.name-field:focus-visible,
+.game-card:focus-visible {
+  outline: 2.5px solid #111111;
+  outline-offset: 3px;
+}
+
+.pad {
+  flex: 1;
+  min-height: 120px;
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 8px;
+}
+
+.pad .joystick,
+.pad .swipe-zone {
+  height: 100%;
+  min-height: 0;
+}
