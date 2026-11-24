@@ -329,12 +329,14 @@ export function createSumoSimulation(): SumoSimulation {
     simulateMotion(dt);
 
     const limit = state[ARENA] * state[ARENA];
+    let aliveBefore = 0;
     let outCount = 0;
     let farthestOut = -1;
     let farthestOutR = -1;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       if ((state[base + 8] & ALIVE) === 0) continue;
+      aliveBefore += 1;
       const x = state[base];
       const y = state[base + 1];
       const radiusSq = x * x + y * y;
@@ -345,7 +347,9 @@ export function createSumoSimulation(): SumoSimulation {
         farthestOutR = radiusSq;
       }
     }
-    if (outCount > 1 && state[ARENA] <= C.rMin && farthestOut >= 0) {
+    if (outCount > 0 && outCount === aliveBefore && state[ARENA] > C.rMin) {
+      pullInside(state[ARENA]);
+    } else if (outCount > 1 && state[ARENA] <= C.rMin && farthestOut >= 0) {
       state[PLAYER + farthestOut * STRIDE + 8] = 0;
     } else if (outCount > 0) {
       for (let i = 0; i < C.maxPlayers; i += 1) {
@@ -392,6 +396,31 @@ export function createSumoSimulation(): SumoSimulation {
       state[TIMER] = C.roundEnd;
     }
     writeAliveMask();
+  }
+
+  function pullInside(arena: number): void {
+    const keep = arena * 0.98;
+    if (keep <= 0) return;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      const base = PLAYER + i * STRIDE;
+      if ((state[base + 8] & ALIVE) === 0) continue;
+      const x = state[base];
+      const y = state[base + 1];
+      const radius = Math.hypot(x, y);
+      if (radius <= keep || radius === 0) continue;
+      const scale = keep / radius;
+      state[base] = x * scale;
+      state[base + 1] = y * scale;
+      const nx = state[base] / keep;
+      const ny = state[base + 1] / keep;
+      const vx = state[base + 2];
+      const vy = state[base + 3];
+      const outward = vx * nx + vy * ny;
+      if (outward > 0) {
+        state[base + 2] = vx - outward * nx;
+        state[base + 3] = vy - outward * ny;
+      }
+    }
   }
 
   function simulateMotion(dt: number): void {

@@ -156,21 +156,27 @@ function scoreSum(sim: ReturnType<typeof createSumoSimulation>): number {
   return sum;
 }
 
-test('same-tick ring-outs draw and award no score', () => {
+test('a same-tick wipe stays in the round and awards no score', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
   reachActive(sim);
   const before = scoreSum(sim);
-  const radius = sim.state[ARENA_RADIUS];
-  sim.state[slotBase(0)] = radius + 1;
+  const radius = sim.state[ARENA_RADIUS] ?? 0;
+  sim.state[slotBase(0)] = radius + 40;
   sim.state[slotBase(0) + 1] = 0;
-  sim.state[slotBase(1)] = -(radius + 1);
+  sim.state[slotBase(0) + 2] = 500;
+  sim.state[slotBase(1)] = -(radius + 40);
   sim.state[slotBase(1) + 1] = 0;
+  sim.state[slotBase(1) + 2] = -500;
   sim.step(DT);
 
-  expect(countAlive(sim)).toBe(0);
+  expect(sim.state[PHASE]).toBe(1);
+  expect(countAlive(sim)).toBe(2);
   expect(scoreSum(sim)).toBe(before);
-  expect(sim.state[PHASE]).toBe(2);
+  expect(Math.hypot(sim.state[slotBase(0)] ?? 0, sim.state[slotBase(0) + 1] ?? 0)).toBeLessThan(radius);
+  expect(Math.hypot(sim.state[slotBase(1)] ?? 0, sim.state[slotBase(1) + 1] ?? 0)).toBeLessThan(radius);
+  expect(sim.state[slotBase(0) + 2] ?? 0).toBeLessThanOrEqual(0);
+  expect(sim.state[slotBase(1) + 2] ?? 0).toBeGreaterThanOrEqual(0);
 });
 
 function placeHeadOn(sim: ReturnType<typeof createSumoSimulation>): void {

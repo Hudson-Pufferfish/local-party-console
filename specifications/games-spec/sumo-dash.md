@@ -78,7 +78,7 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
 * **Ring-Out Rule:** A puck is immediately marked `ELIMINATED` the tick its center crosses the outer hazard line:
   $$\sqrt{x_i^2 + y_i^2} > R_{\text{arena}}(t)$$
 * **Round Resolution:**
-  * When `aliveCount <= 1`, transition to `ROUND_END` (last standing puck receives $+1$ point; if 2 pucks ring out on the exact same tick leaving `aliveCount === 0`, award a `DRAW` with $0$ points).
+  * When `aliveCount <= 1`, transition to `ROUND_END` (last standing puck receives $+1$ point). If every puck still alive would leave on the same tick while the ring is above $R_{\min}$, nobody is eliminated and no point is awarded: centers are pulled just inside the ring and outward speed is cancelled, so the round does not restart.
   * Display round winner banner for $2.5\text{s}$, then reset arena for the next round.
 * **Match Victory:** First player to reach **5 points** transitions the match to `MATCH_OVER`, displaying final podium standings, match telemetry summary, and a **Play Again / Return to Lobby** control for the host.
 
@@ -250,7 +250,7 @@ Every PR or AI-generated change to `sumo-dash` must preserve these invariants:
 2. **INV-2 (Bounded Arena Radius):** $R_{\min} \le R_{\text{arena}}(t) \le R_0$ at all times, and $R_{\text{arena}}(t)$ is monotonically non-increasing within a single round.
 3. **INV-3 (Monotonic Cooldowns & Timers):** `dashCooldown`, `dashActiveTimer`, and `stunTimer` are strictly clamped to $[0, \max]$ and never go negative.
 4. **INV-4 (Elimination Immutability):** Once a puck transitions to `ELIMINATED` during a round, its `ALIVE` bit remains `0` and its input packets cannot re-enable it or affect `ALIVE` pucks until the next `PRACTICE` resets the round.
-5. **INV-5 (Strict Score Consistency):** Total points awarded across all players after $K$ completed rounds satisfies $\sum_{i=0}^{7} \text{score}_i \le K$ (strictly equal to $K$ minus the number of simultaneous-elimination draws).
+5. **INV-5 (Strict Score Consistency):** Total points awarded across all players after $K$ completed rounds satisfies $\sum_{i=0}^{7} \text{score}_i \le K$. A same-tick wipe does not complete a round.
 6. **INV-6 (Zero-Allocation Tick):** Executing `10,000` consecutive `simulation.step(1/120)` ticks produces $0$ dynamic object allocations inside the physics loop.
 7. **INV-7 (Bit-Exact Determinism):** Replaying the same 8-byte input sequence from the same player count in the same Chrome build produces identical `Float32Array` snapshots at tick N. A later WASM port must re-check this. It is not automatic.
 8. **INV-8 (Strict View Isolation):** Mounting `sumo-dash` when a monitor is open on `/screen?view=team-1` must never execute `SumoDashRenderer` on that tab; only `/screen?view=holistic` renders the arena.
@@ -262,7 +262,7 @@ Every PR or AI-generated change to `sumo-dash` must preserve these invariants:
 ### 1. Deterministic Unit Tests (`vitest`)
 * **Collision & Knockback Math:** A head-on hit applies equal-and-opposite impulses (momentum conserved) with restitution $e = 0.85$ (kinetic energy drops). A dashing puck applies $1.75\times$ knockback and `0.22s` stun to a non-dashing puck. Zero-distance overlap does not produce `NaN` (`INV-1`).
 * **Dash Edge-Triggering:** Verify holding `Bit 0 = 1` across multiple frames only fires **one** dash on the rising edge (`0 -> 1`) and respects the $1.50\text{s}$ cooldown (`INV-3`).
-* **Ring-Out & Simultaneous Draw:** Place two pucks at $x = R_{\text{arena}} + 1$ on the exact same tick and verify `aliveCount === 0` triggers a `DRAW` without awarding a phantom point (`INV-5`).
+* **Ring-Out & Simultaneous Wipe:** Place two pucks outside the ring on the exact same tick and verify the round stays active, both stay alive inside the ring, and the score does not change (`INV-5`).
 * **v1.1 bot safety:** Spawn a bot at $0.85 \cdot R_{\text{arena}}$ and verify its output vector points toward $(0, 0)$ and does not dash off the ring. `heuristic.test.ts` covers that vector.
 
 ### 2. State Machine & Property-Based / Fuzz Tests
