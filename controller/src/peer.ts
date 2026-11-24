@@ -1,5 +1,16 @@
+import { ntpOffset } from '../../shared/src/stretch1/clock.ts';
+import { HEARTBEAT_MS } from '../../shared/src/stretch1/heartbeat.ts';
+import { WINDOW_MS, nextDelayMs } from '../../shared/src/stretch1/tdma.ts';
 import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
-import { bindTransport, markJoined, setSeq } from './send-input.ts';
+import {
+  bindTransport,
+  flushHeartbeat,
+  lastInputAt,
+  markJoined,
+  readSendClock,
+  setSendClock,
+  setSeq,
+} from './send-input.ts';
 
 const CHANNEL: RTCDataChannelInit = {
   ordered: false,
@@ -78,6 +89,10 @@ export function connectPhone(
   let pingMarks = 0;
   let secondPing = 0;
   let connectTimer = 0;
+  let syncTimer = 0;
+  let beatTimer = 0;
+  let lastBeat = 0;
+  let observer: PerformanceObserver | null = null;
   const queue: string[] = [];
 
   bindTransport({
@@ -177,7 +192,12 @@ export function connectPhone(
       const previous = storedSeq(room);
       setSeq(previous < 0 ? 0 : (previous + 1) & 0xffff);
       markJoined();
+      const clock = readSendClock();
+      setSendClock({ slot: joined.index, offsetMs: clock.offsetMs, tier: clock.tier });
       startPeer();
+      startClock();
+      startHeartbeat();
+      watchLongTasks();
       hooks.onJoined(joined);
       return;
     }
@@ -209,11 +229,70 @@ export function connectPhone(
       hooks.onPong(t, Math.round(performance.now()));
       return;
     }
+    if (type === 'clock:sample') {
+      const sample = readClockSample(payload);
+      if (sample === null || sample.slot !== slot) return;
+      const t4 = performance.now();
+      if (!Number.isFinite(t4)) return;
+      const theta = ntpOffset(sample.t1, sample.t2, sample.t3, t4);
+      if (!Number.isFinite(theta)) return;
+      const clock = readSendClock();
+      setSendClock({ slot: clock.slot, offsetMs: theta, tier: clock.tier });
+      sendText({ type: 'clock:offset', payload: { slot, theta } });
+      return;
+    }
     if (type === 'signal:offer') {
       onOffer(payload);
       return;
     }
     if (type === 'signal:ice') onIce(payload);
+  }
+
+  function startClock(): void {
+    if (syncTimer !== 0) window.clearTimeout(syncTimer);
+    const fire = (): void => {
+      if (stopped || slot < 0) return;
+      const t1 = performance.now();
+      sendText({ type: 'clock:sync', payload: { slot, t1 } });
+      syncTimer = window.setTimeout(fire, 2000);
+    };
+    fire();
+  }
+
+  function startHeartbeat(): void {
+    const arm = (): void => {
+      if (stopped || slot < 0) return;
+      const now = performance.now();
+      const clock = readSendClock();
+      const since = lastBeat === 0 ? HEARTBEAT_MS : now - lastBeat;
+      let delay = nextDelayMs(now + clock.offsetMs, slot, since, HEARTBEAT_MS);
+      if (delay === 0) delay = WINDOW_MS;
+      beatTimer = window.setTimeout(() => {
+        beatTimer = 0;
+        if (stopped || slot < 0) return;
+        const tick = performance.now();
+        if (tick - lastInputAt() >= HEARTBEAT_MS && flushHeartbeat(tick)) lastBeat = tick;
+        arm();
+      }, delay);
+    };
+    arm();
+  }
+
+  function watchLongTasks(): void {
+    if (typeof PerformanceObserver !== 'function') return;
+    try {
+      observer = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        for (let index = 0; index < entries.length; index += 1) {
+          const entry = entries[index];
+          if (entry === undefined || entry.duration <= 20 || slot < 0) continue;
+          sendText({ type: 'phone:longtask', payload: { slot, n: 1 } });
+        }
+      });
+      observer.observe({ entryTypes: ['longtask'] });
+    } catch {
+      observer = null;
+    }
   }
 
   function startPeer(): void {
@@ -283,6 +362,10 @@ export function connectPhone(
       stopped = true;
       if (secondPing !== 0) window.clearTimeout(secondPing);
       if (connectTimer !== 0) window.clearTimeout(connectTimer);
+      if (syncTimer !== 0) window.clearTimeout(syncTimer);
+      if (beatTimer !== 0) window.clearTimeout(beatTimer);
+      observer?.disconnect();
+      observer = null;
       socket?.close();
       dc?.close();
       pc?.close();
@@ -337,6 +420,15 @@ function readGameId(payload: unknown): string | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const gameId = (payload as { gameId?: unknown }).gameId;
   return typeof gameId === 'string' && gameId !== '' ? gameId : null;
+}
+
+function readClockSample(payload: unknown): { slot: number; t1: number; t2: number; t3: number } | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const row = payload as { slot?: unknown; t1?: unknown; t2?: unknown; t3?: unknown };
+  if (typeof row.slot !== 'number' || row.slot < 0 || row.slot > 7) return null;
+  if (typeof row.t1 !== 'number' || typeof row.t2 !== 'number' || typeof row.t3 !== 'number') return null;
+  if (!Number.isFinite(row.t1) || !Number.isFinite(row.t2) || !Number.isFinite(row.t3)) return null;
+  return { slot: row.slot, t1: row.t1, t2: row.t2, t3: row.t3 };
 }
 
 function readT(payload: unknown): number | null {

@@ -12,6 +12,7 @@ import { Lobby } from './lobby.tsx';
 import { listScreenManifests, screenGames } from './register-games.ts';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
+import { TabHud } from './telemetry/tab-hud.tsx';
 
 export const App: VoidComponent = () => {
   const [roomId, setRoomId] = createSignal('');
@@ -102,6 +103,11 @@ export const App: VoidComponent = () => {
   return (
     <>
       <Badge view={view} />
+      <TabHud
+        primary={primary()}
+        players={players()}
+        read={(slot) => session?.readTelemetry(slot) ?? null}
+      />
       <Show
         when={standby()}
         fallback={

@@ -1,5 +1,7 @@
 import { decode } from '../../shared/src/codec/input-packet.ts';
 import { mungeLanSdp } from '../../shared/src/sdp/munge-lan.ts';
+import { heartbeatSlot } from '../../shared/src/stretch1/heartbeat.ts';
+import { replyClock } from './telemetry/clock-reply.ts';
 
 const SLOT_COUNT = 8;
 
@@ -13,7 +15,20 @@ const CHANNEL: RTCDataChannelInit = {
 export type TransportMode = 'idle' | 'dc' | 'ws';
 
 export interface PeerHooks {
-  onPacket: (slot: number, seq: number, buttons: number, axisX: number, axisY: number) => void;
+  onPacket: (
+    slot: number,
+    seq: number,
+    buttons: number,
+    axisX: number,
+    axisY: number,
+    phoneTs: number,
+    touchLag: number,
+  ) => void;
+  onHeartbeat: (slot: number) => void;
+  onOffset: (slot: number, theta: number) => void;
+  onTier: (slot: number, tier: '60' | '30', lowPower: boolean, cores: number) => void;
+  onLongTask: (slot: number, n: number) => void;
+  isPrimary: () => boolean;
   onSdp: (ok: boolean) => void;
   send: (message: { type: string; payload: unknown }) => void;
 }
@@ -40,7 +55,15 @@ export function createPeerMap(hooks: PeerHooks): PeerMap {
     if (slot < 0 || slot >= SLOT_COUNT) return;
     const packet = decode(view);
     modes[slot] = mode;
-    hooks.onPacket(slot, packet.seq, packet.buttons, packet.axisX, packet.axisY);
+    hooks.onPacket(
+      slot,
+      packet.seq,
+      packet.buttons,
+      packet.axisX,
+      packet.axisY,
+      packet.phoneTs,
+      packet.touchLag,
+    );
   }
 
   async function offer(slot: number, lanIp: string): Promise<void> {
@@ -52,7 +75,15 @@ export function createPeerMap(hooks: PeerHooks): PeerMap {
     peers[slot] = record;
     dc.onmessage = (event) => {
       const data = event.data;
-      if (!(data instanceof ArrayBuffer) || data.byteLength !== 8) return;
+      if (!(data instanceof ArrayBuffer)) return;
+      if (data.byteLength === 4) {
+        const parsed = heartbeatSlot(new Uint8Array(data));
+        if (parsed === null || parsed !== slot) return;
+        modes[slot] = 'dc';
+        hooks.onHeartbeat(slot);
+        return;
+      }
+      if (data.byteLength !== 8) return;
       ingest(slot, new DataView(data), 'dc');
     };
     pc.onicecandidate = (event) => {
@@ -109,6 +140,30 @@ export function createPeerMap(hooks: PeerHooks): PeerMap {
   }
 
   function handleText(type: string, payload: unknown): void {
+    if (type === 'clock:sync') {
+      const reply = replyClock(payload, performance.now(), hooks.isPrimary());
+      if (reply === null) return;
+      hooks.send({ type: 'clock:sample', payload: reply });
+      return;
+    }
+    if (type === 'clock:offset') {
+      const offset = readOffset(payload);
+      if (offset === null) return;
+      hooks.onOffset(offset.slot, offset.theta);
+      return;
+    }
+    if (type === 'phone:tier') {
+      const tier = readTier(payload);
+      if (tier === null) return;
+      hooks.onTier(tier.slot, tier.tier, tier.lowPower, tier.cores);
+      return;
+    }
+    if (type === 'phone:longtask') {
+      const task = readLongTask(payload);
+      if (task === null) return;
+      hooks.onLongTask(task.slot, task.n);
+      return;
+    }
     if (type === 'signal:offer') return;
     const slot = readSlot(payload);
     if (slot === null) return;
@@ -128,6 +183,16 @@ export function createPeerMap(hooks: PeerHooks): PeerMap {
   }
 
   function handleBinary(data: ArrayBuffer): void {
+    if (data.byteLength === 5) {
+      const bytes = new Uint8Array(data);
+      const slot = bytes[0] ?? 0;
+      if (slot > 7) return;
+      const heart = bytes.subarray(1, 5);
+      if (heartbeatSlot(heart) === null) return;
+      modes[slot] = 'ws';
+      hooks.onHeartbeat(slot);
+      return;
+    }
     if (data.byteLength !== 9) return;
     const slot = new DataView(data).getUint8(0);
     ingest(slot, new DataView(data, 1, 8), 'ws');
@@ -158,6 +223,36 @@ function waitForIce(pc: RTCPeerConnection): Promise<void> {
     const timer = window.setTimeout(finish, 1500);
     pc.addEventListener('icegatheringstatechange', onChange);
   });
+}
+
+function readOffset(payload: unknown): { slot: number; theta: number } | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const row = payload as { slot?: unknown; theta?: unknown };
+  if (typeof row.slot !== 'number' || row.slot < 0 || row.slot > 7) return null;
+  if (typeof row.theta !== 'number' || !Number.isFinite(row.theta)) return null;
+  return { slot: row.slot, theta: row.theta };
+}
+
+function readTier(payload: unknown): {
+  slot: number;
+  tier: '60' | '30';
+  lowPower: boolean;
+  cores: number;
+} | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const row = payload as { slot?: unknown; tier?: unknown; lowPower?: unknown; cores?: unknown };
+  if (typeof row.slot !== 'number' || row.slot < 0 || row.slot > 7) return null;
+  if (row.tier !== '60' && row.tier !== '30') return null;
+  if (typeof row.lowPower !== 'boolean' || typeof row.cores !== 'number' || !Number.isFinite(row.cores)) return null;
+  return { slot: row.slot, tier: row.tier, lowPower: row.lowPower, cores: row.cores };
+}
+
+function readLongTask(payload: unknown): { slot: number; n: number } | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const row = payload as { slot?: unknown; n?: unknown };
+  if (typeof row.slot !== 'number' || row.slot < 0 || row.slot > 7) return null;
+  if (typeof row.n !== 'number' || !Number.isFinite(row.n)) return null;
+  return { slot: row.slot, n: row.n };
 }
 
 function readSlot(payload: unknown): number | null {

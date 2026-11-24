@@ -13,6 +13,7 @@ import {
 } from './bot-fill.ts';
 import { SNAPSHOT_BYTES, createHostLoop, type HostLoop } from './host-loop.ts';
 import { createPeerMap, type PeerMap } from './peer.ts';
+import { createIngest, type TelemetryRead } from './telemetry/ingest.ts';
 import { screenGames, type ArenaRenderer, type ScreenGame } from './register-games.ts';
 
 export interface SessionHandlers {
@@ -36,6 +37,7 @@ export interface ScreenSession {
   playAgain: () => void;
   returnToLobby: () => void;
   setBotCount: (requested: number) => void;
+  readTelemetry: (slot: number) => TelemetryRead | null;
   resumeAudio: () => void;
   attachQr: (canvas: HTMLCanvasElement) => void;
   attachMatch: (canvas: HTMLCanvasElement) => void;
@@ -104,10 +106,26 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const snapMessage = { epoch: 0, bytes: publishBytes };
   let channel: BroadcastChannel | null = null;
 
+  const ingest = createIngest();
   const peers: PeerMap = createPeerMap({
-    onPacket: (slot, seq, buttons, axisX, axisY) => {
-      loop?.accept(slot, seq, buttons, axisX, axisY, performance.now());
+    onPacket: (slot, seq, buttons, axisX, axisY, phoneTs, touchLag) => {
+      const now = performance.now();
+      ingest.onInput(slot, seq, phoneTs, touchLag, now);
+      loop?.accept(slot, seq, buttons, axisX, axisY, now);
     },
+    onHeartbeat: (slot) => {
+      ingest.onHeartbeat(slot, performance.now());
+    },
+    onOffset: (slot, theta) => {
+      ingest.onOffset(slot, theta);
+    },
+    onTier: (slot, tier, lowPower, cores) => {
+      ingest.onTier(slot, tier, lowPower, cores);
+    },
+    onLongTask: (slot, n) => {
+      ingest.onLongTask(slot, n);
+    },
+    isPrimary: () => primary,
     onSdp: (ok) => {
       if (!ok) handlers.setSdpWarning(true);
     },
@@ -336,6 +354,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setMatchOver(false);
       send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
     },
+    readTelemetry(slot: number): TelemetryRead | null {
+      if (slot < 0 || slot > 7) return null;
+      ingest.setTransport(slot, peers.mode(slot));
+      return ingest.read(slot);
+    },
     setBotCount(requested: number): void {
       const game = screenGames.get(selectedId);
       botLobby = nextBotCount(
@@ -445,6 +468,15 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         if (t !== null) send({ type: 'net:pong', payload: { t } });
         return;
       }
+      if (
+        message.type === 'clock:sync'
+        || message.type === 'clock:offset'
+        || message.type === 'phone:tier'
+        || message.type === 'phone:longtask'
+      ) {
+        peers.handleText(message.type, message.payload);
+        return;
+      }
       if (message.type === 'sumo:rematch' && !primary) {
         const action = readAction(message.payload);
         if (action === 'lobby' && view === 'holistic') {
@@ -517,6 +549,9 @@ function idleSession(view: ScreenViewTarget): ScreenSession {
     playAgain() {},
     returnToLobby() {},
     setBotCount() {},
+    readTelemetry() {
+      return null;
+    },
     resumeAudio() {},
     attachQr() {},
     attachMatch() {},

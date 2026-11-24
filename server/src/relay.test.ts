@@ -178,6 +178,63 @@ test('an 8-byte controller frame is forwarded only to the claimed screen', async
   }
 });
 
+test('a 4-byte heartbeat is prefixed with the slot', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const slot0 = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const other = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, slot0, other);
+
+    const claimed = waitForText(slot0, 'net:ping');
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    screen.send(JSON.stringify({ type: 'net:ping', payload: { t: 1 } }));
+    await claimed;
+
+    const joined = waitForText(slot0, 'room:joined');
+    slot0.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const joinFrame = await joined;
+    expect(joinFrame.payload?.index).toBe(0);
+
+    const otherJoined = waitForText(other, 'room:joined');
+    other.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    await otherJoined;
+
+    const otherFrames: Buffer[] = [];
+    other.on('message', (data, isBinary) => {
+      if (isBinary) otherFrames.push(asBuffer(data));
+    });
+    const screenFrames: Buffer[] = [];
+    screen.on('message', (data, isBinary) => {
+      if (isBinary) screenFrames.push(asBuffer(data));
+    });
+
+    const heart = Buffer.from([0xa5, 0x00, 0x34, 0x12]);
+    const forwarded = waitForBinary(screen);
+    slot0.send(heart);
+    const received = await forwarded;
+    expect(received.length).toBe(5);
+    expect(received[0]).toBe(0);
+    expect(received.subarray(1).equals(heart)).toBe(true);
+
+    await settle();
+    expect(otherFrames).toEqual([]);
+
+    const before = screenFrames.length;
+    slot0.send(Buffer.from([1, 2, 3, 4, 5, 6, 7]));
+    await settle();
+    expect(screenFrames).toHaveLength(before);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
 test('rejoin keeps the slot and the broadcast omits the session token', async () => {
   const relay = await startRelay();
   const sockets: WebSocket[] = [];

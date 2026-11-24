@@ -1,4 +1,7 @@
 import { onCleanup, type VoidComponent } from 'solid-js';
+import { pickPointerSample, type PointerSample } from '../stretch1/samples';
+
+const EMPTY_SAMPLES: PointerSample[] = [];
 
 export const VirtualJoystick: VoidComponent<{
   label: string;
@@ -34,13 +37,22 @@ export const VirtualJoystick: VoidComponent<{
   function onMove(event: PointerEvent): void {
     if (event.cancelable) event.preventDefault();
     if (!tracking) return;
-    let x = (event.clientX - originX) / radius;
-    let y = (event.clientY - originY) / radius;
+    const pointer = event as PointerEvent & {
+      getCoalescedEvents?: () => PointerSample[];
+      getPredictedEvents?: () => PointerSample[];
+    };
+    const sample = pickPointerSample(
+      event,
+      pointer.getCoalescedEvents?.() ?? EMPTY_SAMPLES,
+      pointer.getPredictedEvents?.() ?? EMPTY_SAMPLES,
+    );
+    let x = (sample.clientX - originX) / radius;
+    let y = (sample.clientY - originY) / radius;
     if (x > 1) x = 1;
     else if (x < -1) x = -1;
     if (y > 1) y = 1;
     else if (y < -1) y = -1;
-    props.onAxes(x, y, event.timeStamp);
+    props.onAxes(x, y, sample.timeStamp);
     if (cap === undefined) return;
     cap.style.transform = `translate3d(${Math.round(x * 28)}px, ${Math.round(y * 28)}px, 0)`;
   }
