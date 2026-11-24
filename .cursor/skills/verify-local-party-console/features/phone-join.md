@@ -11,7 +11,7 @@ Phone join lets a player open the QR link, type a name, tap `JOIN`, and show up 
 
 ## How to get to it (user POV)
 
-- Scan the QR code on the host screen. The URL looks like `https://<lan-ip>:<port>/controller?rev=6&room=<code>`.
+- Scan the QR code on the host screen. The URL looks like `https://<lan-ip>:<port>/controller?rev=7&room=<code>`.
 - Type a name in the field marked `NAME`.
 - Tap `JOIN`.
 - A page with no `room` query shows `ROOM // MISSING` and no `JOIN` button.
@@ -24,7 +24,7 @@ Preconditions:
 - A holistic screen tab is already on a room from [Create a room](./create-room.md).
 - `browser facts` on that tab has a `qrUrl`.
 
-- **Open the controller.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser tab open qr`. The new tab's address contains `/controller?rev=6&room=` and the screen's room code. The screen tab stays open.
+- **Open the controller.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser tab open qr`. The new tab's address contains `/controller?rev=7&room=` and the screen's room code. The screen tab stays open.
 - **Enter the name.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser fill --placeholder NAME --value Ada`.
 - **Tap JOIN.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser click --text JOIN`. Then run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser wait-text "P1" --timeout 15000`. The phone text contains `P1` and `ADA`. The `JOIN` button is gone. The card reads `NO GAME` and `WAITING`.
 - **Read the screen.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser tab use "room=<code>&view=holistic"`. The substring must match one tab. Then run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser wait-text "LIVE"`. The screen text contains `Ada` and `LIVE`. `START` is still disabled.

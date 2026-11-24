@@ -158,17 +158,24 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
   return 'sent';
 }
 
+function stickHeld(): boolean {
+  return axisX !== 0 || axisY !== 0 || (buttons & 1) !== 0;
+}
+
 function flushFromTimer(): void {
   pending = 0;
+  if (!joined) return;
+  const interval = sendIntervalMs(tier);
   const now = performance.now();
-  const since = Number.isFinite(lastInputAtMs) ? now - lastSend : sendIntervalMs(tier);
-  const delay = nextDelayMs(now + offsetMs, clockSlot, since, sendIntervalMs(tier));
-  if (delay > 0) {
-    arm(delay);
+  const since = Number.isFinite(lastInputAtMs) ? now - lastSend : interval;
+  if (since < interval) {
+    arm(interval - since);
     return;
   }
   const result = flushSend();
-  if (result === 'wait' || result === 'drop') arm(sendIntervalMs(tier));
+  if (result === 'sent' && !stickHeld()) return;
+  const phase = nextDelayMs(performance.now() + offsetMs, clockSlot, interval, interval);
+  arm(phase > 0 ? phase : interval);
 }
 
 function arm(delay: number): void {
