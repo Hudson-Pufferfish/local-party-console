@@ -292,7 +292,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setMatch(true);
       handlers.setMatchOver(false);
       publish();
-      send({ type: 'sumo:rematch', payload: { action: 'again' } });
+      send({ type: 'sumo:rematch', payload: { action: 'restart' } });
     },
     returnToLobby(): void {
       if (!primary || loop === null) return;
@@ -396,6 +396,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         onGameMount(message.payload);
         return;
       }
+      if (message.type === 'net:ping') {
+        const t = readT(message.payload);
+        if (t !== null) send({ type: 'net:pong', payload: { t } });
+        return;
+      }
       if (message.type === 'sumo:rematch' && !primary) {
         const action = readAction(message.payload);
         if (action === 'lobby' && view === 'holistic') {
@@ -403,7 +408,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           handlers.setMatch(false);
           handlers.setMatchOver(false);
         }
-        if (action === 'again' && view === 'holistic') {
+        if (action === 'restart' && view === 'holistic') {
           handlers.setMatch(true);
           handlers.setMatchOver(false);
         }
@@ -559,4 +564,10 @@ function readAction(payload: unknown): string {
   if (typeof payload !== 'object' || payload === null) return '';
   const action = (payload as { action?: unknown }).action;
   return typeof action === 'string' ? action : '';
+}
+
+function readT(payload: unknown): number | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const t = (payload as { t?: unknown }).t;
+  return typeof t === 'number' && Number.isFinite(t) ? t : null;
 }
