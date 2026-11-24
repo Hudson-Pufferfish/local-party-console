@@ -17,6 +17,7 @@ import {
 import { SNAPSHOT_BYTES, createHostLoop, type HostLoop } from './host-loop.ts';
 import { kickRequestFor } from './lobby-kick.ts';
 import { createPeerMap, type PeerMap } from './peer.ts';
+import { createTabLock, type TabLockHandle } from './sim-lock.ts';
 import { createIngest, type TelemetryRead } from './telemetry/ingest.ts';
 import { screenGames, type ArenaRenderer, type ScreenGame } from './register-games.ts';
 
@@ -117,6 +118,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let seenEpoch = -1;
   const snapMessage = { epoch: 0, bytes: publishBytes };
   let channel: BroadcastChannel | null = null;
+  let simLock: TabLockHandle | null = null;
+  let antiNapLock: TabLockHandle | null = null;
 
   const ingest = createIngest();
   const peers: PeerMap = createPeerMap({
@@ -148,15 +151,20 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
 
   if (hostToken === null) {
     handlers.setNotice('HOST // TOKEN MISSING');
-    holdAntiNap(roomId, tabId);
-    return idleSession(view);
+    antiNapLock = holdAntiNap(roomId, tabId);
+    return {
+      ...idleSession(view),
+      stop() {
+        antiNapLock?.release();
+      },
+    };
   }
 
   handlers.setPrimary(false);
   void loadHost(roomId);
   openSocket(roomId, hostToken);
   startAudio();
-  holdAntiNap(roomId, tabId);
+  antiNapLock = holdAntiNap(roomId, tabId);
   if (view === 'holistic') {
     holdSim(roomId);
     listenSnapshots(roomId);
@@ -430,6 +438,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     },
     stop(): void {
       stopped = true;
+      primary = false;
+      simLock?.release();
+      simLock = null;
+      antiNapLock?.release();
+      antiNapLock = null;
       destroyRenderer();
       stopFrames();
       if (heartbeat !== 0) window.clearInterval(heartbeat);
@@ -455,11 +468,12 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   }
 
   function holdSim(room: string): void {
-    void navigator.locks.request(
-      `party-sim-${room}`,
-      { mode: 'exclusive', ifAvailable: true },
-      (lock) => {
-        if (lock === null) {
+    simLock = createTabLock({
+      name: `party-sim-${room}`,
+      ifAvailable: true,
+      onResult(acquired) {
+        if (stopped) return;
+        if (!acquired) {
           primary = false;
           handlers.setPrimary(false);
           return;
@@ -468,11 +482,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         handlers.setPrimary(true);
         send({ type: 'viewport:claim', payload: {} });
         offerConnected();
-        return new Promise<void>((resolve) => {
-          window.addEventListener('pagehide', () => resolve(), { once: true });
-        });
       },
-    );
+    });
   }
 
   function openSocket(room: string, token: string): void {
@@ -617,12 +628,8 @@ async function createRoom(): Promise<void> {
   location.replace(`/screen?room=${created.roomId}&view=holistic`);
 }
 
-function holdAntiNap(room: string, tabId: string): void {
-  void navigator.locks.request(`party-antinap-${room}-${tabId}`, { mode: 'exclusive' }, () => {
-    return new Promise<void>((resolve) => {
-      window.addEventListener('pagehide', () => resolve(), { once: true });
-    });
-  });
+function holdAntiNap(room: string, tabId: string): TabLockHandle {
+  return createTabLock({ name: `party-antinap-${room}-${tabId}` });
 }
 
 function hostKey(roomId: string): string {

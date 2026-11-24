@@ -136,13 +136,27 @@ function handleText(
   const type = message.type;
 
   if (type === 'viewport:claim') {
-    if (client.role === 'screen' && primaries.get(room) === undefined) {
-      primaries.set(room, client);
+    if (client.role === 'screen') {
+      const existing = primaries.get(room);
+      if (existing === undefined || existing.ws.readyState !== WebSocket.OPEN) {
+        primaries.set(room, client);
+      }
     }
     return;
   }
   if (type === 'viewport:hello') {
     recordView(room, message.payload);
+    if (client.role === 'screen' && client.ws.readyState === WebSocket.OPEN) {
+      const players = publicPlayers(room);
+      if (players.length > 0) {
+        client.ws.send(JSON.stringify({
+          type: 'room:players',
+          payload: { players },
+        }));
+      }
+      const mounted = mounts.get(room);
+      if (mounted !== undefined) client.ws.send(mounted);
+    }
     return;
   }
   if (type === 'viewport:heartbeat') {

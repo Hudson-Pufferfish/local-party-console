@@ -6,23 +6,37 @@ import type { PlayerSlot } from '../../shared/src/types/game.ts';
 import { Lobby } from './lobby.tsx';
 import { kickRequestFor } from './lobby-kick.ts';
 
-test('lobby renders player color CSS vars and kick buttons on LIVE and AWAY cards when canKick is true', () => {
+test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and yellow selected game key', () => {
   const players: PlayerSlot[] = [
     { index: 0, name: 'Ada', color: '#FF4D00', teamId: null, connected: true },
     { index: 1, name: 'Bea', color: '#00C853', teamId: null, connected: false },
     { index: 6, name: 'Cid', color: '#111111', teamId: null, connected: true },
   ];
+  const games = [
+    {
+      id: 'sumo-dash',
+      title: 'SUMO DASH',
+      minPlayers: 2,
+      maxPlayers: 8,
+      supportsTeams: false,
+      maxTeams: 0,
+      supportsBots: true,
+      rendererType: 'phaser-2d' as const,
+      viewConfig: { mode: 'holistic' as const, inputBufferMode: 'zero-buffer' as const },
+      themeTokens: {},
+    },
+  ];
   const baseProps = {
     roomId: 'ABCD',
-    qrUrl: 'https://10.0.0.1:8443/controller?rev=11&room=ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=12&room=ABCD',
     notice: '',
     sdpWarning: false,
     players,
-    games: [],
-    selectedId: '',
-    startEnabled: false,
+    games,
+    selectedId: 'sumo-dash',
+    startEnabled: true,
     botCount: 0,
-    botControlEnabled: false,
+    botControlEnabled: true,
     botNotice: '',
     onBotStep() {},
     onQr() {},
@@ -43,14 +57,20 @@ test('lobby renders player color CSS vars and kick buttons on LIVE and AWAY card
   expect(primaryHtml).toContain('--player-ink:var(--player-1-ink, #111111)');
   expect(primaryHtml).toContain('--player-color:var(--player-7, #111111)');
   expect(primaryHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
+  expect(primaryHtml).toContain('class="key game-key"');
+  expect(primaryHtml).toContain('data-selected="true"');
 
   const styles = fs.readFileSync(path.resolve(import.meta.dirname, 'styles.css'), 'utf8');
   const kickBlock = styles.match(/\.player-kick\s*\{[^}]*background:[^}]*\}/)?.[0] ?? '';
   const kickHoverBlock = styles.match(/\.player-kick:hover\s*\{[^}]*\}/)?.[0] ?? '';
+  const gameSelectedBlock = styles.match(/\.game-key\[data-selected="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
+  const startBlock = styles.match(/\.start\s*\{[^}]*\}/)?.[0] ?? '';
   expect(kickBlock).toContain('var(--player-color');
   expect(kickBlock).toContain('var(--player-ink');
   expect(kickHoverBlock).toContain('var(--player-color');
   expect(kickHoverBlock).not.toContain('--theme-yellow');
+  expect(gameSelectedBlock).toContain('background: var(--theme-yellow)');
+  expect(startBlock).toContain('background: var(--theme-yellow)');
 
   const secondaryHtml = renderToString(() => <Lobby {...baseProps} canKick={false} />);
   expect(secondaryHtml).not.toContain('class="player-kick"');

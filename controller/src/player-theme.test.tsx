@@ -4,6 +4,7 @@ import { renderToString } from '@solidjs/web';
 import { expect, test } from 'vitest';
 import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { HudModal } from '../../shared/src/ui/hud-modal.tsx';
+import { PlayerBadge } from '../../shared/src/ui/player-badge.tsx';
 import { PreflightStrip } from './preflight-strip.tsx';
 
 test('joined controller binds player CSS vars on gameplay controls while keeping preflight warnings on --warn', () => {
@@ -27,6 +28,12 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   ));
   expect(modalHtml).not.toContain('var(--theme-yellow)');
 
+  const explicitBadgeHtml = renderToString(() => (
+    <PlayerBadge name="HS" label="P1" color="#FF4D00" />
+  ));
+  expect(explicitBadgeHtml).toContain('<p class="player-badge">');
+  expect(explicitBadgeHtml).toContain('<span class="swatch" style="--player-color:#FF4D00">');
+
   const stripHtml = renderToString(() => (
     <PreflightStrip
       power="low-power"
@@ -46,11 +53,14 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   const joystickCapBlock = primitivesCss.match(/\.joystick-cap\s*\{[^}]*\}/)?.[0] ?? '';
   const arcadeBtnBlock = primitivesCss.match(/\.arcade-button\s*\{[^}]*\}/)?.[0] ?? '';
   const badgeBlock = primitivesCss.match(/\.player-badge\s*\{[^}]*\}/)?.[0] ?? '';
+  const swatchBlock = primitivesCss.match(/\.swatch\s*\{[^}]*\}/)?.[0] ?? '';
   expect(joystickCapBlock).toContain('var(--player-color');
   expect(arcadeBtnBlock).toContain('var(--player-color');
   expect(arcadeBtnBlock).toContain('var(--player-ink');
-  expect(badgeBlock).toContain('var(--player-color');
-  expect(badgeBlock).toContain('var(--player-ink');
+  expect(badgeBlock).toContain('background: #ffffff');
+  expect(badgeBlock).not.toContain('var(--player-color');
+  expect(swatchBlock).toContain('var(--player-color');
+  expect(swatchBlock).toContain('border: 2.5px solid var(--ink, #111111)');
 
   const controllerCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles.css'), 'utf8');
   const warnPillBlock = controllerCss.match(/\.pill\[data-warn='true'\]\s*\{[^}]*\}/)?.[0] ?? '';

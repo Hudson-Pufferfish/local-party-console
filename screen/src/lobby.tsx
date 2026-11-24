@@ -74,7 +74,8 @@ export const Lobby: VoidComponent<{
               {(game) => (
                 <button
                   type="button"
-                  class="key"
+                  class="key game-key"
+                  data-selected={props.selectedId === game.id ? 'true' : 'false'}
                   data-pressed={props.selectedId === game.id ? 'true' : 'false'}
                   onClick={() => props.onSelect(game.id)}
                 >
