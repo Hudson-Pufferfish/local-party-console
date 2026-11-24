@@ -1,4 +1,5 @@
 import { toCanvas } from 'qrcode';
+import { bannerCopy } from '../../games/sumo-dash/src/banner.ts';
 import { SUMO_CONSTANTS } from '../../games/sumo-dash/src/constants.ts';
 import { scoreboardRows } from '../../games/sumo-dash/src/scoreboard.ts';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
@@ -28,6 +29,7 @@ export interface SessionHandlers {
   setMatch: (value: boolean) => void;
   setMatchOver: (value: boolean) => void;
   setScoreRows: (value: string[]) => void;
+  setBanner: (value: string) => void;
   setNotice: (value: string) => void;
   setSelectedId: (value: string) => void;
   setBotLobby: (value: BotLobbyState) => void;
@@ -206,6 +208,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   function publishScores(): void {
     const state = primary && loop !== null ? loop.state : mirror;
     handlers.setScoreRows(scoreboardRows(state, scoreNames(), SUMO_CONSTANTS.scoreToWin));
+    handlers.setBanner(bannerCopy(state[1] ?? 0, state[2] ?? 0));
   }
 
   function clearMatch(): void {
@@ -375,6 +378,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setMatch(false);
       handlers.setMatchOver(false);
       handlers.setScoreRows([]);
+      handlers.setBanner('');
       send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
     },
     readTelemetry(slot: number): TelemetryRead | null {
@@ -507,6 +511,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           handlers.setMatch(false);
           handlers.setMatchOver(false);
           handlers.setScoreRows([]);
+          handlers.setBanner('');
         }
         if (action === 'restart' && view === 'holistic') {
           handlers.setMatch(true);

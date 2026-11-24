@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { PLAYER_COLORS } from '../../../shared/src/registry.ts';
-import { bannerCopy } from './banner.ts';
 
 const PUTTY = 0xeae6df;
 const PLATE = 0xd6d1c7;
@@ -27,7 +26,6 @@ export function createSumoRenderer(
   const sparks: Spark[] = [];
   for (let index = 0; index < 12; index += 1) sparks.push({ x: 0, y: 0, life: 0 });
   let board: Phaser.GameObjects.Graphics | null = null;
-  let banner: Phaser.GameObjects.Text | null = null;
   let lastHit = 0;
   let shake = 0;
   let gone = false;
@@ -39,13 +37,6 @@ export function createSumoRenderer(
 
     create(): void {
       board = this.add.graphics();
-      banner = this.add.text(0, 0, '', {
-        fontFamily: 'Space Grotesk',
-        fontSize: '64px',
-        color: '#111111',
-        align: 'center',
-      });
-      banner.setOrigin(0.5, 0);
       if (!gone) draw();
     }
   }
@@ -94,8 +85,7 @@ export function createSumoRenderer(
 
   function paint(): void {
     const gfx = board;
-    const label = banner;
-    if (gfx === null || label === null || gone) return;
+    if (gfx === null || gone) return;
     const state = readState();
     const width = canvas.width > 0 ? canvas.width : 800;
     const height = canvas.height > 0 ? canvas.height : 800;
@@ -192,10 +182,6 @@ export function createSumoRenderer(
       spark.life -= 1;
     }
 
-    const copy = bannerCopy(state[1] ?? 0, state[2] ?? 0);
-    label.setText(copy);
-    label.setVisible(copy !== '');
-    label.setPosition(centerX + ox, 36 + oy);
   }
 
   return {
@@ -203,7 +189,6 @@ export function createSumoRenderer(
     destroy(): void {
       gone = true;
       board = null;
-      banner = null;
       game.destroy(false, false);
     },
   };

@@ -174,17 +174,47 @@ h2 {
 }
 
 .match {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto auto;
+  justify-content: center;
   align-items: center;
-  gap: 36px;
+  column-gap: 36px;
+  row-gap: 16px;
+}
+
+.hud {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: center;
+  margin: 0;
+  min-width: 7ch;
+  min-height: 64px;
+  font-size: 64px;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .match canvas {
+  grid-column: 1;
+  grid-row: 2;
   display: block;
-  width: min(80vh, 800px);
-  height: min(80vh, 800px);
+  width: min(calc(100vh - 220px), 800px);
+  height: min(calc(100vh - 220px), 800px);
   border: 2.5px solid #111111;
   background: #eae6df;
+}
+
+.match .scoreboard {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.match .podium {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  justify-content: center;
 }
 
 .scoreboard {

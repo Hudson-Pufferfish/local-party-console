@@ -24,6 +24,7 @@ export const App: VoidComponent = () => {
   const [match, setMatch] = createSignal(false);
   const [matchOver, setMatchOver] = createSignal(false);
   const [scoreRows, setScoreRows] = createSignal<string[]>([]);
+  const [banner, setBanner] = createSignal('');
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
   const [botLobby, setBotLobby] = createSignal<BotLobbyState>(createBotLobby());
@@ -48,6 +49,7 @@ export const App: VoidComponent = () => {
         setMatch,
         setMatchOver,
         setScoreRows,
+        setBanner,
         setNotice,
         setSelectedId,
         setBotLobby,
@@ -139,6 +141,7 @@ export const App: VoidComponent = () => {
             }
           >
             <section class="match">
+              <p class="hud">{banner()}</p>
               <canvas
                 ref={(canvas) => {
                   canvases.match = canvas;
