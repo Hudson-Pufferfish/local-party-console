@@ -19,13 +19,38 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+button,
+button:disabled,
+.key,
+.key:disabled,
+.player-kick {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: transparent;
+  color: inherit;
+}
+
 input,
 textarea {
   -webkit-user-select: text;
   user-select: text;
 }
 
-:focus:not(:focus-visible) {
+input::selection,
+textarea::selection {
+  background: Highlight;
+  color: HighlightText;
+}
+
+:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+.key:focus:not(:focus-visible),
+.player-kick:focus:not(:focus-visible) {
   outline: none;
 }
 

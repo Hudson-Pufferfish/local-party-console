@@ -10,6 +10,7 @@ import {
   type BotLobbyState,
 } from './bot-fill.ts';
 import { Lobby } from './lobby.tsx';
+import { installPointerGuard } from './pointer-guard.ts';
 import { listScreenManifests, screenGames } from './register-games.ts';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
@@ -40,6 +41,7 @@ export const App: VoidComponent = () => {
   createEffect(
     () => undefined,
     () => {
+      const stopGuard = installPointerGuard(document);
       session = startSession({
         setRoomId,
         setQrUrl,
@@ -57,7 +59,10 @@ export const App: VoidComponent = () => {
       });
       if (canvases.qr !== null) session.attachQr(canvases.qr);
       if (canvases.match !== null) session.attachMatch(canvases.match);
-      return () => session?.stop();
+      return () => {
+        stopGuard();
+        session?.stop();
+      };
     },
   );
   createEffect(
