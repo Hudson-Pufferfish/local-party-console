@@ -105,9 +105,12 @@ An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz in
 Curves use $\text{share} = \text{level}/20$. Staying on the ring is a shared floor: even 1/20 moves, maneuvers, dashes sometimes, and does not steer itself off. Levels differ by dash cadence and approach angle, not by aim noise that walks them out.
 
 1. If the bot is outside its safe radius, steer toward $(0, 0)$. Safe radius is $(0.80 + 0.03 \cdot \text{share}) \cdot R_{\text{arena}}$, still inside the ring.
-2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, turned by $(1 - \text{share}) \cdot 0.12$ radians (the side flips with the slot). The aim point is then pulled back inside the safe radius.
+2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, turned by $(1 - \text{share}) \cdot 0.12$ radians (the side flips with the slot). The aim point is then pulled back inside the safe radius. Stick magnitude is $(0.78 + 0.15 \cdot \text{share})$ of full, so the walk is easier to beat than the dash.
 3. If the opponent's center is inside $96$ and this bot is the inner one, mix an outward push with a slot-sided slide. The outward share is $0.48 + 1.05 \cdot \text{share}$, so a low level slides more and a higher level shoves cleaner. The outer bot gives ground toward the center once it is more than $16$ px further out.
-4. Fire `DASH` when the opponent is inside the level's range, alignment clears the level's bar, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. Range is $88 + 320 \cdot \text{share}$. Alignment is $0.94 - 0.08 \cdot \text{share}$. A higher share dashes from farther away and from wider angles. A missed dash stays inside the ring, and the next steer turns back at the safe radius.
+4. Fire `DASH` when the opponent is inside the level's range, alignment clears the level's bar, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. Range is $90 + 300 \cdot \text{share}$. Alignment is $0.94 - 0.08 \cdot \text{share}$. A higher share dashes from farther away and from wider angles. A missed dash stays inside the ring, and the next steer turns back at the safe radius.
+
+### Scoreboard and practice
+The holistic screen draws one short line of everyone in the match, in slot order, not ranked: `hu 1/3  da 0/3`. The tag is the first two letters of the name, or `pN` when the slot has none. It follows the score fields. First to 3 round wins ends the match. The match, and every later round, opens with 10s of practice (move and dash, full ring, no points). Practice then resets spawn into the 3-2-1 countdown.
 
 ---
 
@@ -157,7 +160,7 @@ Pre-allocated once on game mount (`MAX_PLAYERS = 8`). Designed to map directly i
 * **Global Arena Header (Indices `0..7` — 32 bytes):**
   ```text
   [0] tickId            (float32 / int32 view)
-  [1] phaseEnum         (0=COUNTDOWN, 1=ROUND_ACTIVE, 2=ROUND_END, 3=MATCH_OVER)
+  [1] phaseEnum         (0=COUNTDOWN, 1=ROUND_ACTIVE, 2=ROUND_END, 3=MATCH_OVER, 4=PRACTICE)
   [2] phaseTimer        (seconds remaining in current phase)
   [3] arenaRadius       (current hazard ring radius R(t))
   [4] targetRadius      (preview shrink ring radius)
@@ -177,7 +180,7 @@ Pre-allocated once on game mount (`MAX_PLAYERS = 8`). Designed to map directly i
   [base + 6] dashActiveTimer (0.0 .. 0.18s)
   [base + 7] stunTimer       (0.0 .. 0.22s)
   [base + 8] flags           (Bit0=ALIVE, Bit1=STUNNED, Bit2=IS_BOT)
-  [base + 9] score           (round wins, 0 .. 5)
+  [base + 9] score           (round wins, 0 .. 3)
   ```
   `flags` bit 0 is the source of truth for alive. Header `aliveMask` is rewritten from those bits every tick. `IS_BOT` stays 0 in v1.
 * **Total Snapshot Size:** `88 floats` = **352 bytes**. v1 copies this snapshot on `BroadcastChannel`. Stretch 2 maps it into the shared buffer.
@@ -198,8 +201,13 @@ No new HTTP endpoints are required beyond the Console OS routes:
                          │
                          ▼
                  ┌───────────────┐
-       ┌────────►│   COUNTDOWN   │ (3.0s: pucks locked on spawn ring,
-       │         └───────┬───────┘  preview controls active, no physics)
+       ┌────────►│   PRACTICE    │ (10s: move and dash on the full ring,
+       │         └───────┬───────┘  no score, no elimination)
+       │                 │ timer <= 0, spawn reset
+       │                 ▼
+       │         ┌───────────────┐
+       │         │   COUNTDOWN   │ (3.0s: pucks locked on spawn ring,
+       │         └───────┬───────┘  facing only)
        │                 │ timer <= 0
        │                 ▼
        │         ┌───────────────┐
@@ -208,10 +216,10 @@ No new HTTP endpoints are required beyond the Console OS routes:
        │                 │ aliveCount <= 1
        │                 ▼
        │         ┌───────────────┐
-       │         │   ROUND_END   │ (2.5s: +1 pt to winner, slow-mo
-       │         └───┬───────┬───┘  ring-out finish, score banner)
+       │         │   ROUND_END   │ (0.5s beat; score already awarded)
+       │         └───┬───────┬───┘
        │             │       │
-   maxScore < 5 ─────┘       └───── maxScore >= 5
+   maxScore < 3 ─────┘       └───── maxScore >= 3
                                          │
                                          ▼
                                  ┌───────────────┐
@@ -240,7 +248,7 @@ Every PR or AI-generated change to `sumo-dash` must preserve these invariants:
 1. **INV-1 (No NaN / Infinity State):** For all ticks $t$ and all player slots $i \in [0, 7]$, every float in the `Float32Array` state buffer must satisfy `Number.isFinite(state[k]) === true`. Division by zero during exact-center puck overlap ($\|\vec{p}_j - \vec{p}_i\| = 0$) must fall back to a deterministic unit vector $(\cos(i), \sin(i))$.
 2. **INV-2 (Bounded Arena Radius):** $R_{\min} \le R_{\text{arena}}(t) \le R_0$ at all times, and $R_{\text{arena}}(t)$ is monotonically non-increasing within a single round.
 3. **INV-3 (Monotonic Cooldowns & Timers):** `dashCooldown`, `dashActiveTimer`, and `stunTimer` are strictly clamped to $[0, \max]$ and never go negative.
-4. **INV-4 (Elimination Immutability):** Once a puck transitions to `ELIMINATED` during a round, its `ALIVE` bit remains `0` and its input packets cannot re-enable it or affect `ALIVE` pucks until `COUNTDOWN` resets the next round.
+4. **INV-4 (Elimination Immutability):** Once a puck transitions to `ELIMINATED` during a round, its `ALIVE` bit remains `0` and its input packets cannot re-enable it or affect `ALIVE` pucks until the next `PRACTICE` resets the round.
 5. **INV-5 (Strict Score Consistency):** Total points awarded across all players after $K$ completed rounds satisfies $\sum_{i=0}^{7} \text{score}_i \le K$ (strictly equal to $K$ minus the number of simultaneous-elimination draws).
 6. **INV-6 (Zero-Allocation Tick):** Executing `10,000` consecutive `simulation.step(1/120)` ticks produces $0$ dynamic object allocations inside the physics loop.
 7. **INV-7 (Bit-Exact Determinism):** Replaying the same 8-byte input sequence from the same player count in the same Chrome build produces identical `Float32Array` snapshots at tick N. A later WASM port must re-check this. It is not automatic.

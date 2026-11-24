@@ -185,9 +185,17 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const game = screenGames.get(selectedId);
     if (game?.createRenderer === undefined) return;
     const canvas = matchCanvas;
+    const names = ['', '', '', '', '', '', '', ''];
     renderer = game.createRenderer(canvas, () => {
       if (primary && loop !== null) return loop.state;
       return mirror;
+    }, () => {
+      for (let index = 0; index < names.length; index += 1) names[index] = '';
+      for (const player of players) {
+        if (player.index < 0 || player.index >= names.length) continue;
+        names[player.index] = player.name;
+      }
+      return names;
     });
   }
 

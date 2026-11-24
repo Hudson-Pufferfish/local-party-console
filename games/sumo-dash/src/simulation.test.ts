@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { scoreboardLine } from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
 declare const Buffer: {
@@ -18,7 +19,7 @@ test('arena radius stays inside the ring and never grows during a round', () => 
 
   sim.startMatch([0, 1]);
   let guard = 0;
-  while (sim.state[PHASE] === 0 && guard < 1000) {
+  while (sim.state[PHASE] !== 1 && guard < 4000) {
     sim.step(DT);
     guard += 1;
   }
@@ -59,16 +60,26 @@ function slotBase(slot: number): number {
 
 function reachActive(sim: ReturnType<typeof createSumoSimulation>): void {
   let guard = 0;
-  while (sim.state[PHASE] === 0 && guard < 1000) {
+  while (sim.state[PHASE] !== 1 && guard < 4000) {
     sim.step(DT);
     guard += 1;
   }
   expect(sim.state[PHASE]).toBe(1);
 }
 
+function reachCountdown(sim: ReturnType<typeof createSumoSimulation>): void {
+  let guard = 0;
+  while (sim.state[PHASE] !== 0 && guard < 4000) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(0);
+}
+
 test('holding dash fires one rising edge and keeps cooldown in range', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
+  reachCountdown(sim);
   const active = slotBase(0) + 6;
   const cooldown = slotBase(0) + 5;
   const vx = slotBase(0) + 2;
@@ -241,6 +252,7 @@ test('ring-out stays dead when more input arrives', () => {
 test('countdown aim does not move the puck or start a dash', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
+  reachCountdown(sim);
   expect(sim.state[PHASE]).toBe(0);
   const base = slotBase(0);
   const x = sim.state[base];
@@ -337,7 +349,7 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
         }
       }
     }
-    if (phase === 0) {
+    if (phase === 0 || phase === 4) {
       for (let slot = 0; slot < 8; slot += 1) dead[slot] = false;
     }
 
@@ -386,4 +398,52 @@ test('the same input log replays to the same float bytes', () => {
   }
 
   expect(Buffer.compare(run(), run())).toBe(0);
+});
+
+test('practice lets a puck move and dash, then countdown puts it back on the spawn ring', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  expect(sim.state[PHASE]).toBe(4);
+  const base = slotBase(0);
+  const spawnX = sim.state[base] ?? 0;
+  const spawnY = sim.state[base + 1] ?? 0;
+
+  for (let n = 0; n < 40; n += 1) {
+    sim.applyInput(0, 1, 127, 0);
+    sim.step(DT);
+  }
+
+  expect(sim.state[PHASE]).toBe(4);
+  expect(Math.hypot((sim.state[base] ?? 0) - spawnX, (sim.state[base + 1] ?? 0) - spawnY)).toBeGreaterThan(5);
+  expect(sim.state[base + 5] ?? 0).toBeGreaterThan(0);
+  expect(sim.state[slotBase(0) + 9]).toBe(0);
+
+  reachCountdown(sim);
+  expect(sim.state[base]).toBeCloseTo(spawnX, 4);
+  expect(sim.state[base + 1]).toBeCloseTo(spawnY, 4);
+  expect(sim.state[base + 2]).toBe(0);
+  expect(sim.state[base + 3]).toBe(0);
+});
+
+test('three round wins end the match and the scoreboard follows the scores', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  const loser = slotBase(1);
+  for (let round = 0; round < 3; round += 1) {
+    reachActive(sim);
+    const radius = sim.state[ARENA_RADIUS] ?? 0;
+    sim.state[loser] = radius + 5;
+    sim.state[loser + 1] = 0;
+    sim.step(DT);
+    expect(sim.state[PHASE]).toBe(2);
+    expect(sim.state[slotBase(0) + 9]).toBe(round + 1);
+    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'], 3)).toBe(`hu ${round + 1}/3  ad 0/3`);
+  }
+  let guard = 0;
+  while (sim.state[PHASE] !== 3 && guard < 4000) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(3);
+  expect(sim.state[slotBase(0) + 9]).toBe(3);
 });

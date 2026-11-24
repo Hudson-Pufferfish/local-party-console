@@ -18,7 +18,11 @@ export interface ScreenGame {
   manifest: GameManifest;
   createSim: () => ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array) => Envelope[];
-  createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array) => ArenaRenderer;
+  createRenderer?: (
+    canvas: HTMLCanvasElement,
+    readState: () => Float32Array,
+    readNames?: () => readonly string[],
+  ) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
 }

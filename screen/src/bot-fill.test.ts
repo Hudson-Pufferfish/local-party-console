@@ -193,6 +193,12 @@ it('an away slot stays occupied', () => {
 it('bot fill calls applyInput', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
+  let guard = 0;
+  while (sim.state[1] !== 0 && guard < 4000) {
+    sim.step(1 / 120);
+    guard += 1;
+  }
+  sim.state[0] = 0;
   sim.state[18] = 340;
   sim.state[19] = 0;
   const fill = createBotFill(writeHeuristic);

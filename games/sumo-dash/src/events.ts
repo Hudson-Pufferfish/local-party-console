@@ -1,4 +1,5 @@
 import type { Envelope } from '../../../shared/src/types/envelope.ts';
+import { SUMO_CONSTANTS } from './constants';
 
 const TICK = 0;
 const PHASE = 1;
@@ -10,7 +11,7 @@ const SCORE = 9;
 const STUN = 7;
 const COUNTDOWN = 0;
 const ROUND_END = 2;
-const SCORE_TO_WIN = 5;
+const SCORE_TO_WIN = SUMO_CONSTANTS.scoreToWin;
 const SLOTS = 8;
 
 export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): Envelope[] {

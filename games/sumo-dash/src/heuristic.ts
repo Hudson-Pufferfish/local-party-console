@@ -76,6 +76,7 @@ export function writeHeuristic(
 
   const skill = clampLevel(level);
   const share = skill / LEVEL_SCALE;
+  const pace = 0.78 + share * 0.15;
   const safe = 0.8 + share * 0.03;
   const x = state[base];
   const y = state[base + 1];
@@ -169,16 +170,16 @@ export function writeHeuristic(
       unitX /= unit;
       unitY /= unit;
     }
-    axisX[botIndex] = Math.round(unitX * 127);
-    axisY[botIndex] = Math.round(unitY * 127);
+    axisX[botIndex] = Math.round(unitX * 127 * pace);
+    axisY[botIndex] = Math.round(unitY * 127 * pace);
   } else if (steerLen === 0) {
     axisX[botIndex] = 0;
     axisY[botIndex] = 0;
   } else {
     unitX = steerX / steerLen;
     unitY = steerY / steerLen;
-    let axisOutX = Math.round(unitX * 127);
-    let axisOutY = Math.round(unitY * 127);
+    let axisOutX = Math.round(unitX * 127 * pace);
+    let axisOutY = Math.round(unitY * 127 * pace);
     if (axisOutX > 127) axisOutX = 127;
     if (axisOutX < -127) axisOutX = -127;
     if (axisOutY > 127) axisOutY = 127;
@@ -197,7 +198,7 @@ export function writeHeuristic(
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);
     }
     const land = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
-    const dashRange = 88 + share * 320;
+    const dashRange = 90 + share * 300;
     const alignNeed = 0.94 - share * 0.08;
     if (aimDist < dashRange && align > alignNeed && land <= DASH_LIMIT * arena) {
       dash = 1;

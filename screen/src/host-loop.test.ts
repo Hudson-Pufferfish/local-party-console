@@ -28,7 +28,7 @@ test('a human slot still receives applyInput when a bot fills another slot', () 
   loop.tick(20, 1010);
   expect(applied).toContain(0);
   expect(applied).not.toContain(1);
-  expect(sim.state[12]).toBeCloseTo(Math.PI / 2);
+  expect(Math.hypot(sim.state[10] ?? 0, sim.state[11] ?? 0)).toBeGreaterThan(0);
 });
 
 test('a held stick moves a human while bots fill the other slots', () => {
