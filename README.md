@@ -37,7 +37,9 @@ mkcert -key-file certs/dev-key.pem -cert-file certs/dev.pem localhost 127.0.0.1 
 corepack pnpm --filter @server dev
 ```
 
-The process listens on `0.0.0.0:8443`. In a normal Chrome window on the monitor, open:
+The process listens on `0.0.0.0:8443`. When the server is running, `GET https://<lan-ip>:8443/api/host` returns `lanIp`.
+
+In a normal Chrome window on the monitor, open:
 
 ```text
 https://<lan-ip>:8443/screen/
@@ -67,17 +69,13 @@ mkcert -CAROOT
 
 The file in that folder is `rootCA.pem`.
 
-The phone and the Mac must be on the same Wi-Fi. Serve the file from that folder:
+This command prints the phone URL, then serves the file:
 
 ```sh
-cd "$(mkcert -CAROOT)" && python3 -m http.server 8080
+LAN=$(ipconfig getifaddr en0 || ipconfig getifaddr en1); echo "Phone: http://${LAN}:8080/rootCA.pem"; cd "$(mkcert -CAROOT)" && python3 -m http.server 8080
 ```
 
-On the phone, open this address. Use the same LAN IP as the cert, not `localhost`.
-
-```text
-http://<lan-ip>:8080/rootCA.pem
-```
+The terminal prints that address. Open it on the phone. The phone and the Mac must be on the same Wi-Fi.
 
 When the file is on the phone, press Ctrl+C in that terminal.
 

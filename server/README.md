@@ -38,13 +38,13 @@ On the Mac, find the file:
 mkcert -CAROOT
 ```
 
-The file in that folder is `rootCA.pem`. The phone and the Mac must be on the same Wi-Fi. Serve it:
+The file in that folder is `rootCA.pem`. This command prints the phone URL, then serves the file:
 
 ```sh
-cd "$(mkcert -CAROOT)" && python3 -m http.server 8080
+LAN=$(ipconfig getifaddr en0 || ipconfig getifaddr en1); echo "Phone: http://${LAN}:8080/rootCA.pem"; cd "$(mkcert -CAROOT)" && python3 -m http.server 8080
 ```
 
-On the phone, open `http://<lan-ip>:8080/rootCA.pem`. Use the LAN IP from the cert, not `localhost`. Press Ctrl+C in that terminal when the download has finished.
+The terminal prints that address. Open it on the phone. The phone and the Mac must be on the same Wi-Fi. Press Ctrl+C in that terminal when the download has finished.
 
 Open the host screen in a normal Chrome window. Incognito has no saved host token, so `/screen/` shows `HOST // TOKEN MISSING` and the QR stays empty.
 
