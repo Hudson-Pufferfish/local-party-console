@@ -173,10 +173,25 @@ h2 {
   text-transform: uppercase;
 }
 
+.match {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
 .match canvas {
   display: block;
   width: min(80vh, 800px);
   height: min(80vh, 800px);
   border: 2.5px solid #111111;
   background: #eae6df;
+}
+
+.scoreboard {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 32px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }

@@ -31,13 +31,14 @@ export interface SumoSimulation {
 }
 
 function radiusAt(t: number): number {
-  let radius: number = C.r0;
-  if (t > C.shrinkHold) {
-    radius = C.r0 - C.shrinkRate * (t - C.shrinkHold);
-    if (radius < C.rMin) {
-      radius = C.rMin;
-    }
-  }
+  if (t <= C.shrinkHold) return C.r0;
+  const shrunk = C.r0 - C.shrinkRate * (t - C.shrinkHold);
+  if (shrunk > C.rMin) return shrunk;
+  const atMin = C.shrinkHold + (C.r0 - C.rMin) / C.shrinkRate;
+  const holdEnd = atMin + C.rMinHold;
+  if (t <= holdEnd) return C.rMin;
+  let radius = C.rMin - C.suddenRate * (t - holdEnd);
+  if (radius < C.rFloor) radius = C.rFloor;
   return radius;
 }
 
@@ -327,20 +328,59 @@ export function createSumoSimulation(): SumoSimulation {
     state[TARGET] = radiusAt(elapsed + C.previewLead);
     simulateMotion(dt);
 
-    let aliveCount = 0;
-    let winner = -1;
     const limit = state[ARENA] * state[ARENA];
+    let outCount = 0;
+    let farthestOut = -1;
+    let farthestOutR = -1;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
-      if ((state[base + 8] & ALIVE) === 0) {
-        continue;
-      }
+      if ((state[base + 8] & ALIVE) === 0) continue;
       const x = state[base];
       const y = state[base + 1];
-      if (x * x + y * y > limit) {
-        state[base + 8] = 0;
-        continue;
+      const radiusSq = x * x + y * y;
+      if (radiusSq <= limit) continue;
+      outCount += 1;
+      if (farthestOut < 0 || radiusSq > farthestOutR) {
+        farthestOut = i;
+        farthestOutR = radiusSq;
       }
+    }
+    if (outCount > 1 && state[ARENA] <= C.rMin && farthestOut >= 0) {
+      state[PLAYER + farthestOut * STRIDE + 8] = 0;
+    } else if (outCount > 0) {
+      for (let i = 0; i < C.maxPlayers; i += 1) {
+        const base = PLAYER + i * STRIDE;
+        if ((state[base + 8] & ALIVE) === 0) continue;
+        const x = state[base];
+        const y = state[base + 1];
+        if (x * x + y * y > limit) state[base + 8] = 0;
+      }
+    }
+    if (state[ARENA] <= C.rFloor + 1e-4) {
+      let farthest = -1;
+      let farthestR = -1;
+      let alive = 0;
+      for (let i = 0; i < C.maxPlayers; i += 1) {
+        const base = PLAYER + i * STRIDE;
+        if ((state[base + 8] & ALIVE) === 0) continue;
+        alive += 1;
+        const x = state[base];
+        const y = state[base + 1];
+        const radiusSq = x * x + y * y;
+        if (farthest < 0 || radiusSq > farthestR) {
+          farthest = i;
+          farthestR = radiusSq;
+        }
+      }
+      if (alive > 1 && farthest >= 0) {
+        state[PLAYER + farthest * STRIDE + 8] = 0;
+      }
+    }
+    let aliveCount = 0;
+    let winner = -1;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      const base = PLAYER + i * STRIDE;
+      if ((state[base + 8] & ALIVE) === 0) continue;
       aliveCount += 1;
       winner = i;
     }

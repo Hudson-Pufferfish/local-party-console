@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
 import { PLAYER_COLORS } from '../../../shared/src/registry.ts';
-import { SUMO_CONSTANTS } from './constants';
-import { scoreboardLine } from './scoreboard';
 
 const PUTTY = 0xeae6df;
 const PLATE = 0xd6d1c7;
@@ -14,7 +12,6 @@ const PLAYER = 8;
 const STRIDE = 10;
 
 const PUCK = PLAYER_COLORS.map((color) => Number.parseInt(color.slice(1), 16));
-const NO_NAMES = ['', '', '', '', '', '', '', ''] as const;
 
 interface Spark {
   x: number;
@@ -25,13 +22,11 @@ interface Spark {
 export function createSumoRenderer(
   canvas: HTMLCanvasElement,
   readState: () => Float32Array,
-  readNames?: () => readonly string[],
 ): { draw(): void; destroy(): void } {
   const sparks: Spark[] = [];
   for (let index = 0; index < 12; index += 1) sparks.push({ x: 0, y: 0, life: 0 });
   let board: Phaser.GameObjects.Graphics | null = null;
   let banner: Phaser.GameObjects.Text | null = null;
-  let scores: Phaser.GameObjects.Text | null = null;
   let lastHit = 0;
   let shake = 0;
   let gone = false;
@@ -50,13 +45,6 @@ export function createSumoRenderer(
         align: 'center',
       });
       banner.setOrigin(0.5, 0);
-      scores = this.add.text(0, 0, '', {
-        fontFamily: 'Space Grotesk',
-        fontSize: '22px',
-        color: '#111111',
-        align: 'center',
-      });
-      scores.setOrigin(0.5, 1);
       if (!gone) draw();
     }
   }
@@ -106,8 +94,7 @@ export function createSumoRenderer(
   function paint(): void {
     const gfx = board;
     const label = banner;
-    const scoreLabel = scores;
-    if (gfx === null || label === null || scoreLabel === null || gone) return;
+    if (gfx === null || label === null || gone) return;
     const state = readState();
     const width = canvas.width > 0 ? canvas.width : 800;
     const height = canvas.height > 0 ? canvas.height : 800;
@@ -212,11 +199,6 @@ export function createSumoRenderer(
     label.setText(copy);
     label.setVisible(copy !== '');
     label.setPosition(centerX + ox, 36 + oy);
-    const names = readNames === undefined ? NO_NAMES : readNames();
-    const line = scoreboardLine(state, names, SUMO_CONSTANTS.scoreToWin);
-    scoreLabel.setText(line);
-    scoreLabel.setVisible(line !== '');
-    scoreLabel.setPosition(centerX + ox, height - 28 + oy);
   }
 
   return {
@@ -225,7 +207,6 @@ export function createSumoRenderer(
       gone = true;
       board = null;
       banner = null;
-      scores = null;
       game.destroy(false, false);
     },
   };

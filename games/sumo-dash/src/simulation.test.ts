@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { SUMO_CONSTANTS } from './constants';
 import { scoreboardLine } from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
@@ -10,7 +11,7 @@ const PHASE = 1;
 const ARENA_RADIUS = 3;
 const DT = 1 / 120;
 const R0 = 400;
-const RMIN = 110;
+const RFLOOR = SUMO_CONSTANTS.rFloor;
 
 test('arena radius stays inside the ring and never grows during a round', () => {
   const sim = createSumoSimulation();
@@ -28,8 +29,9 @@ test('arena radius stays inside the ring and never grows during a round', () => 
   let previous = sim.state[ARENA_RADIUS];
   expect(previous).toBe(R0);
   let sawShrink = false;
+  let sawBelowMin = false;
 
-  for (let n = 0; n < 4500; n += 1) {
+  for (let n = 0; n < 6000 && sim.state[PHASE] === 1; n += 1) {
     sim.state[8] = 0;
     sim.state[9] = 0;
     sim.state[10] = 0;
@@ -40,18 +42,16 @@ test('arena radius stays inside the ring and never grows during a round', () => 
     sim.state[21] = 0;
     sim.step(DT);
     const radius = sim.state[ARENA_RADIUS];
-    expect(radius).toBeGreaterThanOrEqual(RMIN);
+    expect(radius).toBeGreaterThanOrEqual(RFLOOR);
     expect(radius).toBeLessThanOrEqual(R0);
     expect(radius).toBeLessThanOrEqual(previous);
-    if (radius < previous) {
-      sawShrink = true;
-    }
+    if (radius < previous) sawShrink = true;
+    if (radius < 110) sawBelowMin = true;
     previous = radius;
-    expect(sim.state[PHASE]).toBe(1);
   }
 
   expect(sawShrink).toBe(true);
-  expect(sim.state[ARENA_RADIUS]).toBe(RMIN);
+  expect(sawBelowMin).toBe(true);
 });
 
 function slotBase(slot: number): number {
@@ -317,7 +317,7 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
 
     const phase = state[PHASE];
     const radius = state[ARENA_RADIUS];
-    expect(radius).toBeGreaterThanOrEqual(110);
+    expect(radius).toBeGreaterThanOrEqual(RFLOOR);
     expect(radius).toBeLessThanOrEqual(400);
     if (phase === 1) {
       if (!trackingRadius) {
@@ -446,4 +446,30 @@ test('three round wins end the match and the scoreboard follows the scores', () 
   }
   expect(sim.state[PHASE]).toBe(3);
   expect(sim.state[slotBase(0) + 9]).toBe(3);
+});
+
+test('a pack that stays inside still ends the round and scores', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1, 2]);
+  reachActive(sim);
+  let guard = 0;
+  while (sim.state[PHASE] === 1 && guard < 8000) {
+    const radius = sim.state[ARENA_RADIUS] ?? 0;
+    const keep = Math.min(radius * 0.45, 80);
+    for (const slot of [0, 1, 2]) {
+      const base = slotBase(slot);
+      if ((sim.state[base + 8] & 1) === 0) continue;
+      const angle = (slot / 3) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * keep;
+      sim.state[base + 1] = Math.sin(angle) * keep;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(2);
+  expect(scoreSum(sim)).toBe(1);
+  const line = scoreboardLine(sim.state, ['Hudson', '', ''], 3);
+  expect(line.includes('1/3')).toBe(true);
 });

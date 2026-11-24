@@ -42,10 +42,11 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
 ### FR-1: Arena Geometry & Shrinking Hazard Ring
 * **Coordinate Space:** Authoritative 2D world centered at $(0, 0)$ in normalized meters/units.
 * **Initial Arena Radius:** $R_0 = 400\text{ units}$.
-* **Minimum Arena Radius:** $R_{\min} = 110\text{ units}$.
+* **Minimum Arena Radius:** $R_{\min} = 110\text{ units}$, held, then a closing floor $R_{\text{floor}} = 26$.
 * **Shrinking Cadence:**
   * For the first $5.0\text{s}$ of `ROUND_ACTIVE`, $R(t) = R_0$ (safe opening skirmish).
-  * Every $5.0\text{s}$ thereafter, the hazard ring shrinks continuously at a rate of $v_{\text{shrink}} = 14\text{ units/s}$ until reaching $R_{\min}$.
+  * After that the hazard ring shrinks continuously at $v_{\text{shrink}} = 14\text{ units/s}$ until $R_{\min}$.
+  * It holds at $R_{\min}$ for $4.0\text{s}$. If everyone is still in, it closes at $36\text{ units/s}$ down to $R_{\text{floor}}$. On that small ring, if more than one puck would leave in the same tick, only the outermost is out, so the round still awards a point. At the floor the outermost puck is out, one at a time.
   * A dashed orange warning ring ($R_{\text{target}}$) previews the next $3.0\text{s}$ of shrinkage so players can read ledge positioning.
 * **Spawn Formation:** Active players $N \in [2, 8]$ spawn equidistantly on a circle of radius $R_{\text{spawn}} = 240\text{ units}$, facing inward toward $(0, 0)$:
   $$\theta_i = \frac{2\pi i}{N}, \quad (x_i, y_i) = (R_{\text{spawn}}\cos\theta_i,\ R_{\text{spawn}}\sin\theta_i)$$
@@ -110,7 +111,7 @@ Curves use $\text{share} = \text{level}/20$. Staying on the ring is a shared flo
 4. Fire `DASH` when the opponent is inside the level's range, alignment clears the level's bar, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. Range is $90 + 300 \cdot \text{share}$. Alignment is $0.94 - 0.08 \cdot \text{share}$. A higher share dashes from farther away and from wider angles. A missed dash stays inside the ring, and the next steer turns back at the safe radius.
 
 ### Scoreboard and practice
-The holistic screen draws one short line of everyone in the match, in slot order, not ranked: `hu 1/3  da 0/3`. The tag is the first two letters of the name, or `pN` when the slot has none. It follows the score fields. First to 3 round wins ends the match. The match, and every later round, opens with 10s of practice (move and dash, full ring, no points). Practice then resets spawn into the 3-2-1 countdown.
+The holistic screen lists everyone in the match in the cream to the right of the arena, in slot order, not ranked: `hu 1/3` then `da 0/3`. The tag is the first two letters of the name, or `pN` when the slot has none. It follows the score fields. First to 3 round wins ends the match. The match, and every later round, opens with 10s of practice (move and dash, full ring, no points). Practice then resets spawn into the 3-2-1 countdown.
 
 ---
 

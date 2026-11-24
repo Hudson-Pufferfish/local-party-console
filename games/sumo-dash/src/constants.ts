@@ -1,6 +1,9 @@
 export const SUMO_CONSTANTS = {
   r0: 400,
   rMin: 110,
+  rMinHold: 4,
+  suddenRate: 36,
+  rFloor: 26,
   shrinkHold: 5,
   shrinkRate: 14,
   previewLead: 3,

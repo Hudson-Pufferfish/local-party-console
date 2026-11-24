@@ -17,8 +17,8 @@ export function shortTag(name: string, slot: number): string {
   return `p${slot + 1}`;
 }
 
-export function scoreboardLine(state: Float32Array, names: readonly string[], win: number): string {
-  let line = '';
+export function scoreboardRows(state: Float32Array, names: readonly string[], win: number): string[] {
+  const rows: string[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
     const base = PLAYER + index * STRIDE;
     const flags = state[base + 8] ?? 0;
@@ -27,8 +27,11 @@ export function scoreboardLine(state: Float32Array, names: readonly string[], wi
     const y = state[base + 1] ?? 0;
     if ((flags & 1) === 0 && score === 0 && x === 0 && y === 0) continue;
     const tag = shortTag(names[index] ?? '', index);
-    const piece = `${tag} ${score}/${win}`;
-    line = line === '' ? piece : `${line}  ${piece}`;
+    rows.push(`${tag} ${score}/${win}`);
   }
-  return line;
+  return rows;
+}
+
+export function scoreboardLine(state: Float32Array, names: readonly string[], win: number): string {
+  return scoreboardRows(state, names, win).join('  ');
 }

@@ -1,4 +1,6 @@
 import { toCanvas } from 'qrcode';
+import { SUMO_CONSTANTS } from '../../games/sumo-dash/src/constants.ts';
+import { scoreboardRows } from '../../games/sumo-dash/src/scoreboard.ts';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
 import type { GameManifest, PlayerSlot, ScreenViewTarget } from '../../shared/src/types/game.ts';
 import { standbyCopy } from '../../shared/src/view/policy.ts';
@@ -25,6 +27,7 @@ export interface SessionHandlers {
   setStandby: (value: string | null) => void;
   setMatch: (value: boolean) => void;
   setMatchOver: (value: boolean) => void;
+  setScoreRows: (value: string[]) => void;
   setNotice: (value: string) => void;
   setSelectedId: (value: string) => void;
   setBotLobby: (value: BotLobbyState) => void;
@@ -185,18 +188,24 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const game = screenGames.get(selectedId);
     if (game?.createRenderer === undefined) return;
     const canvas = matchCanvas;
-    const names = ['', '', '', '', '', '', '', ''];
     renderer = game.createRenderer(canvas, () => {
       if (primary && loop !== null) return loop.state;
       return mirror;
-    }, () => {
-      for (let index = 0; index < names.length; index += 1) names[index] = '';
-      for (const player of players) {
-        if (player.index < 0 || player.index >= names.length) continue;
-        names[player.index] = player.name;
-      }
-      return names;
     });
+  }
+
+  function scoreNames(): string[] {
+    const names = ['', '', '', '', '', '', '', ''];
+    for (const player of players) {
+      if (player.index < 0 || player.index >= names.length) continue;
+      names[player.index] = player.name;
+    }
+    return names;
+  }
+
+  function publishScores(): void {
+    const state = primary && loop !== null ? loop.state : mirror;
+    handlers.setScoreRows(scoreboardRows(state, scoreNames(), SUMO_CONSTANTS.scoreToWin));
   }
 
   function clearMatch(): void {
@@ -206,6 +215,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   }
 
   function paintMatch(): void {
+    publishScores();
     if (view === 'holistic') mountRenderer();
     if (renderer !== null) {
       renderer.draw();
@@ -364,6 +374,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       destroyRenderer();
       handlers.setMatch(false);
       handlers.setMatchOver(false);
+      handlers.setScoreRows([]);
       send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
     },
     readTelemetry(slot: number): TelemetryRead | null {
@@ -495,6 +506,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           destroyRenderer();
           handlers.setMatch(false);
           handlers.setMatchOver(false);
+          handlers.setScoreRows([]);
         }
         if (action === 'restart' && view === 'holistic') {
           handlers.setMatch(true);
