@@ -115,13 +115,45 @@ export function createSumoSimulation(): SumoSimulation {
     writeAliveMask();
   }
 
-  function beginPractice(): void {
+  function reviveForBreak(): void {
+    const keep = C.r0 * 0.98;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      if (joined[i] === 0) continue;
+      inputs[i].edge = 0;
+      const base = PLAYER + i * STRIDE;
+      state[base + 6] = 0;
+      state[base + 7] = 0;
+      state[base + 8] = ALIVE;
+      const x = state[base];
+      const y = state[base + 1];
+      const radius = Math.hypot(x, y);
+      if (radius <= keep || radius === 0 || keep <= 0) continue;
+      const scale = keep / radius;
+      state[base] = x * scale;
+      state[base + 1] = y * scale;
+      const nx = state[base] / keep;
+      const ny = state[base + 1] / keep;
+      const vx = state[base + 2];
+      const vy = state[base + 3];
+      const outward = vx * nx + vy * ny;
+      if (outward > 0) {
+        state[base + 2] = vx - outward * nx;
+        state[base + 3] = vy - outward * ny;
+      }
+    }
+  }
+
+  function beginPractice(lineup: boolean): void {
     state[PHASE] = PRACTICE;
     state[TIMER] = C.practice;
     state[ARENA] = C.r0;
     state[TARGET] = C.r0;
-    resetBodies();
-    placeSpawn(false);
+    if (lineup) {
+      resetBodies();
+      placeSpawn(false);
+    } else {
+      reviveForBreak();
+    }
     writeAliveMask();
   }
 
@@ -145,7 +177,7 @@ export function createSumoSimulation(): SumoSimulation {
       inputs[i].edge = 0;
     }
     state.fill(0);
-    beginPractice();
+    beginPractice(true);
   }
 
   function resolvePairs(): void {
@@ -302,7 +334,7 @@ export function createSumoSimulation(): SumoSimulation {
           state[PHASE] = MATCH_OVER;
           state[TIMER] = 0;
         } else {
-          beginPractice();
+          beginPractice(false);
         }
       }
       writeAliveMask();

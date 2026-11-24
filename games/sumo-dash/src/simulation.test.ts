@@ -179,6 +179,79 @@ test('a same-tick wipe stays in the round and awards no score', () => {
   expect(sim.state[slotBase(1) + 2] ?? 0).toBeGreaterThanOrEqual(0);
 });
 
+test('everyone outside on a small ring does not open a scoreless break', () => {
+  const timers = [0, 27, 33];
+  for (const timer of timers) {
+    const sim = createSumoSimulation();
+    sim.startMatch([0, 1, 2]);
+    reachActive(sim);
+    sim.state[2] = timer;
+    const before = scoreSum(sim);
+    for (const slot of [0, 1, 2]) {
+      const base = slotBase(slot);
+      const angle = (slot / 3) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * 500;
+      sim.state[base + 1] = Math.sin(angle) * 500;
+      sim.state[base + 2] = Math.cos(angle) * 500;
+      sim.state[base + 3] = Math.sin(angle) * 500;
+    }
+    let guard = 0;
+    while (sim.state[PHASE] === 1 && guard < 30) {
+      sim.step(DT);
+      guard += 1;
+    }
+    if (sim.state[PHASE] === 2) {
+      expect(scoreSum(sim)).toBe(before + 1);
+    } else {
+      expect(sim.state[PHASE]).toBe(1);
+      expect(scoreSum(sim)).toBe(before);
+      expect(countAlive(sim)).toBe(3);
+    }
+    expect(sim.state[PHASE]).not.toBe(4);
+  }
+});
+
+test('a scored round opens the break in place, then countdown is the lineup', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  reachActive(sim);
+  const winner = slotBase(0);
+  const loser = slotBase(1);
+  sim.state[winner] = 40;
+  sim.state[winner + 1] = -25;
+  sim.state[winner + 2] = 12;
+  sim.state[winner + 3] = 0;
+  const radius = sim.state[ARENA_RADIUS] ?? 0;
+  sim.state[loser] = radius + 30;
+  sim.state[loser + 1] = 0;
+  sim.state[loser + 2] = 400;
+  sim.step(DT);
+  expect(sim.state[PHASE]).toBe(2);
+  const heldX = sim.state[winner] ?? 0;
+  const heldY = sim.state[winner + 1] ?? 0;
+  const heldVx = sim.state[winner + 2] ?? 0;
+  expect(Math.hypot(heldX, heldY)).toBeLessThan(80);
+  let guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(4);
+  expect(sim.state[winner]).toBeCloseTo(heldX, 3);
+  expect(sim.state[winner + 1]).toBeCloseTo(heldY, 3);
+  expect(sim.state[winner + 2]).toBeCloseTo(heldVx, 3);
+  expect(sim.state[loser + 8] & 1).toBe(1);
+  expect(Math.hypot(sim.state[loser] ?? 0, sim.state[loser + 1] ?? 0)).toBeLessThan(R0);
+  expect(sim.state[loser + 2] ?? 0).toBeLessThanOrEqual(0);
+  expect(sim.state[winner + 9]).toBe(1);
+  expect(sim.state[loser + 9]).toBe(0);
+
+  reachCountdown(sim);
+  expect(sim.state[winner]).toBeCloseTo(SUMO_CONSTANTS.rSpawn, 3);
+  expect(sim.state[winner + 1]).toBeCloseTo(0, 3);
+  expect(sim.state[winner + 9]).toBe(1);
+});
+
 function placeHeadOn(sim: ReturnType<typeof createSumoSimulation>): void {
   const left = slotBase(0);
   const right = slotBase(1);

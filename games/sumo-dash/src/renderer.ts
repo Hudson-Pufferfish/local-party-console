@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PLAYER_COLORS } from '../../../shared/src/registry.ts';
+import { bannerCopy } from './banner.ts';
 
 const PUTTY = 0xeae6df;
 const PLATE = 0xd6d1c7;
@@ -191,11 +192,7 @@ export function createSumoRenderer(
       spark.life -= 1;
     }
 
-    const phase = state[1] ?? 0;
-    const timer = state[2] ?? 0;
-    let copy = '';
-    if (phase === 0 && timer > 0) copy = String(Math.ceil(timer));
-    else if (phase === 2) copy = 'ROUND';
+    const copy = bannerCopy(state[1] ?? 0, state[2] ?? 0);
     label.setText(copy);
     label.setVisible(copy !== '');
     label.setPosition(centerX + ox, 36 + oy);
