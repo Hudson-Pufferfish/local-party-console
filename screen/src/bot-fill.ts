@@ -132,27 +132,36 @@ export type WriteBotInput = (
   axisX: Int8Array,
   axisY: Int8Array,
   buttons: Uint8Array,
+  level?: number,
 ) => void;
+
+export type BotLevels = (mask: Uint8Array) => Uint8Array;
 
 export interface BotFill {
   arm(mask: Uint8Array): void;
   fill(slot: number, sim: BotFillSim): boolean;
 }
 
-export function createBotFill(write: WriteBotInput): BotFill {
+export function createBotFill(write: WriteBotInput, levelsFor?: BotLevels): BotFill {
   const axisX = new Int8Array(MASK_LEN);
   const axisY = new Int8Array(MASK_LEN);
   const buttons = new Uint8Array(MASK_LEN);
   const botMask = new Uint8Array(MASK_LEN);
+  const levelBySlot = new Uint8Array(MASK_LEN);
   return {
     arm(mask: Uint8Array): void {
       for (let index = 0; index < MASK_LEN; index += 1) {
         botMask[index] = mask[index] ?? 0;
       }
+      const levels = levelsFor?.(botMask);
+      for (let index = 0; index < MASK_LEN; index += 1) {
+        levelBySlot[index] = levels?.[index] ?? 0;
+      }
     },
     fill(slot: number, sim: BotFillSim): boolean {
       if (botMask[slot] !== 1) return false;
-      if ((sim.state[0] & 1) === 0) write(sim.state, slot, axisX, axisY, buttons);
+      const level = levelBySlot[slot] === 0 ? 4 : levelBySlot[slot];
+      if ((sim.state[0] & 1) === 0) write(sim.state, slot, axisX, axisY, buttons, level);
       sim.applyInput(slot, buttons[slot] ?? 0, axisX[slot] ?? 0, axisY[slot] ?? 0);
       return true;
     },

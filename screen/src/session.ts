@@ -83,10 +83,14 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let players: PlayerSlot[] = [];
   let selectedId = '';
   let botLobby = createBotLobby();
-  const bots = createBotFill((state, botIndex, axisX, axisY, buttons) => {
+  const bots = createBotFill((state, botIndex, axisX, axisY, buttons, level) => {
     const writer = screenGames.get(selectedId)?.writeBotInput;
     if (writer === undefined) return;
-    writer(state, botIndex, axisX, axisY, buttons);
+    writer(state, botIndex, axisX, axisY, buttons, level);
+  }, (mask) => {
+    const levels = screenGames.get(selectedId)?.botLevels;
+    if (levels === undefined) return new Uint8Array(8);
+    return levels(mask);
   });
   let primary = false;
   let socket: WebSocket | null = null;

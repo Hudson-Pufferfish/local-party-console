@@ -100,10 +100,14 @@ If a phone stops sending input, that slot's axes and buttons become zero until t
   * **Hit-Stop & Juice:** Heavy dash impacts set `hitStopFrames = 3`. The renderer pauses drawing for those frames (~25ms at 120Hz). `step(dt)` keeps running, and input keeps arriving. Camera shake is at most 8px. Sparks are hard-edged squares (no soft blur).
 
 ### Heuristic bot
-An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim:
-1. If $\|\vec{p}_{\text{bot}}\| > 0.72 \cdot R_{\text{arena}}$, steer toward $(0, 0)$.
-2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$.
-3. Fire `DASH` when distance $< 180$, alignment $> 0.88$, and the dash would not carry the bot past $0.85 \cdot R_{\text{arena}}$.
+An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim. Each bot in a match gets a distinct level from `{1,2,3,4,5,6,7}` (`assignBotLevels`). Levels 8, 9, and 10 are never assigned. Two bots never share a level. The spread is fixed: 1 bot → 3; 2 → 2 and 5; 3 → 1, 3, 5; then 1, 3, 5, 7; 1, 2, 4, 5, 7; 1, 2, 3, 5, 6, 7; and 1 through 7. Slots are filled in index order.
+
+A higher level chases farther from center, aims with less slip, and dashes sooner. A lower level turns for home earlier and peels off a stacked opponent. Overlap uses a slot-sided shove instead of a zero stick, so two equal policies cannot sit on the same point.
+
+1. If the bot is outside its level's home radius, steer toward $(0, 0)$. Home radius is $(0.48 + 0.04 \cdot \text{level}) \cdot R_{\text{arena}}$.
+2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, plus a sideways slip of $(8 - \text{level}) \cdot 22$ that flips with the slot.
+3. If that steer is shorter than 32, shove sideways instead of outputting zero.
+4. Fire `DASH` when distance is inside the level's range, alignment clears the level's bar, and the dash would not carry the bot past $0.85 \cdot R_{\text{arena}}$. Range is $70 + 20 \cdot \text{level}$. Alignment is $0.97 - 0.014 \cdot \text{level}$.
 
 ---
 
