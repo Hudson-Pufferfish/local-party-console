@@ -111,11 +111,11 @@ export function setRoomPhase(room: Room, phase: RoomPhase): void {
   room.phase = phase;
 }
 
-export function kickInactiveSlot(room: Room, index: number): KickResult {
+export function kickSlot(room: Room, index: number): KickResult {
   if (room.phase !== 'lobby') return { kind: 'ignored' };
   if (!Number.isInteger(index) || index < 0 || index >= MAX_SLOTS) return { kind: 'ignored' };
   const slot = room.slots[index];
-  if (slot === undefined || slot === null || slot.connected) return { kind: 'ignored' };
+  if (slot === undefined || slot === null) return { kind: 'ignored' };
   room.tokens.delete(slot.sessionToken);
   room.revokedTokens.add(slot.sessionToken);
   room.slots[index] = null;

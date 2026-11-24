@@ -49,12 +49,12 @@ export const Lobby: VoidComponent<{
                 <span class="swatch" style={{ "background-color": player.color }} />
                 <span class="mono">{playerDisplayName(player.name)}</span>
                 <span class="mono">{player.connected ? 'LIVE' : 'AWAY'}</span>
-                <Show when={!player.connected && props.canKick === true && props.onKick !== undefined}>
+                <Show when={props.canKick === true && props.onKick !== undefined}>
                   <button
                     type="button"
                     class="player-kick"
                     aria-label={kickButtonLabel(player.name)}
-                    title="Remove inactive player"
+                    title="Remove player"
                     onClick={() => props.onKick?.(player.index)}
                   >
                     ×

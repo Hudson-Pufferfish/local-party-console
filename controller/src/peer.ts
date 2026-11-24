@@ -42,6 +42,7 @@ export function joinNotice(result: SendResult | 'missing'): string {
 
 export interface PhoneLink {
   sendText: (message: { type: string; payload: unknown }) => SendResult;
+  reconnect: () => void;
   close: () => void;
 }
 
@@ -130,35 +131,56 @@ export function connectPhone(
   });
 
   const url = `wss://${location.host}/ws?room=${encodeURIComponent(room)}&role=controller`;
-  socket = new WebSocket(url);
-  socket.binaryType = 'arraybuffer';
-  connectTimer = window.setTimeout(() => {
-    if (stopped || socketOpen) return;
-    hooks.onLink(false);
-  }, 2000);
-  socket.addEventListener('open', () => {
-    socketOpen = true;
-    window.clearTimeout(connectTimer);
-    hooks.onLink(true);
-    flushQueue();
-    sendPing();
-    secondPing = window.setTimeout(sendPing, 200);
-  });
-  socket.addEventListener('message', (event) => {
-    if (typeof event.data !== 'string') return;
-    const message = readMessage(event.data);
-    if (message === null) return;
-    handleText(message.type, message.payload);
-  });
-  socket.addEventListener('error', () => {
+
+  function openSocket(): void {
+    if (stopped) return;
+    if (connectTimer !== 0) {
+      window.clearTimeout(connectTimer);
+      connectTimer = 0;
+    }
+    if (secondPing !== 0) {
+      window.clearTimeout(secondPing);
+      secondPing = 0;
+    }
+    const current = new WebSocket(url);
+    current.binaryType = 'arraybuffer';
+    socket = current;
     socketOpen = false;
-    if (!stopped) hooks.onLink(false);
-  });
-  socket.addEventListener('close', () => {
-    socketOpen = false;
-    window.clearTimeout(connectTimer);
-    if (!stopped) hooks.onLink(false);
-  });
+    connectTimer = window.setTimeout(() => {
+      if (stopped || socket !== current || socketOpen) return;
+      hooks.onLink(false);
+    }, 2000);
+    current.addEventListener('open', () => {
+      if (stopped || socket !== current) return;
+      socketOpen = true;
+      window.clearTimeout(connectTimer);
+      connectTimer = 0;
+      hooks.onLink(true);
+      flushQueue();
+      sendPing();
+      secondPing = window.setTimeout(sendPing, 200);
+    });
+    current.addEventListener('message', (event) => {
+      if (stopped || socket !== current || typeof event.data !== 'string') return;
+      const message = readMessage(event.data);
+      if (message === null) return;
+      handleText(message.type, message.payload);
+    });
+    current.addEventListener('error', () => {
+      if (socket !== current) return;
+      socketOpen = false;
+      if (!stopped) hooks.onLink(false);
+    });
+    current.addEventListener('close', () => {
+      if (socket !== current) return;
+      socketOpen = false;
+      window.clearTimeout(connectTimer);
+      connectTimer = 0;
+      if (!stopped) hooks.onLink(false);
+    });
+  }
+
+  openSocket();
 
   function sendText(message: { type: string; payload: unknown }): SendResult {
     const raw = JSON.stringify(message);
@@ -222,6 +244,7 @@ export function connectPhone(
     }
     if (type === 'room:kicked') {
       clearSession();
+      disconnectSocket();
       hooks.onKicked?.();
       return;
     }
@@ -266,6 +289,22 @@ export function connectPhone(
       return;
     }
     if (type === 'signal:ice') onIce(payload);
+  }
+
+  function disconnectSocket(): void {
+    if (secondPing !== 0) {
+      window.clearTimeout(secondPing);
+      secondPing = 0;
+    }
+    if (connectTimer !== 0) {
+      window.clearTimeout(connectTimer);
+      connectTimer = 0;
+    }
+    queue.length = 0;
+    const current = socket;
+    socket = null;
+    socketOpen = false;
+    current?.close();
   }
 
   function clearSession(): void {
@@ -402,17 +441,33 @@ export function connectPhone(
 
   return {
     sendText,
+    reconnect(): void {
+      if (stopped) return;
+      if (
+        socket === null
+        || socket.readyState === WebSocket.CLOSING
+        || socket.readyState === WebSocket.CLOSED
+      ) {
+        openSocket();
+      }
+    },
     close(): void {
       stopped = true;
-      if (secondPing !== 0) window.clearTimeout(secondPing);
-      if (connectTimer !== 0) window.clearTimeout(connectTimer);
-      if (syncTimer !== 0) window.clearTimeout(syncTimer);
-      if (beatTimer !== 0) window.clearTimeout(beatTimer);
+      if (syncTimer !== 0) {
+        window.clearTimeout(syncTimer);
+        syncTimer = 0;
+      }
+      if (beatTimer !== 0) {
+        window.clearTimeout(beatTimer);
+        beatTimer = 0;
+      }
       observer?.disconnect();
       observer = null;
-      socket?.close();
       dc?.close();
+      dc = null;
       pc?.close();
+      pc = null;
+      disconnectSocket();
     },
   };
 }

@@ -9,7 +9,7 @@ import type { RoomPhase } from '@shared/types';
 import {
   hostTokenMatches,
   joinRoom,
-  kickInactiveSlot,
+  kickSlot,
   markSlotDisconnected,
   publicPlayers,
   setRoomPhase,
@@ -221,7 +221,7 @@ function handleJoin(
 function handleKick(clients: Map<Room, Set<Client>>, room: Room, payload: unknown): void {
   const index = readKickIndex(payload);
   if (index === null) return;
-  const result = kickInactiveSlot(room, index);
+  const result = kickSlot(room, index);
   if (result.kind !== 'kicked') return;
   const group = clients.get(room);
   if (group === undefined) return;
@@ -233,7 +233,11 @@ function handleKick(clients: Map<Room, Set<Client>>, room: Room, payload: unknow
   for (const member of group) {
     if (member.slotIndex === result.index) {
       member.slotIndex = null;
-      if (member.ws.readyState === WebSocket.OPEN) member.ws.send(kickedFrame);
+      if (member.ws.readyState === WebSocket.OPEN) {
+        member.ws.send(kickedFrame);
+        member.ws.close(1000, 'kicked');
+      }
+      continue;
     }
     if (member.ws.readyState === WebSocket.OPEN) member.ws.send(playersFrame);
   }

@@ -123,7 +123,7 @@ test('room:joined updates the phone even when the data channel cannot open', () 
   expect(seen).toEqual([1]);
 });
 
-test('room:kicked clears stored reconnect state and notifies the controller', () => {
+test('room:kicked clears stored reconnect state, closes the kicked socket without reporting link down, and allows explicit rejoin', () => {
   const memory = new Map<string, string>([
     ['party-session-ABCD', 'stale-token'],
     ['party-seq-ABCD', '42'],
@@ -149,7 +149,9 @@ test('room:kicked clears stored reconnect state and notifies the controller', ()
     }
   } as unknown as typeof RTCPeerConnection;
   let kickedCount = 0;
+  const linkEvents: boolean[] = [];
   const sentBuffers: ArrayBuffer[] = [];
+  const sentTexts: string[] = [];
   try {
     const link = connectPhone('ABCD', {
       onJoined() {},
@@ -159,7 +161,9 @@ test('room:kicked clears stored reconnect state and notifies the controller', ()
       },
       onMount() {},
       onPong() {},
-      onLink() {},
+      onLink(up) {
+        linkEvents.push(up);
+      },
     });
     const socket = openSockets[0];
     if (socket === undefined) throw new Error('missing socket');
@@ -182,7 +186,25 @@ test('room:kicked clears stored reconnect state and notifies the controller', ()
         payload: { reason: 'kicked' },
       }),
     }));
+    socket.dispatchEvent(new Event('close'));
     sendAxes(1, 0, performance.now());
+
+    // No auto-reconnect until explicit rejoin
+    expect(openSockets).toHaveLength(1);
+    expect(socket.readyState).toBe(OpenSocket.CLOSED);
+    expect(linkEvents).not.toContain(false);
+
+    // Explicit rejoin opens a fresh socket and sends room:join
+    link.reconnect();
+    expect(openSockets).toHaveLength(2);
+    const freshSocket = openSockets[1];
+    if (freshSocket === undefined) throw new Error('missing fresh socket');
+    freshSocket.send = (data: string | ArrayBuffer) => {
+      if (typeof data === 'string') sentTexts.push(data);
+    };
+    freshSocket.dispatchEvent(new Event('open'));
+    expect(link.sendText({ type: 'room:join', payload: { name: 'Ada' } })).toBe('open');
+    expect(sentTexts.some((frame) => frame.includes('"room:join"'))).toBe(true);
     link.close();
   } finally {
     globalThis.WebSocket = previousSocket;

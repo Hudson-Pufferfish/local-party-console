@@ -320,7 +320,7 @@ test('rejoin keeps the slot and the broadcast omits the session token', async ()
   }
 });
 
-test('kicking an AWAY player in lobby removes them, frees their slot, and refuses LIVE or in-match kicks', async () => {
+test('kicking a LIVE or AWAY player in lobby removes them, closes LIVE socket after room:kicked, frees slots, and refuses in-match kicks', async () => {
   const relay = await startRelay();
   const sockets: WebSocket[] = [];
   try {
@@ -341,6 +341,8 @@ test('kicking an AWAY player in lobby removes them, frees their slot, and refuse
     const adaFrame = await adaJoined;
     await adaRoster;
     expect(adaFrame.payload?.index).toBe(0);
+    const adaToken = adaFrame.payload?.sessionToken;
+    expect(typeof adaToken).toBe('string');
 
     const beaJoined = waitForText(bea, 'room:joined');
     const beaRoster = waitForText(screen, 'room:players');
@@ -361,19 +363,13 @@ test('kicking an AWAY player in lobby removes them, frees their slot, and refuse
       }
     });
 
-    // Refuses kicking a LIVE player or unknown slot
+    // Refuses kicking an unknown/empty slot
     const beforeRefused = screenUpdates.length;
-    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
     screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 7 } }));
     await settle();
     expect(screenUpdates.length).toBe(beforeRefused);
 
-    // Disconnect Ada so slot 0 becomes AWAY
-    const awayUpdate = waitForText(screen, 'room:players');
-    ada.close();
-    await awayUpdate;
-
-    // Refuses kicking an AWAY player during an active match
+    // Refuses kicking a LIVE player during an active match
     screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
     await settle();
     const beforeMatchKick = screenUpdates.length;
@@ -381,18 +377,47 @@ test('kicking an AWAY player in lobby removes them, frees their slot, and refuse
     await settle();
     expect(screenUpdates.length).toBe(beforeMatchKick);
 
-    // Returning to lobby permits kicking the AWAY player and broadcasts to screen + connected controllers
+    // Returning to lobby permits kicking LIVE Ada: sends room:kicked, closes socket, updates roster
     screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'lobby' } }));
-    const screenAfterKick = waitForText(screen, 'room:players');
-    const beaAfterKick = waitForText(bea, 'room:players');
+    const adaKicked = waitForText(ada, 'room:kicked');
+    const adaClosed = new Promise<void>((resolve) => {
+      ada.once('close', () => resolve());
+    });
+    const screenAfterLiveKick = waitForText(screen, 'room:players');
+    const beaAfterLiveKick = waitForText(bea, 'room:players');
     screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
-    const [screenFrame, beaNotice] = await Promise.all([screenAfterKick, beaAfterKick]);
-    expect(screenFrame.payload?.players).toEqual([
+    const [, , screenLiveFrame, beaLiveFrame] = await Promise.all([
+      adaKicked,
+      adaClosed,
+      screenAfterLiveKick,
+      beaAfterLiveKick,
+    ]);
+    expect(screenLiveFrame.payload?.players).toEqual([
       expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
     ]);
-    expect(beaNotice.payload?.players).toEqual([
+    expect(beaLiveFrame.payload?.players).toEqual([
       expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
     ]);
+
+    // Revoked token from kicked LIVE player is rejected
+    const staleAda = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(staleAda);
+    const staleRejected = waitForText(staleAda, 'room:kicked');
+    staleAda.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Ada', sessionToken: adaToken },
+    }));
+    await staleRejected;
+
+    // Disconnect Bea so slot 1 becomes AWAY, then kick AWAY Bea in lobby
+    const awayUpdate = waitForText(screen, 'room:players');
+    bea.close();
+    await awayUpdate;
+
+    const screenAfterAwayKick = waitForText(screen, 'room:players');
+    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 1 } }));
+    const screenAwayFrame = await screenAfterAwayKick;
+    expect(screenAwayFrame.payload?.players).toEqual([]);
 
     // Slot 0 is freed and reused by the next joining player
     const cy = await connect(relay.port, `room=${created.roomId}&role=controller`);

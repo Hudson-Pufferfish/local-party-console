@@ -176,15 +176,15 @@ h2 {
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 2.5px solid #111111;
   background: #f4f1ea;
   color: #111111;
-  box-shadow: 0px 3px 0px #111111;
+  box-shadow: 0px 2px 0px #111111;
   font-family: "JetBrains Mono";
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -199,7 +199,7 @@ h2 {
 }
 
 .player-kick:active {
-  transform: translate3d(0, 3px, 0);
+  transform: translate3d(0, 2px, 0);
   box-shadow: 0px 0px 0px #111111;
   transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
 }

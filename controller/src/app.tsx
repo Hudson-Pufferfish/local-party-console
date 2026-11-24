@@ -203,6 +203,7 @@ export const App: VoidComponent = () => {
   function onJoin(pressed: boolean): void {
     if (!pressed || joined()) return;
     const current = link;
+    current?.reconnect();
     const token = storedToken(room);
     const payload: { name: string; sessionToken?: string } = {
       name: name().trim().slice(0, 16),
