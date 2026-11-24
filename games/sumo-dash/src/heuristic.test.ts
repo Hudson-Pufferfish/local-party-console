@@ -81,7 +81,7 @@ test('level 1 can dash, and level 7 dashes from farther out', () => {
   const buttons = new Uint8Array(8);
   writeHeuristic(state, 0, axisX, axisY, buttons, 1);
   expect(buttons[0] & 1).toBe(1);
-  state[18] = 170;
+  state[18] = 140;
   writeHeuristic(state, 0, axisX, axisY, buttons, 1);
   expect(buttons[0] & 1).toBe(0);
   writeHeuristic(state, 0, axisX, axisY, buttons, 7);

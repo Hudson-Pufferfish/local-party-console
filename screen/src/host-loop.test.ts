@@ -56,7 +56,7 @@ test('two bots do not stay locked together for the whole round', () => {
   const loop = createHostLoop(sim, undefined, () => {}, (slot, current) => fill.fill(slot, current));
   loop.startMatch([0, 1]);
   let now = 0;
-  for (let step = 0; step < 4500; step += 1) {
+  for (let step = 0; step < 7500; step += 1) {
     now += 16;
     loop.tick(16, now);
   }

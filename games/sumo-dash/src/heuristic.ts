@@ -111,7 +111,7 @@ export function writeHeuristic(
     const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
     if (aimDist > 0) {
-      const turn = (1 - share) * 0.1 * side;
+      const turn = (1 - share) * 0.12 * side;
       const turnCos = Math.cos(turn);
       const turnSin = Math.sin(turn);
       aimX = x + aimDx * turnCos - aimDy * turnSin;
@@ -147,7 +147,7 @@ export function writeHeuristic(
   } else if (chase && bestDist < CONTACT) {
     const meR = Math.hypot(x, y);
     const foeOut = Math.hypot(rawAimX, rawAimY);
-    if (foeOut + 8 < meR && meR > 0) {
+    if (foeOut + 16 < meR && meR > 0) {
       unitX = -x / meR;
       unitY = -y / meR;
     } else {
@@ -161,11 +161,13 @@ export function writeHeuristic(
       }
       pushX /= push;
       pushY /= push;
-      const slip = (1 - share) * 0.35 * side;
-      const slipCos = Math.cos(slip);
-      const slipSin = Math.sin(slip);
-      unitX = pushX * slipCos - pushY * slipSin;
-      unitY = pushX * slipSin + pushY * slipCos;
+      const commit = 0.48 + share * 1.05;
+      const slide = 1 - commit;
+      unitX = pushX * commit - pushY * side * slide;
+      unitY = pushY * commit + pushX * side * slide;
+      const unit = Math.hypot(unitX, unitY);
+      unitX /= unit;
+      unitY /= unit;
     }
     axisX[botIndex] = Math.round(unitX * 127);
     axisY[botIndex] = Math.round(unitY * 127);
@@ -195,8 +197,8 @@ export function writeHeuristic(
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);
     }
     const land = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
-    const dashRange = 80 + share * 480;
-    const alignNeed = 0.92 - share * 0.18;
+    const dashRange = 88 + share * 320;
+    const alignNeed = 0.94 - share * 0.08;
     if (aimDist < dashRange && align > alignNeed && land <= DASH_LIMIT * arena) {
       dash = 1;
     }

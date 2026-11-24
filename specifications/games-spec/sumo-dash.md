@@ -105,9 +105,9 @@ An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz in
 Curves use $\text{share} = \text{level}/20$. Staying on the ring is a shared floor: even 1/20 moves, maneuvers, dashes sometimes, and does not steer itself off. Levels differ by dash cadence and approach angle, not by aim noise that walks them out.
 
 1. If the bot is outside its safe radius, steer toward $(0, 0)$. Safe radius is $(0.80 + 0.03 \cdot \text{share}) \cdot R_{\text{arena}}$, still inside the ring.
-2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, turned by $(1 - \text{share}) \cdot 0.10$ radians (the side flips with the slot). The aim point is then pulled back inside the safe radius.
-3. If the opponent's center is inside $96$ and this bot is the inner one, push them outward along their radius, slipped by $(1 - \text{share}) \cdot 0.35$ radians. The outer bot gives ground toward the center instead of steering itself off.
-4. Fire `DASH` when the opponent is inside the level's range, alignment clears the level's bar, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. Range is $80 + 480 \cdot \text{share}$. Alignment is $0.92 - 0.18 \cdot \text{share}$. A higher share dashes from farther away and from wider angles. A missed dash stays inside the ring, and the next steer turns back at the safe radius.
+2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, turned by $(1 - \text{share}) \cdot 0.12$ radians (the side flips with the slot). The aim point is then pulled back inside the safe radius.
+3. If the opponent's center is inside $96$ and this bot is the inner one, mix an outward push with a slot-sided slide. The outward share is $0.48 + 1.05 \cdot \text{share}$, so a low level slides more and a higher level shoves cleaner. The outer bot gives ground toward the center once it is more than $16$ px further out.
+4. Fire `DASH` when the opponent is inside the level's range, alignment clears the level's bar, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. Range is $88 + 320 \cdot \text{share}$. Alignment is $0.94 - 0.08 \cdot \text{share}$. A higher share dashes from farther away and from wider angles. A missed dash stays inside the ring, and the next steer turns back at the safe radius.
 
 ---
 
