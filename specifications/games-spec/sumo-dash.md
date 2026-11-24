@@ -102,12 +102,12 @@ If a phone stops sending input, that slot's axes and buttons become zero until t
 ### Heuristic bot
 An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim. Levels are a 1–20 scale. Each bot in a match gets a distinct integer from `{1,2,3,4,5,6,7}` only (`assignBotLevels`), so the strongest living-room bot is 7/20. Levels 8 through 20 are never assigned. Two bots never share a level. The spread is fixed: 1 bot → 3; 2 → 2 and 5; 3 → 1, 3, 5; then 1, 3, 5, 7; 1, 2, 4, 5, 7; 1, 2, 3, 5, 6, 7; and 1 through 7. Slots are filled in index order.
 
-Curves use $\text{share} = \text{level}/20$. A higher share chases farther from center, aims with less slip, and dashes sooner. At 7/20 the bot still turns for home early and does not play like a full-strength bot. Two pucks cannot get closer than $2 \times 28$. Inside $96$ the stick stays partly aimed at the opponent so a round can still end.
+Curves use $\text{share} = \text{level}/20$. Staying on the ring is a shared floor: even 1/20 moves, maneuvers, dashes sometimes, and does not steer itself off. Levels differ by dash cadence and approach angle, not by aim noise that walks them out.
 
-1. If the bot is outside its level's home radius, steer toward $(0, 0)$. Home radius is $(0.40 + 0.36 \cdot \text{share}) \cdot R_{\text{arena}}$.
-2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, plus a sideways slip of $(1 - \text{share}) \cdot 160$ that flips with the slot.
-3. If the opponent's center is inside $96$, mix that aim with a slot-sided slide. The ram share is $0.42 + 0.53 \cdot \text{share}$. The rest is sideways.
-4. Fire `DASH` when distance is inside the level's range, alignment clears the level's bar, and the dash would not carry the bot past $0.85 \cdot R_{\text{arena}}$. Range is $36 + 174 \cdot \text{share}$. Alignment is $0.995 - 0.125 \cdot \text{share}$.
+1. If the bot is outside its safe radius, steer toward $(0, 0)$. Safe radius is $(0.80 + 0.03 \cdot \text{share}) \cdot R_{\text{arena}}$, still inside the ring.
+2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, turned by $(1 - \text{share}) \cdot 0.10$ radians (the side flips with the slot). The aim point is then pulled back inside the safe radius.
+3. If the opponent's center is inside $96$ and this bot is the inner one, push them outward along their radius, slipped by $(1 - \text{share}) \cdot 0.35$ radians. The outer bot gives ground toward the center instead of steering itself off.
+4. Fire `DASH` when the opponent is inside the level's range, alignment clears the level's bar, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. Range is $80 + 480 \cdot \text{share}$. Alignment is $0.92 - 0.18 \cdot \text{share}$. A higher share dashes from farther away and from wider angles. A missed dash stays inside the ring, and the next steer turns back at the safe radius.
 
 ---
 

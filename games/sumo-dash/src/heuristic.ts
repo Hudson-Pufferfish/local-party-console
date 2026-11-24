@@ -76,7 +76,7 @@ export function writeHeuristic(
 
   const skill = clampLevel(level);
   const share = skill / LEVEL_SCALE;
-  const home = 0.4 + share * 0.36;
+  const safe = 0.8 + share * 0.03;
   const x = state[base];
   const y = state[base + 1];
   const arena = state[ARENA];
@@ -102,16 +102,25 @@ export function writeHeuristic(
     aimY = rawAimY;
   }
 
-  const outside = Math.hypot(x, y) > home * arena;
-  if (!outside && found === 1) {
-    const aimDx = aimX - x;
-    const aimDy = aimY - y;
+  const safeR = safe * arena;
+  const outside = Math.hypot(x, y) > safeR;
+  const chase = !outside && found === 1;
+  const side = botIndex % 2 === 0 ? 1 : -1;
+  if (chase) {
+    const aimDx = rawAimX - x;
+    const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
     if (aimDist > 0) {
-      const side = botIndex % 2 === 0 ? 1 : -1;
-      const slip = (1 - share) * 160;
-      aimX += side * (-aimDy / aimDist) * slip;
-      aimY += side * (aimDx / aimDist) * slip;
+      const turn = (1 - share) * 0.1 * side;
+      const turnCos = Math.cos(turn);
+      const turnSin = Math.sin(turn);
+      aimX = x + aimDx * turnCos - aimDy * turnSin;
+      aimY = y + aimDx * turnSin + aimDy * turnCos;
+    }
+    const aimR = Math.hypot(aimX, aimY);
+    if (aimR > safeR && aimR > 0) {
+      aimX *= safeR / aimR;
+      aimY *= safeR / aimR;
     }
   }
   if (!outside && found === 0) {
@@ -123,7 +132,7 @@ export function writeHeuristic(
 
   let targetX = 0;
   let targetY = 0;
-  if (!outside) {
+  if (chase) {
     targetX = aimX;
     targetY = aimY;
   }
@@ -135,25 +144,29 @@ export function writeHeuristic(
   if (steerLen === 0 && found === 0) {
     axisX[botIndex] = 0;
     axisY[botIndex] = 0;
-  } else if (found === 1 && bestDist < CONTACT) {
-    const side = botIndex % 2 === 0 ? 1 : -1;
-    let towardX = rawAimX - x;
-    let towardY = rawAimY - y;
-    let toward = Math.hypot(towardX, towardY);
-    if (toward === 0) {
-      towardX = side;
-      towardY = share >= 0.5 ? 0 : side;
-      toward = Math.hypot(towardX, towardY);
+  } else if (chase && bestDist < CONTACT) {
+    const meR = Math.hypot(x, y);
+    const foeOut = Math.hypot(rawAimX, rawAimY);
+    if (foeOut + 8 < meR && meR > 0) {
+      unitX = -x / meR;
+      unitY = -y / meR;
+    } else {
+      let pushX = rawAimX;
+      let pushY = rawAimY;
+      let push = foeOut;
+      if (push === 0) {
+        pushX = side;
+        pushY = share >= 0.5 ? 0 : side;
+        push = Math.hypot(pushX, pushY);
+      }
+      pushX /= push;
+      pushY /= push;
+      const slip = (1 - share) * 0.35 * side;
+      const slipCos = Math.cos(slip);
+      const slipSin = Math.sin(slip);
+      unitX = pushX * slipCos - pushY * slipSin;
+      unitY = pushX * slipSin + pushY * slipCos;
     }
-    towardX /= toward;
-    towardY /= toward;
-    const ram = 0.42 + share * 0.53;
-    const lateral = 1 - ram;
-    unitX = towardX * ram - towardY * side * lateral;
-    unitY = towardY * ram + towardX * side * lateral;
-    const unit = Math.hypot(unitX, unitY);
-    unitX /= unit;
-    unitY /= unit;
     axisX[botIndex] = Math.round(unitX * 127);
     axisY[botIndex] = Math.round(unitY * 127);
   } else if (steerLen === 0) {
@@ -174,16 +187,16 @@ export function writeHeuristic(
 
   let dash = 0;
   if (found === 1 && (unitX !== 0 || unitY !== 0)) {
-    const aimDx = aimX - x;
-    const aimDy = aimY - y;
+    const aimDx = rawAimX - x;
+    const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
     let align = 0;
     if (aimDist !== 0) {
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);
     }
     const land = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
-    const dashRange = 36 + share * 174;
-    const alignNeed = 0.995 - share * 0.125;
+    const dashRange = 80 + share * 480;
+    const alignNeed = 0.92 - share * 0.18;
     if (aimDist < dashRange && align > alignNeed && land <= DASH_LIMIT * arena) {
       dash = 1;
     }

@@ -50,9 +50,42 @@ test('a close bot still rams the opponent', () => {
   writeHeuristic(state, 0, axisX, axisY, buttons, 5);
   expect(axisX[0]).toBeGreaterThan(Math.abs(axisY[0] ?? 0));
   writeHeuristic(state, 0, axisX, axisY, buttons, 7);
-  expect(axisX[0]).toBeGreaterThan(0);
-  expect(Math.abs(axisY[0] ?? 0)).toBeGreaterThan(30);
-  expect(axisX[0]).toBeLessThan(115);
+  expect(axisX[0]).toBeGreaterThan(Math.abs(axisY[0] ?? 0));
+  expect(Math.abs(axisY[0] ?? 0)).toBeGreaterThan(15);
+});
+
+test('a bot near the rim steers inward instead of chasing off the ring', () => {
+  const state = new Float32Array(88);
+  state[3] = 400;
+  state[8] = 360;
+  state[9] = 0;
+  state[16] = 1;
+  state[18] = 370;
+  state[19] = 0;
+  state[26] = 1;
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 1);
+  expect(axisX[0]).toBeLessThan(0);
+});
+
+test('level 1 can dash, and level 7 dashes from farther out', () => {
+  const state = new Float32Array(88);
+  state[3] = 400;
+  state[16] = 1;
+  state[18] = 100;
+  state[26] = 1;
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 1);
+  expect(buttons[0] & 1).toBe(1);
+  state[18] = 170;
+  writeHeuristic(state, 0, axisX, axisY, buttons, 1);
+  expect(buttons[0] & 1).toBe(0);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 7);
+  expect(buttons[0] & 1).toBe(1);
 });
 
 test('two stacked bots of different levels do not share a zero steer', () => {
