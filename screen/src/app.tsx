@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, Show, type VoidComponent } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show, type VoidComponent } from 'solid-js';
+import type { ScoreRow } from '../../games/sumo-dash/src/scoreboard.ts';
 import type { PlayerSlot } from '../../shared/src/types/game.ts';
 import { Badge } from './badge.tsx';
 import {
@@ -23,6 +24,8 @@ export const App: VoidComponent = () => {
   const [standby, setStandby] = createSignal<string | null>(null);
   const [match, setMatch] = createSignal(false);
   const [matchOver, setMatchOver] = createSignal(false);
+  const [scoreRows, setScoreRows] = createSignal<ScoreRow[]>([]);
+  const [banner, setBanner] = createSignal('');
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
   const [botLobby, setBotLobby] = createSignal<BotLobbyState>(createBotLobby());
@@ -46,6 +49,8 @@ export const App: VoidComponent = () => {
         setStandby,
         setMatch,
         setMatchOver,
+        setScoreRows,
+        setBanner,
         setNotice,
         setSelectedId,
         setBotLobby,
@@ -137,6 +142,7 @@ export const App: VoidComponent = () => {
             }
           >
             <section class="match">
+              <p class="hud">{banner()}</p>
               <canvas
                 ref={(canvas) => {
                   canvases.match = canvas;
@@ -145,6 +151,20 @@ export const App: VoidComponent = () => {
                 width={800}
                 height={800}
               />
+              <ol class="scoreboard">
+                <For each={scoreRows()} keyed={(row) => row.slot}>
+                  {(row) => (
+                    <li class="score-row">
+                      <span
+                        class="score-dot"
+                        aria-hidden="true"
+                        style={{ 'background-color': row().color }}
+                      />
+                      <span>{row().text}</span>
+                    </li>
+                  )}
+                </For>
+              </ol>
               <Show when={primary() && matchOver()}>
                 <div class="podium">
                   <button type="button" class="key" onClick={() => session?.playAgain()}>

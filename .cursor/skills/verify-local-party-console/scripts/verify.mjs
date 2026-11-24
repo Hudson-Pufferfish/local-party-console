@@ -916,7 +916,7 @@ async function cmdDriveCreateRoom() {
     if (start === undefined) problems.push('START button is missing');
     if (start?.disabled !== true) problems.push('START is enabled before two players join');
     if (facts.qrCanvas !== true) problems.push('QR canvas is missing');
-    if (!facts.qrUrl.includes(`/controller?rev=4&room=${room}`)) problems.push('QR url does not name the room');
+    if (!facts.qrUrl.includes(`/controller?rev=7&room=${room}`)) problems.push('QR url does not name the room');
     if (!facts.hostKeys.includes(`party-host-${room}`)) problems.push('localStorage is missing the host key');
     if (posts.length !== 1) problems.push(`expected one POST /api/rooms, saw ${posts.length}`);
     if (posts[0]?.status !== 200) problems.push(`POST /api/rooms status ${posts[0]?.status ?? 'missing'}`);

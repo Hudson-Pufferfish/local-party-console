@@ -224,24 +224,23 @@ export const App: VoidComponent = () => {
       <Show when={notice() !== ''}>
         <p class="notice">{notice()}</p>
       </Show>
-      <Show when={view() === null}>
+      <Show when={!joined() && room !== ''}>
         <div class="join-row">
           <input
             class="name-field"
             placeholder="NAME"
             maxlength={16}
             autocomplete="off"
-            disabled={joined()}
             value={name()}
             onInput={(event) => setName(event.currentTarget.value)}
           />
-          <Show when={!joined() && room !== ''}>
-            <ArcadeButton
-              label="JOIN"
-              onPressedChange={onJoin}
-            />
-          </Show>
+          <ArcadeButton
+            label="JOIN"
+            onPressedChange={onJoin}
+          />
         </div>
+      </Show>
+      <Show when={view() === null}>
         <GameCard title="NO GAME" detail="WAITING" />
         <div class="pad">
           <VirtualJoystick label="MOVE" onAxes={sendAxes} />

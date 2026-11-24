@@ -1,10 +1,9 @@
 import { SUMO_CONSTANTS } from './constants';
 
-const HOME_RADIUS = 0.72;
 const PREDICT = 0.15;
-const DASH_RANGE = 180;
-const ALIGN = 0.88;
 const DASH_LIMIT = 0.85;
+const LEVEL_SCALE = 20;
+const CONTACT = SUMO_CONSTANTS.puckRadius * 2 + 40;
 const TRAVEL = SUMO_CONSTANTS.dashSpeed * SUMO_CONSTANTS.dashActive;
 const ARENA = 3;
 const PLAYER = 8;
@@ -13,12 +12,59 @@ const FLAGS = 8;
 const ALIVE = 1;
 const SLOTS = 8;
 
+export type LevelRng = () => number;
+
+const LEVEL_DECK = [1, 2, 3, 4, 5, 6, 7];
+
+export function assignBotLevels(count: number, rng: LevelRng = Math.random): readonly number[] {
+  let n = Math.trunc(count);
+  if (!Number.isFinite(count) || n < 0) n = 0;
+  if (n > 7) n = 7;
+  if (n === 0) return [];
+  const deck = LEVEL_DECK.slice();
+  for (let index = deck.length - 1; index > 0; index -= 1) {
+    let pick = Math.floor(rng() * (index + 1));
+    if (pick < 0) pick = 0;
+    if (pick > index) pick = index;
+    const swap = deck[index] ?? 1;
+    deck[index] = deck[pick] ?? 1;
+    deck[pick] = swap;
+  }
+  return deck.slice(0, n);
+}
+
+export function levelsForMask(mask: Uint8Array, rng: LevelRng = Math.random): Uint8Array {
+  let count = 0;
+  const limit = mask.length < SLOTS ? mask.length : SLOTS;
+  for (let index = 0; index < limit; index += 1) {
+    if (mask[index] === 1) count += 1;
+  }
+  const levels = assignBotLevels(count, rng);
+  const out = new Uint8Array(SLOTS);
+  let placed = 0;
+  for (let index = 0; index < limit; index += 1) {
+    if (mask[index] !== 1 || placed >= levels.length) continue;
+    out[index] = levels[placed] ?? 1;
+    placed += 1;
+  }
+  return out;
+}
+
+function clampLevel(level: number): number {
+  if (!Number.isFinite(level)) return 4;
+  let value = Math.trunc(level);
+  if (value < 1) value = 1;
+  if (value > 7) value = 7;
+  return value;
+}
+
 export function writeHeuristic(
   state: Float32Array,
   botIndex: number,
   axisX: Int8Array,
   axisY: Int8Array,
   buttons: Uint8Array,
+  level = 7,
 ): void {
   if (botIndex !== (botIndex | 0) || botIndex < 0 || botIndex > 7) {
     return;
@@ -31,6 +77,10 @@ export function writeHeuristic(
     return;
   }
 
+  const skill = clampLevel(level);
+  const share = skill / LEVEL_SCALE;
+  const pace = 0.5 + share * 0.15;
+  const safe = 0.8 + share * 0.03;
   const x = state[base];
   const y = state[base + 1];
   const arena = state[ARENA];
@@ -38,6 +88,8 @@ export function writeHeuristic(
   let bestDist = 0;
   let aimX = 0;
   let aimY = 0;
+  let rawAimX = 0;
+  let rawAimY = 0;
   for (let index = 0; index < SLOTS; index += 1) {
     if (index === botIndex) continue;
     const other = PLAYER + index * STRIDE;
@@ -48,11 +100,33 @@ export function writeHeuristic(
     if (found === 1 && dist >= bestDist) continue;
     found = 1;
     bestDist = dist;
-    aimX = state[other] + PREDICT * state[other + 2];
-    aimY = state[other + 1] + PREDICT * state[other + 3];
+    rawAimX = state[other] + PREDICT * state[other + 2];
+    rawAimY = state[other + 1] + PREDICT * state[other + 3];
+    aimX = rawAimX;
+    aimY = rawAimY;
   }
 
-  const outside = Math.hypot(x, y) > HOME_RADIUS * arena;
+  const safeR = safe * arena;
+  const outside = Math.hypot(x, y) > safeR;
+  const chase = !outside && found === 1;
+  const side = botIndex % 2 === 0 ? 1 : -1;
+  if (chase) {
+    const aimDx = rawAimX - x;
+    const aimDy = rawAimY - y;
+    const aimDist = Math.hypot(aimDx, aimDy);
+    if (aimDist > 0) {
+      const turn = (1 - share) * 0.12 * side;
+      const turnCos = Math.cos(turn);
+      const turnSin = Math.sin(turn);
+      aimX = x + aimDx * turnCos - aimDy * turnSin;
+      aimY = y + aimDx * turnSin + aimDy * turnCos;
+    }
+    const aimR = Math.hypot(aimX, aimY);
+    if (aimR > safeR && aimR > 0) {
+      aimX *= safeR / aimR;
+      aimY *= safeR / aimR;
+    }
+  }
   if (!outside && found === 0) {
     axisX[botIndex] = 0;
     axisY[botIndex] = 0;
@@ -62,7 +136,7 @@ export function writeHeuristic(
 
   let targetX = 0;
   let targetY = 0;
-  if (!outside) {
+  if (chase) {
     targetX = aimX;
     targetY = aimY;
   }
@@ -71,14 +145,46 @@ export function writeHeuristic(
   const steerLen = Math.hypot(steerX, steerY);
   let unitX = 0;
   let unitY = 0;
-  if (steerLen === 0) {
+  let contactYield = false;
+  if (steerLen === 0 && found === 0) {
+    axisX[botIndex] = 0;
+    axisY[botIndex] = 0;
+  } else if (chase && bestDist < CONTACT) {
+    const meR = Math.hypot(x, y);
+    const foeOut = Math.hypot(rawAimX, rawAimY);
+    if (foeOut + 16 < meR && meR > 0) {
+      contactYield = true;
+      unitX = -x / meR;
+      unitY = -y / meR;
+    } else {
+      let pushX = rawAimX;
+      let pushY = rawAimY;
+      let push = foeOut;
+      if (push === 0) {
+        pushX = side;
+        pushY = share >= 0.5 ? 0 : side;
+        push = Math.hypot(pushX, pushY);
+      }
+      pushX /= push;
+      pushY /= push;
+      const commit = 0.48 + share * 1.05;
+      const slide = 1 - commit;
+      unitX = pushX * commit - pushY * side * slide;
+      unitY = pushY * commit + pushX * side * slide;
+      const unit = Math.hypot(unitX, unitY);
+      unitX /= unit;
+      unitY /= unit;
+    }
+    axisX[botIndex] = Math.round(unitX * 127 * pace);
+    axisY[botIndex] = Math.round(unitY * 127 * pace);
+  } else if (steerLen === 0) {
     axisX[botIndex] = 0;
     axisY[botIndex] = 0;
   } else {
     unitX = steerX / steerLen;
     unitY = steerY / steerLen;
-    let axisOutX = Math.round(unitX * 127);
-    let axisOutY = Math.round(unitY * 127);
+    let axisOutX = Math.round(unitX * 127 * pace);
+    let axisOutY = Math.round(unitY * 127 * pace);
     if (axisOutX > 127) axisOutX = 127;
     if (axisOutX < -127) axisOutX = -127;
     if (axisOutY > 127) axisOutY = 127;
@@ -88,17 +194,36 @@ export function writeHeuristic(
   }
 
   let dash = 0;
-  if (found === 1 && steerLen !== 0) {
-    const aimDx = aimX - x;
-    const aimDy = aimY - y;
+  if (found === 1 && steerLen > 0) {
+    const aimDx = rawAimX - x;
+    const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
+    const dashRange = 80 + share * 300;
+    const alignNeed = 0.94 - share * 0.08;
     let align = 0;
-    if (aimDist !== 0) {
+    if (aimDist !== 0 && (unitX !== 0 || unitY !== 0)) {
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);
     }
-    const land = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
-    if (aimDist < DASH_RANGE && align > ALIGN && land <= DASH_LIMIT * arena) {
+    const landStick = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
+    const stickDash = aimDist < dashRange && align > alignNeed && landStick <= DASH_LIMIT * arena;
+    if (stickDash) {
       dash = 1;
+    } else if (!contactYield && aimDist > 0 && aimDist < dashRange) {
+      const faceX = steerX / steerLen;
+      const faceY = steerY / steerLen;
+      const faceAlign = faceX * (aimDx / aimDist) + faceY * (aimDy / aimDist);
+      const land = Math.hypot(x + faceX * TRAVEL, y + faceY * TRAVEL);
+      if (faceAlign > alignNeed && land <= DASH_LIMIT * arena) {
+        dash = 1;
+        let faceAxisX = Math.round(faceX * 127 * pace);
+        let faceAxisY = Math.round(faceY * 127 * pace);
+        if (faceAxisX > 127) faceAxisX = 127;
+        if (faceAxisX < -127) faceAxisX = -127;
+        if (faceAxisY > 127) faceAxisY = 127;
+        if (faceAxisY < -127) faceAxisY = -127;
+        axisX[botIndex] = faceAxisX;
+        axisY[botIndex] = faceAxisY;
+      }
     }
   }
   buttons[botIndex] = dash;

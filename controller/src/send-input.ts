@@ -3,10 +3,13 @@ import { quantizeAxis } from '../../shared/src/controller/quantize.ts';
 import { HEARTBEAT_MS, encodeHeartbeat } from '../../shared/src/stretch1/heartbeat.ts';
 import { nextDelayMs } from '../../shared/src/stretch1/tdma.ts';
 import { sendIntervalMs } from '../../shared/src/stretch1/tier.ts';
-import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
+import { inputDeliveries, routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
 
 const scratch = new ArrayBuffer(8);
+const scratchWs = new ArrayBuffer(8);
 const view = new DataView(scratch);
+const scratchBytes = new Uint8Array(scratch);
+const scratchWsBytes = new Uint8Array(scratchWs);
 const heartbeat = new Uint8Array(4);
 const packet: InputPacket = {
   seq: 0,
@@ -128,7 +131,6 @@ function scheduleInput(): void {
 function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
   if (!joined) return 'closed';
   const route = readRoute();
-  if (route === 'drop' || route === 'wait') return route;
   const now = performance.now();
   packet.seq = seq;
   packet.phoneTs = Math.floor(now) % 65536;
@@ -137,8 +139,14 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
   packet.axisX = axisX;
   packet.axisY = axisY;
   encodeInto(packet, view);
-  const queued = route === 'dc' ? sendDc(scratch) : sendWs(scratch);
-  if (!queued) return 'closed';
+  const which = inputDeliveries(route);
+  let queued = false;
+  if (which.dc && sendDc(scratch)) queued = true;
+  if (which.ws) {
+    scratchWsBytes.set(scratchBytes);
+    if (sendWs(scratchWs)) queued = true;
+  }
+  if (!queued) return route === 'wait' ? 'wait' : 'closed';
   if ((buttons & 1) !== 0) {
     dashEdge = false;
     if (!buttonDown) buttons &= ~1;
@@ -150,17 +158,24 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
   return 'sent';
 }
 
+function stickHeld(): boolean {
+  return axisX !== 0 || axisY !== 0 || (buttons & 1) !== 0;
+}
+
 function flushFromTimer(): void {
   pending = 0;
+  if (!joined) return;
+  const interval = sendIntervalMs(tier);
   const now = performance.now();
-  const since = Number.isFinite(lastInputAtMs) ? now - lastSend : sendIntervalMs(tier);
-  const delay = nextDelayMs(now + offsetMs, clockSlot, since, sendIntervalMs(tier));
-  if (delay > 0) {
-    arm(delay);
+  const since = Number.isFinite(lastInputAtMs) ? now - lastSend : interval;
+  if (since < interval) {
+    arm(interval - since);
     return;
   }
   const result = flushSend();
-  if (result === 'wait' || result === 'drop') arm(sendIntervalMs(tier));
+  if (result === 'sent' && !stickHeld()) return;
+  const phase = nextDelayMs(performance.now() + offsetMs, clockSlot, interval, interval);
+  arm(phase > 0 ? phase : interval);
 }
 
 function arm(delay: number): void {

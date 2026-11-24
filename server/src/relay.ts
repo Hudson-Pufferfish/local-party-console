@@ -39,6 +39,7 @@ export function attachRelay(httpServer: Server, store: RoomStore): Relay {
   const counts = new Map<string, number>();
   const clients = new Map<Room, Set<Client>>();
   const primaries = new WeakMap<Room, Client>();
+  const mounts = new WeakMap<Room, string>();
 
   const onUpgrade = (request: IncomingMessage, socket: Socket, head: Buffer): void => {
     const url = requestUrl(request);
@@ -92,7 +93,7 @@ export function attachRelay(httpServer: Server, store: RoomStore): Relay {
           handleBinary(primaries, client, rawBinary(data));
           return;
         }
-        handleText(clients, primaries, room, client, rawText(data));
+        handleText(clients, primaries, mounts, room, client, rawText(data));
       });
     });
   };
@@ -117,6 +118,7 @@ function roomClients(clients: Map<Room, Set<Client>>, room: Room): Set<Client> {
 function handleText(
   clients: Map<Room, Set<Client>>,
   primaries: WeakMap<Room, Client>,
+  mounts: WeakMap<Room, string>,
   room: Room,
   client: Client,
   raw: string,
@@ -145,11 +147,12 @@ function handleText(
     return;
   }
   if (type === 'room:join') {
-    handleJoin(clients, room, client, message.payload);
+    handleJoin(clients, mounts, room, client, message.payload);
     return;
   }
   if (type === 'game:mount' || type.startsWith('sumo:')) {
     if (primaries.get(room) !== client) return;
+    if (type === 'game:mount') mounts.set(room, raw);
     fanOut(clients, room, client, raw);
     return;
   }
@@ -163,6 +166,7 @@ function handleText(
 
 function handleJoin(
   clients: Map<Room, Set<Client>>,
+  mounts: WeakMap<Room, string>,
   room: Room,
   client: Client,
   payload: unknown,
@@ -192,6 +196,8 @@ function handleJoin(
     type: 'room:players',
     payload: { players: result.players },
   }));
+  const mounted = mounts.get(room);
+  if (mounted !== undefined) client.ws.send(mounted);
 }
 
 function handleBinary(primaries: WeakMap<Room, Client>, client: Client, data: Buffer): void {

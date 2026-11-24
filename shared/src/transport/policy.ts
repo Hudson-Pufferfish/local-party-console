@@ -21,3 +21,9 @@ export function routeFastInput(input: FastInputRouteInput): FastInputRoute {
   }
   return 'wait';
 }
+
+export function inputDeliveries(route: FastInputRoute): { dc: boolean; ws: boolean } {
+  if (route === 'dc') return { dc: true, ws: true };
+  if (route === 'ws' || route === 'drop' || route === 'wait') return { dc: false, ws: true };
+  return { dc: false, ws: false };
+}

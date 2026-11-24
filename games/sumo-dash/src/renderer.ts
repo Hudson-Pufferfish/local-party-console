@@ -10,6 +10,8 @@ const PUCK_R = 28;
 const DASH_MAX = 1.5;
 const PLAYER = 8;
 const STRIDE = 10;
+const SHAKE_MAX = 0.5;
+const SHAKE_DECAY = 0.25;
 
 const PUCK = PLAYER_COLORS.map((color) => Number.parseInt(color.slice(1), 16));
 
@@ -26,7 +28,6 @@ export function createSumoRenderer(
   const sparks: Spark[] = [];
   for (let index = 0; index < 12; index += 1) sparks.push({ x: 0, y: 0, life: 0 });
   let board: Phaser.GameObjects.Graphics | null = null;
-  let banner: Phaser.GameObjects.Text | null = null;
   let lastHit = 0;
   let shake = 0;
   let gone = false;
@@ -38,13 +39,6 @@ export function createSumoRenderer(
 
     create(): void {
       board = this.add.graphics();
-      banner = this.add.text(0, 0, '', {
-        fontFamily: 'Space Grotesk',
-        fontSize: '64px',
-        color: '#111111',
-        align: 'center',
-      });
-      banner.setOrigin(0.5, 0);
       if (!gone) draw();
     }
   }
@@ -81,31 +75,28 @@ export function createSumoRenderer(
     const state = readState();
     const hit = state[6] ?? 0;
     if (hit > lastHit) {
-      shake = 8;
+      shake = SHAKE_MAX;
       armSparks(state, sparks);
     }
     lastHit = hit;
-    if (hit > 0) return;
-    if (shake > 0) shake -= 2;
-    if (shake < 0) shake = 0;
     paint();
+    if (shake > 0) {
+      shake = shake > SHAKE_DECAY ? shake - SHAKE_DECAY : 0;
+    }
   }
 
   function paint(): void {
     const gfx = board;
-    const label = banner;
-    if (gfx === null || label === null || gone) return;
+    if (gfx === null || gone) return;
     const state = readState();
     const width = canvas.width > 0 ? canvas.width : 800;
     const height = canvas.height > 0 ? canvas.height : 800;
     const centerX = width * 0.5;
     const centerY = height * 0.5;
     const scale = (Math.min(centerX, centerY) - 24) / R0;
-    const tick = state[0] ?? 0;
-    const mag = shake > 8 ? 8 : shake;
-    const ox = mag === 0 ? 0 : (tick & 1) === 0 ? mag : -mag;
-    const oyRaw = mag === 0 ? 0 : (tick & 2) === 0 ? mag * 0.5 : mag * -0.5;
-    const oy = oyRaw > 8 ? 8 : oyRaw < -8 ? -8 : oyRaw;
+    const mag = shake > SHAKE_MAX ? SHAKE_MAX : shake;
+    const ox = mag;
+    const oy = mag * 0.5;
     const arena = (state[3] ?? R0) * scale;
     const target = (state[4] ?? R0) * scale;
 
@@ -191,14 +182,6 @@ export function createSumoRenderer(
       spark.life -= 1;
     }
 
-    const phase = state[1] ?? 0;
-    const timer = state[2] ?? 0;
-    let copy = '';
-    if (phase === 0 && timer > 0) copy = String(Math.ceil(timer));
-    else if (phase === 2) copy = 'ROUND';
-    label.setText(copy);
-    label.setVisible(copy !== '');
-    label.setPosition(centerX + ox, 36 + oy);
   }
 
   return {
@@ -206,7 +189,6 @@ export function createSumoRenderer(
     destroy(): void {
       gone = true;
       board = null;
-      banner = null;
       game.destroy(false, false);
     },
   };

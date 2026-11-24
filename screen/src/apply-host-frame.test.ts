@@ -87,7 +87,7 @@ test('one binary ws input changes that slot velocity', async () => {
     const sim = createSumoSimulation();
     sim.startMatch([0, 1]);
     let guard = 0;
-    while (sim.state[PHASE] === 0 && guard < 1000) {
+    while (sim.state[PHASE] !== 1 && guard < 4000) {
       sim.step(DT);
       guard += 1;
     }

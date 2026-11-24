@@ -13,6 +13,7 @@ const COUNTDOWN = 0;
 const ACTIVE = 1;
 const ROUND_END = 2;
 const MATCH_OVER = 3;
+const PRACTICE = 4;
 const ALIVE = 1;
 
 interface Channel {
@@ -30,13 +31,14 @@ export interface SumoSimulation {
 }
 
 function radiusAt(t: number): number {
-  let radius: number = C.r0;
-  if (t > C.shrinkHold) {
-    radius = C.r0 - C.shrinkRate * (t - C.shrinkHold);
-    if (radius < C.rMin) {
-      radius = C.rMin;
-    }
-  }
+  if (t <= C.shrinkHold) return C.r0;
+  const shrunk = C.r0 - C.shrinkRate * (t - C.shrinkHold);
+  if (shrunk > C.rMin) return shrunk;
+  const atMin = C.shrinkHold + (C.r0 - C.rMin) / C.shrinkRate;
+  const holdEnd = atMin + C.rMinHold;
+  if (t <= holdEnd) return C.rMin;
+  let radius = C.rMin - C.suddenRate * (t - holdEnd);
+  if (radius < C.rFloor) radius = C.rFloor;
   return radius;
 }
 
@@ -87,11 +89,7 @@ export function createSumoSimulation(): SumoSimulation {
     }
   }
 
-  function beginCountdown(): void {
-    state[PHASE] = COUNTDOWN;
-    state[TIMER] = C.countdown;
-    state[ARENA] = C.r0;
-    state[TARGET] = C.r0;
+  function resetBodies(): void {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       inputs[i].edge = 0;
       const base = PLAYER + i * STRIDE;
@@ -105,7 +103,57 @@ export function createSumoSimulation(): SumoSimulation {
       state[base + 7] = 0;
       state[base + 8] = 0;
     }
+  }
+
+  function beginCountdown(): void {
+    state[PHASE] = COUNTDOWN;
+    state[TIMER] = C.countdown;
+    state[ARENA] = C.r0;
+    state[TARGET] = C.r0;
+    resetBodies();
     placeSpawn(false);
+    writeAliveMask();
+  }
+
+  function reviveForBreak(): void {
+    const keep = C.r0 * 0.98;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      if (joined[i] === 0) continue;
+      inputs[i].edge = 0;
+      const base = PLAYER + i * STRIDE;
+      state[base + 6] = 0;
+      state[base + 7] = 0;
+      state[base + 8] = ALIVE;
+      const x = state[base];
+      const y = state[base + 1];
+      const radius = Math.hypot(x, y);
+      if (radius <= keep || radius === 0 || keep <= 0) continue;
+      const scale = keep / radius;
+      state[base] = x * scale;
+      state[base + 1] = y * scale;
+      const nx = state[base] / keep;
+      const ny = state[base + 1] / keep;
+      const vx = state[base + 2];
+      const vy = state[base + 3];
+      const outward = vx * nx + vy * ny;
+      if (outward > 0) {
+        state[base + 2] = vx - outward * nx;
+        state[base + 3] = vy - outward * ny;
+      }
+    }
+  }
+
+  function beginPractice(lineup: boolean): void {
+    state[PHASE] = PRACTICE;
+    state[TIMER] = C.practice;
+    state[ARENA] = C.r0;
+    state[TARGET] = C.r0;
+    if (lineup) {
+      resetBodies();
+      placeSpawn(false);
+    } else {
+      reviveForBreak();
+    }
     writeAliveMask();
   }
 
@@ -129,7 +177,7 @@ export function createSumoSimulation(): SumoSimulation {
       inputs[i].edge = 0;
     }
     state.fill(0);
-    beginCountdown();
+    beginPractice(true);
   }
 
   function resolvePairs(): void {
@@ -241,7 +289,7 @@ export function createSumoSimulation(): SumoSimulation {
       }
       return;
     }
-    if (phase !== ACTIVE) {
+    if (phase !== ACTIVE && phase !== PRACTICE) {
       return;
     }
     const base = PLAYER + playerIndex * STRIDE;
@@ -286,9 +334,18 @@ export function createSumoSimulation(): SumoSimulation {
           state[PHASE] = MATCH_OVER;
           state[TIMER] = 0;
         } else {
-          beginCountdown();
+          beginPractice(false);
         }
       }
+      writeAliveMask();
+      return;
+    }
+    if (phase === PRACTICE) {
+      state[ARENA] = C.r0;
+      state[TARGET] = C.r0;
+      simulateMotion(dt);
+      state[TIMER] -= dt;
+      if (state[TIMER] <= 0) beginCountdown();
       writeAliveMask();
       return;
     }
@@ -297,6 +354,108 @@ export function createSumoSimulation(): SumoSimulation {
       return;
     }
 
+    state[TIMER] += dt;
+    const elapsed = state[TIMER];
+    state[ARENA] = radiusAt(elapsed);
+    state[TARGET] = radiusAt(elapsed + C.previewLead);
+    simulateMotion(dt);
+
+    const limit = state[ARENA] * state[ARENA];
+    let aliveBefore = 0;
+    let outCount = 0;
+    let farthestOut = -1;
+    let farthestOutR = -1;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      const base = PLAYER + i * STRIDE;
+      if ((state[base + 8] & ALIVE) === 0) continue;
+      aliveBefore += 1;
+      const x = state[base];
+      const y = state[base + 1];
+      const radiusSq = x * x + y * y;
+      if (radiusSq <= limit) continue;
+      outCount += 1;
+      if (farthestOut < 0 || radiusSq > farthestOutR) {
+        farthestOut = i;
+        farthestOutR = radiusSq;
+      }
+    }
+    if (outCount > 0 && outCount === aliveBefore && state[ARENA] > C.rMin) {
+      pullInside(state[ARENA]);
+    } else if (outCount > 1 && state[ARENA] <= C.rMin && farthestOut >= 0) {
+      state[PLAYER + farthestOut * STRIDE + 8] = 0;
+    } else if (outCount > 0) {
+      for (let i = 0; i < C.maxPlayers; i += 1) {
+        const base = PLAYER + i * STRIDE;
+        if ((state[base + 8] & ALIVE) === 0) continue;
+        const x = state[base];
+        const y = state[base + 1];
+        if (x * x + y * y > limit) state[base + 8] = 0;
+      }
+    }
+    if (state[ARENA] <= C.rFloor + 1e-4) {
+      let farthest = -1;
+      let farthestR = -1;
+      let alive = 0;
+      for (let i = 0; i < C.maxPlayers; i += 1) {
+        const base = PLAYER + i * STRIDE;
+        if ((state[base + 8] & ALIVE) === 0) continue;
+        alive += 1;
+        const x = state[base];
+        const y = state[base + 1];
+        const radiusSq = x * x + y * y;
+        if (farthest < 0 || radiusSq > farthestR) {
+          farthest = i;
+          farthestR = radiusSq;
+        }
+      }
+      if (alive > 1 && farthest >= 0) {
+        state[PLAYER + farthest * STRIDE + 8] = 0;
+      }
+    }
+    let aliveCount = 0;
+    let winner = -1;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      const base = PLAYER + i * STRIDE;
+      if ((state[base + 8] & ALIVE) === 0) continue;
+      aliveCount += 1;
+      winner = i;
+    }
+    if (aliveCount <= 1) {
+      if (aliveCount === 1) {
+        state[PLAYER + winner * STRIDE + 9] += 1;
+      }
+      state[PHASE] = ROUND_END;
+      state[TIMER] = C.roundEnd;
+    }
+    writeAliveMask();
+  }
+
+  function pullInside(arena: number): void {
+    const keep = arena * 0.98;
+    if (keep <= 0) return;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      const base = PLAYER + i * STRIDE;
+      if ((state[base + 8] & ALIVE) === 0) continue;
+      const x = state[base];
+      const y = state[base + 1];
+      const radius = Math.hypot(x, y);
+      if (radius <= keep || radius === 0) continue;
+      const scale = keep / radius;
+      state[base] = x * scale;
+      state[base + 1] = y * scale;
+      const nx = state[base] / keep;
+      const ny = state[base + 1] / keep;
+      const vx = state[base + 2];
+      const vy = state[base + 3];
+      const outward = vx * nx + vy * ny;
+      if (outward > 0) {
+        state[base + 2] = vx - outward * nx;
+        state[base + 3] = vy - outward * ny;
+      }
+    }
+  }
+
+  function simulateMotion(dt: number): void {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       let cooldown = state[base + 5] - dt;
@@ -321,11 +480,6 @@ export function createSumoSimulation(): SumoSimulation {
       state[base + 6] = activeTimer;
       state[base + 7] = stun;
     }
-
-    state[TIMER] += dt;
-    const elapsed = state[TIMER];
-    state[ARENA] = radiusAt(elapsed);
-    state[TARGET] = radiusAt(elapsed + C.previewLead);
 
     const damp = Math.exp(-C.mu * dt);
     for (let i = 0; i < C.maxPlayers; i += 1) {
@@ -394,32 +548,6 @@ export function createSumoSimulation(): SumoSimulation {
     }
 
     resolvePairs();
-
-    let aliveCount = 0;
-    let winner = -1;
-    const limit = state[ARENA] * state[ARENA];
-    for (let i = 0; i < C.maxPlayers; i += 1) {
-      const base = PLAYER + i * STRIDE;
-      if ((state[base + 8] & ALIVE) === 0) {
-        continue;
-      }
-      const x = state[base];
-      const y = state[base + 1];
-      if (x * x + y * y > limit) {
-        state[base + 8] = 0;
-        continue;
-      }
-      aliveCount += 1;
-      winner = i;
-    }
-    if (aliveCount <= 1) {
-      if (aliveCount === 1) {
-        state[PLAYER + winner * STRIDE + 9] += 1;
-      }
-      state[PHASE] = ROUND_END;
-      state[TIMER] = C.roundEnd;
-    }
-    writeAliveMask();
   }
 
   return { state, applyInput, step, startMatch };

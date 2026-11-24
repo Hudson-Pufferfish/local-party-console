@@ -1,4 +1,6 @@
 import { expect, test } from 'vitest';
+import { SUMO_CONSTANTS } from './constants';
+import { scoreboardLine } from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
 declare const Buffer: {
@@ -9,7 +11,7 @@ const PHASE = 1;
 const ARENA_RADIUS = 3;
 const DT = 1 / 120;
 const R0 = 400;
-const RMIN = 110;
+const RFLOOR = SUMO_CONSTANTS.rFloor;
 
 test('arena radius stays inside the ring and never grows during a round', () => {
   const sim = createSumoSimulation();
@@ -18,7 +20,7 @@ test('arena radius stays inside the ring and never grows during a round', () => 
 
   sim.startMatch([0, 1]);
   let guard = 0;
-  while (sim.state[PHASE] === 0 && guard < 1000) {
+  while (sim.state[PHASE] !== 1 && guard < 4000) {
     sim.step(DT);
     guard += 1;
   }
@@ -27,8 +29,9 @@ test('arena radius stays inside the ring and never grows during a round', () => 
   let previous = sim.state[ARENA_RADIUS];
   expect(previous).toBe(R0);
   let sawShrink = false;
+  let sawBelowMin = false;
 
-  for (let n = 0; n < 4500; n += 1) {
+  for (let n = 0; n < 6000 && sim.state[PHASE] === 1; n += 1) {
     sim.state[8] = 0;
     sim.state[9] = 0;
     sim.state[10] = 0;
@@ -39,18 +42,16 @@ test('arena radius stays inside the ring and never grows during a round', () => 
     sim.state[21] = 0;
     sim.step(DT);
     const radius = sim.state[ARENA_RADIUS];
-    expect(radius).toBeGreaterThanOrEqual(RMIN);
+    expect(radius).toBeGreaterThanOrEqual(RFLOOR);
     expect(radius).toBeLessThanOrEqual(R0);
     expect(radius).toBeLessThanOrEqual(previous);
-    if (radius < previous) {
-      sawShrink = true;
-    }
+    if (radius < previous) sawShrink = true;
+    if (radius < 110) sawBelowMin = true;
     previous = radius;
-    expect(sim.state[PHASE]).toBe(1);
   }
 
   expect(sawShrink).toBe(true);
-  expect(sim.state[ARENA_RADIUS]).toBe(RMIN);
+  expect(sawBelowMin).toBe(true);
 });
 
 function slotBase(slot: number): number {
@@ -59,16 +60,26 @@ function slotBase(slot: number): number {
 
 function reachActive(sim: ReturnType<typeof createSumoSimulation>): void {
   let guard = 0;
-  while (sim.state[PHASE] === 0 && guard < 1000) {
+  while (sim.state[PHASE] !== 1 && guard < 4000) {
     sim.step(DT);
     guard += 1;
   }
   expect(sim.state[PHASE]).toBe(1);
 }
 
+function reachCountdown(sim: ReturnType<typeof createSumoSimulation>): void {
+  let guard = 0;
+  while (sim.state[PHASE] !== 0 && guard < 4000) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(0);
+}
+
 test('holding dash fires one rising edge and keeps cooldown in range', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
+  reachCountdown(sim);
   const active = slotBase(0) + 6;
   const cooldown = slotBase(0) + 5;
   const vx = slotBase(0) + 2;
@@ -145,21 +156,100 @@ function scoreSum(sim: ReturnType<typeof createSumoSimulation>): number {
   return sum;
 }
 
-test('same-tick ring-outs draw and award no score', () => {
+test('a same-tick wipe stays in the round and awards no score', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
   reachActive(sim);
   const before = scoreSum(sim);
-  const radius = sim.state[ARENA_RADIUS];
-  sim.state[slotBase(0)] = radius + 1;
+  const radius = sim.state[ARENA_RADIUS] ?? 0;
+  sim.state[slotBase(0)] = radius + 40;
   sim.state[slotBase(0) + 1] = 0;
-  sim.state[slotBase(1)] = -(radius + 1);
+  sim.state[slotBase(0) + 2] = 500;
+  sim.state[slotBase(1)] = -(radius + 40);
   sim.state[slotBase(1) + 1] = 0;
+  sim.state[slotBase(1) + 2] = -500;
   sim.step(DT);
 
-  expect(countAlive(sim)).toBe(0);
+  expect(sim.state[PHASE]).toBe(1);
+  expect(countAlive(sim)).toBe(2);
   expect(scoreSum(sim)).toBe(before);
+  expect(Math.hypot(sim.state[slotBase(0)] ?? 0, sim.state[slotBase(0) + 1] ?? 0)).toBeLessThan(radius);
+  expect(Math.hypot(sim.state[slotBase(1)] ?? 0, sim.state[slotBase(1) + 1] ?? 0)).toBeLessThan(radius);
+  expect(sim.state[slotBase(0) + 2] ?? 0).toBeLessThanOrEqual(0);
+  expect(sim.state[slotBase(1) + 2] ?? 0).toBeGreaterThanOrEqual(0);
+});
+
+test('everyone outside on a small ring does not open a scoreless break', () => {
+  const timers = [0, 27, 33];
+  for (const timer of timers) {
+    const sim = createSumoSimulation();
+    sim.startMatch([0, 1, 2]);
+    reachActive(sim);
+    sim.state[2] = timer;
+    const before = scoreSum(sim);
+    for (const slot of [0, 1, 2]) {
+      const base = slotBase(slot);
+      const angle = (slot / 3) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * 500;
+      sim.state[base + 1] = Math.sin(angle) * 500;
+      sim.state[base + 2] = Math.cos(angle) * 500;
+      sim.state[base + 3] = Math.sin(angle) * 500;
+    }
+    let guard = 0;
+    while (sim.state[PHASE] === 1 && guard < 30) {
+      sim.step(DT);
+      guard += 1;
+    }
+    if (sim.state[PHASE] === 2) {
+      expect(scoreSum(sim)).toBe(before + 1);
+    } else {
+      expect(sim.state[PHASE]).toBe(1);
+      expect(scoreSum(sim)).toBe(before);
+      expect(countAlive(sim)).toBe(3);
+    }
+    expect(sim.state[PHASE]).not.toBe(4);
+  }
+});
+
+test('a scored round opens the break in place, then countdown is the lineup', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  reachActive(sim);
+  const winner = slotBase(0);
+  const loser = slotBase(1);
+  sim.state[winner] = 40;
+  sim.state[winner + 1] = -25;
+  sim.state[winner + 2] = 12;
+  sim.state[winner + 3] = 0;
+  const radius = sim.state[ARENA_RADIUS] ?? 0;
+  sim.state[loser] = radius + 30;
+  sim.state[loser + 1] = 0;
+  sim.state[loser + 2] = 400;
+  sim.step(DT);
   expect(sim.state[PHASE]).toBe(2);
+  const heldX = sim.state[winner] ?? 0;
+  const heldY = sim.state[winner + 1] ?? 0;
+  const heldVx = sim.state[winner + 2] ?? 0;
+  expect(Math.hypot(heldX, heldY)).toBeLessThan(80);
+  let guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(4);
+  expect(sim.state[winner]).toBeCloseTo(heldX, 3);
+  expect(sim.state[winner + 1]).toBeCloseTo(heldY, 3);
+  expect(sim.state[winner + 2]).toBeCloseTo(heldVx, 3);
+  expect(sim.state[loser + 8] & 1).toBe(1);
+  expect(Math.hypot(sim.state[loser] ?? 0, sim.state[loser + 1] ?? 0)).toBeLessThan(R0);
+  expect(sim.state[loser + 2] ?? 0).toBeLessThanOrEqual(0);
+  expect(sim.state[winner + 9]).toBe(1);
+  expect(sim.state[loser + 9]).toBe(0);
+
+  reachCountdown(sim);
+  expect(sim.state[winner]).toBeCloseTo(SUMO_CONSTANTS.rSpawn, 3);
+  expect(sim.state[winner + 1]).toBeCloseTo(0, 3);
+  expect(sim.state[winner + 9]).toBe(1);
 });
 
 function placeHeadOn(sim: ReturnType<typeof createSumoSimulation>): void {
@@ -241,6 +331,7 @@ test('ring-out stays dead when more input arrives', () => {
 test('countdown aim does not move the puck or start a dash', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
+  reachCountdown(sim);
   expect(sim.state[PHASE]).toBe(0);
   const base = slotBase(0);
   const x = sim.state[base];
@@ -305,7 +396,7 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
 
     const phase = state[PHASE];
     const radius = state[ARENA_RADIUS];
-    expect(radius).toBeGreaterThanOrEqual(110);
+    expect(radius).toBeGreaterThanOrEqual(RFLOOR);
     expect(radius).toBeLessThanOrEqual(400);
     if (phase === 1) {
       if (!trackingRadius) {
@@ -337,7 +428,7 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
         }
       }
     }
-    if (phase === 0) {
+    if (phase === 0 || phase === 4) {
       for (let slot = 0; slot < 8; slot += 1) dead[slot] = false;
     }
 
@@ -386,4 +477,78 @@ test('the same input log replays to the same float bytes', () => {
   }
 
   expect(Buffer.compare(run(), run())).toBe(0);
+});
+
+test('practice lets a puck move and dash, then countdown puts it back on the spawn ring', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  expect(sim.state[PHASE]).toBe(4);
+  const base = slotBase(0);
+  const spawnX = sim.state[base] ?? 0;
+  const spawnY = sim.state[base + 1] ?? 0;
+
+  for (let n = 0; n < 40; n += 1) {
+    sim.applyInput(0, 1, 127, 0);
+    sim.step(DT);
+  }
+
+  expect(sim.state[PHASE]).toBe(4);
+  expect(Math.hypot((sim.state[base] ?? 0) - spawnX, (sim.state[base + 1] ?? 0) - spawnY)).toBeGreaterThan(5);
+  expect(sim.state[base + 5] ?? 0).toBeGreaterThan(0);
+  expect(sim.state[slotBase(0) + 9]).toBe(0);
+
+  reachCountdown(sim);
+  expect(sim.state[base]).toBeCloseTo(spawnX, 4);
+  expect(sim.state[base + 1]).toBeCloseTo(spawnY, 4);
+  expect(sim.state[base + 2]).toBe(0);
+  expect(sim.state[base + 3]).toBe(0);
+});
+
+test('three round wins end the match and the scoreboard follows the scores', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  const loser = slotBase(1);
+  for (let round = 0; round < 3; round += 1) {
+    reachActive(sim);
+    const radius = sim.state[ARENA_RADIUS] ?? 0;
+    sim.state[loser] = radius + 5;
+    sim.state[loser + 1] = 0;
+    sim.step(DT);
+    expect(sim.state[PHASE]).toBe(2);
+    expect(sim.state[slotBase(0) + 9]).toBe(round + 1);
+    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'], 3)).toBe(`hu ${round + 1}/3  ad 0/3`);
+  }
+  let guard = 0;
+  while (sim.state[PHASE] !== 3 && guard < 4000) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(3);
+  expect(sim.state[slotBase(0) + 9]).toBe(3);
+});
+
+test('a pack that stays inside still ends the round and scores', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1, 2]);
+  reachActive(sim);
+  let guard = 0;
+  while (sim.state[PHASE] === 1 && guard < 8000) {
+    const radius = sim.state[ARENA_RADIUS] ?? 0;
+    const keep = Math.min(radius * 0.45, 80);
+    for (const slot of [0, 1, 2]) {
+      const base = slotBase(slot);
+      if ((sim.state[base + 8] & 1) === 0) continue;
+      const angle = (slot / 3) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * keep;
+      sim.state[base + 1] = Math.sin(angle) * keep;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(2);
+  expect(scoreSum(sim)).toBe(1);
+  const line = scoreboardLine(sim.state, ['Hudson', '', ''], 3);
+  expect(line.includes('1/3')).toBe(true);
 });
