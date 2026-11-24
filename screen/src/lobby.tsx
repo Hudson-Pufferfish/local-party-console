@@ -73,7 +73,7 @@ export const Lobby: VoidComponent<{
       <Show when={props.games.find((game) => game.id === props.selectedId)?.supportsBots === true}>
         <section class="panel">
           <h2>BOTS</h2>
-          <div class="carousel">
+          <div class="carousel bot-stepper">
             <button
               type="button"
               class="key"
@@ -85,7 +85,7 @@ export const Lobby: VoidComponent<{
             >
               -
             </button>
-            <span class="mono">{props.botCount}</span>
+            <span class="mono bot-count">{props.botCount}</span>
             <button
               type="button"
               class="key"
