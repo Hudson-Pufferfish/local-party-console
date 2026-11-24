@@ -44,7 +44,11 @@ Headless Chrome without ignoring certificate errors saved an empty document. The
 
 ## Non-blocking suggestions
 
-- The screen still does not answer `net:ping`, so the phone `WI-FI` pill stays `WAIT` until some peer sends `net:pong`.
-- `sumo:rematch` from the podium uses `action: 'again'`. The spec word is `restart`. The mirror tab already listens for `again`.
 - `eventsFromHeaderDiff` sets `knockedBy` to null. The float buffer does not store who hit whom.
 - A draw does not increment the score sum, so the next `roundNumber` can repeat.
+
+## Overnight hardening 2026-11-24
+
+- Added screen `net:ping` handler: screen now responds with `net:pong` using the same `t`, which will fill controller WI-FI pill RTT and jitter (not verified with real phone yet).
+- Fixed `sumo:rematch` action from `'again'` to `'restart'` to match spec (`games-spec/sumo-dash.md` line 148). Mirror tabs now listen for `'restart'` action.
+- Tests still pass: `corepack pnpm -r test` exit 0 (Shared 8 files / 9 tests, screen 1, server 2 files / 4 tests, sumo 2 files / 9 tests, controller 1 file / 2 tests).
