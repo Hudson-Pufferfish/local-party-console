@@ -73,12 +73,11 @@ export function createSumoRenderer(
     const state = readState();
     const hit = state[6] ?? 0;
     if (hit > lastHit) {
-      shake = 8;
+      shake = 3;
       armSparks(state, sparks);
     }
     lastHit = hit;
-    if (hit > 0) return;
-    if (shake > 0) shake -= 2;
+    if (shake > 0) shake -= 1;
     if (shake < 0) shake = 0;
     paint();
   }
@@ -92,11 +91,9 @@ export function createSumoRenderer(
     const centerX = width * 0.5;
     const centerY = height * 0.5;
     const scale = (Math.min(centerX, centerY) - 24) / R0;
-    const tick = state[0] ?? 0;
-    const mag = shake > 8 ? 8 : shake;
-    const ox = mag === 0 ? 0 : (tick & 1) === 0 ? mag : -mag;
-    const oyRaw = mag === 0 ? 0 : (tick & 2) === 0 ? mag * 0.5 : mag * -0.5;
-    const oy = oyRaw > 8 ? 8 : oyRaw < -8 ? -8 : oyRaw;
+    const mag = shake > 3 ? 3 : shake;
+    const ox = mag;
+    const oy = mag * 0.5;
     const arena = (state[3] ?? R0) * scale;
     const target = (state[4] ?? R0) * scale;
 

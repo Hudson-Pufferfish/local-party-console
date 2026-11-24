@@ -98,7 +98,7 @@ If a phone stops sending input, that slot's axes and buttons become zero until t
 * All visuals rendered procedurally in Phaser 4 (`Graphics` / generated Canvas textures):
   * Matte Warm Putty background (`#EAE6DF`), circular steel plate (`#D6D1C7`) with thick `4px #111111` rim and radial degree ticks.
   * Each puck rendered with its P1–P8 high-contrast fill, `3px #111111` border, hard offset shadow (`+5px, +5px`), directional nose wedge, and a radial `DASH` cooldown arc around the rim.
-  * **Hit-Stop & Juice:** Heavy dash impacts set `hitStopFrames = 3`. The renderer pauses drawing for those frames (~25ms at 120Hz). `step(dt)` keeps running, and input keeps arriving. Camera shake is at most 8px. Sparks are hard-edged squares (no soft blur).
+  * **Hit-Stop & Juice:** Heavy dash impacts set `hitStopFrames = 3`. The renderer keeps drawing those frames. `step(dt)` keeps running, and input keeps arriving. Camera shake is a single nudge of at most 3px, not a skipped frame. Sparks are hard-edged squares (no soft blur).
 
 ### Heuristic bot
 An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim. Levels are a 1–20 scale. Each Start and Play again shuffles `{1,2,3,4,5,6,7}` and assigns the first N values to the N bots in slot order (`assignBotLevels`), so every bot is a distinct integer from 1–7 and the strongest living-room bot is 7/20. Levels 8 through 20 are never assigned. The live host draws once with `Math.random` when the roster is armed. Tests pass a seeded rng; the same seed returns the same levels.
