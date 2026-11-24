@@ -100,14 +100,14 @@ If a phone stops sending input, that slot's axes and buttons become zero until t
   * **Hit-Stop & Juice:** Heavy dash impacts set `hitStopFrames = 3`. The renderer pauses drawing for those frames (~25ms at 120Hz). `step(dt)` keeps running, and input keeps arriving. Camera shake is at most 8px. Sparks are hard-edged squares (no soft blur).
 
 ### Heuristic bot
-An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim. Each bot in a match gets a distinct level from `{1,2,3,4,5,6,7}` (`assignBotLevels`). Levels 8, 9, and 10 are never assigned. Two bots never share a level. The spread is fixed: 1 bot → 3; 2 → 2 and 5; 3 → 1, 3, 5; then 1, 3, 5, 7; 1, 2, 4, 5, 7; 1, 2, 3, 5, 6, 7; and 1 through 7. Slots are filled in index order.
+An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim. Levels are a 1–20 scale. Each bot in a match gets a distinct integer from `{1,2,3,4,5,6,7}` only (`assignBotLevels`), so the strongest living-room bot is 7/20. Levels 8 through 20 are never assigned. Two bots never share a level. The spread is fixed: 1 bot → 3; 2 → 2 and 5; 3 → 1, 3, 5; then 1, 3, 5, 7; 1, 2, 4, 5, 7; 1, 2, 3, 5, 6, 7; and 1 through 7. Slots are filled in index order.
 
-A higher level chases farther from center, aims with less slip, and dashes sooner. A lower level turns for home earlier and peels off a stacked opponent. Two pucks cannot get closer than $2 \times 28$. A pure sideways shove inside that gap never rams, so the bots circle and the round never ends. Inside $96$ the stick stays aimed at the opponent, with a smaller sideways part for a higher level.
+Curves use $\text{share} = \text{level}/20$. A higher share chases farther from center, aims with less slip, and dashes sooner. At 7/20 the bot still turns for home early and does not play like a full-strength bot. Two pucks cannot get closer than $2 \times 28$. Inside $96$ the stick stays partly aimed at the opponent so a round can still end.
 
-1. If the bot is outside its level's home radius, steer toward $(0, 0)$. Home radius is $(0.48 + 0.04 \cdot \text{level}) \cdot R_{\text{arena}}$.
-2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, plus a sideways slip of $(8 - \text{level}) \cdot 22$ that flips with the slot.
-3. If the opponent's center is inside $96$, mix that aim with a slot-sided slide. The ram share is $0.45 + 0.07 \cdot \text{level}$. The rest is sideways. The stick still points at the opponent.
-4. Fire `DASH` when distance is inside the level's range, alignment clears the level's bar, and the dash would not carry the bot past $0.85 \cdot R_{\text{arena}}$. Range is $70 + 20 \cdot \text{level}$. Alignment is $0.97 - 0.014 \cdot \text{level}$.
+1. If the bot is outside its level's home radius, steer toward $(0, 0)$. Home radius is $(0.40 + 0.36 \cdot \text{share}) \cdot R_{\text{arena}}$.
+2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$, plus a sideways slip of $(1 - \text{share}) \cdot 160$ that flips with the slot.
+3. If the opponent's center is inside $96$, mix that aim with a slot-sided slide. The ram share is $0.42 + 0.53 \cdot \text{share}$. The rest is sideways.
+4. Fire `DASH` when distance is inside the level's range, alignment clears the level's bar, and the dash would not carry the bot past $0.85 \cdot R_{\text{arena}}$. Range is $36 + 174 \cdot \text{share}$. Alignment is $0.995 - 0.125 \cdot \text{share}$.
 
 ---
 

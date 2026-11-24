@@ -2,6 +2,7 @@ import { SUMO_CONSTANTS } from './constants';
 
 const PREDICT = 0.15;
 const DASH_LIMIT = 0.85;
+const LEVEL_SCALE = 20;
 const CONTACT = SUMO_CONSTANTS.puckRadius * 2 + 40;
 const TRAVEL = SUMO_CONSTANTS.dashSpeed * SUMO_CONSTANTS.dashActive;
 const ARENA = 3;
@@ -74,7 +75,8 @@ export function writeHeuristic(
   }
 
   const skill = clampLevel(level);
-  const home = 0.48 + skill * 0.04;
+  const share = skill / LEVEL_SCALE;
+  const home = 0.4 + share * 0.36;
   const x = state[base];
   const y = state[base + 1];
   const arena = state[ARENA];
@@ -107,7 +109,7 @@ export function writeHeuristic(
     const aimDist = Math.hypot(aimDx, aimDy);
     if (aimDist > 0) {
       const side = botIndex % 2 === 0 ? 1 : -1;
-      const slip = (8 - skill) * 22;
+      const slip = (1 - share) * 160;
       aimX += side * (-aimDy / aimDist) * slip;
       aimY += side * (aimDx / aimDist) * slip;
     }
@@ -140,12 +142,12 @@ export function writeHeuristic(
     let toward = Math.hypot(towardX, towardY);
     if (toward === 0) {
       towardX = side;
-      towardY = skill >= 5 ? 0 : side;
+      towardY = share >= 0.5 ? 0 : side;
       toward = Math.hypot(towardX, towardY);
     }
     towardX /= toward;
     towardY /= toward;
-    const ram = 0.45 + skill * 0.07;
+    const ram = 0.42 + share * 0.53;
     const lateral = 1 - ram;
     unitX = towardX * ram - towardY * side * lateral;
     unitY = towardY * ram + towardX * side * lateral;
@@ -180,8 +182,8 @@ export function writeHeuristic(
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);
     }
     const land = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
-    const dashRange = 70 + skill * 20;
-    const alignNeed = 0.97 - skill * 0.014;
+    const dashRange = 36 + share * 174;
+    const alignNeed = 0.995 - share * 0.125;
     if (aimDist < dashRange && align > alignNeed && land <= DASH_LIMIT * arena) {
       dash = 1;
     }

@@ -18,7 +18,7 @@ test('bot at 0.85R steers toward the center and does not dash', () => {
   expect(buttons[0] & 1).toBe(0);
 });
 
-test('bot levels are unique, inside 1..7, and never 8..10', () => {
+test('bot levels are unique, inside 1..7, and never 8..20', () => {
   expect(assignBotLevels(2)).toEqual([2, 5]);
   expect(assignBotLevels(3)).toEqual([1, 3, 5]);
   for (let count = 1; count <= 8; count += 1) {
@@ -48,8 +48,11 @@ test('a close bot still rams the opponent', () => {
   const axisY = new Int8Array(8);
   const buttons = new Uint8Array(8);
   writeHeuristic(state, 0, axisX, axisY, buttons, 5);
-  expect(axisX[0]).toBeGreaterThan(80);
-  expect(Math.abs(axisY[0] ?? 0)).toBeLessThan(Math.abs(axisX[0] ?? 0));
+  expect(axisX[0]).toBeGreaterThan(Math.abs(axisY[0] ?? 0));
+  writeHeuristic(state, 0, axisX, axisY, buttons, 7);
+  expect(axisX[0]).toBeGreaterThan(0);
+  expect(Math.abs(axisY[0] ?? 0)).toBeGreaterThan(30);
+  expect(axisX[0]).toBeLessThan(115);
 });
 
 test('two stacked bots of different levels do not share a zero steer', () => {
