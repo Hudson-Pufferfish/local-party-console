@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { levelsForMask, writeHeuristic } from '../../games/sumo-dash/src/heuristic.ts';
+import { writeHeuristic } from '../../games/sumo-dash/src/heuristic.ts';
 import { createSumoSimulation } from '../../games/sumo-dash/src/simulation.ts';
 import { createBotFill } from './bot-fill.ts';
 import { createHostLoop, type ScreenSim } from './host-loop.ts';
@@ -34,7 +34,7 @@ test('a human slot still receives applyInput when a bot fills another slot', () 
 test('a held stick moves a human while bots fill the other slots', () => {
   const sim = createSumoSimulation();
   const mask = new Uint8Array([0, 0, 1, 1, 0, 0, 0, 0]);
-  const fill = createBotFill(writeHeuristic, levelsForMask);
+  const fill = createBotFill(writeHeuristic, () => Uint8Array.from([0, 0, 2, 5, 0, 0, 0, 0]));
   fill.arm(mask);
   const loop = createHostLoop(sim, undefined, () => {}, (slot, current) => fill.fill(slot, current));
   loop.startMatch([0, 1, 2, 3]);
@@ -51,7 +51,7 @@ test('a held stick moves a human while bots fill the other slots', () => {
 test('two bots do not stay locked together for the whole round', () => {
   const sim = createSumoSimulation();
   const mask = new Uint8Array([1, 1, 0, 0, 0, 0, 0, 0]);
-  const fill = createBotFill(writeHeuristic, levelsForMask);
+  const fill = createBotFill(writeHeuristic, () => Uint8Array.from([2, 5, 0, 0, 0, 0, 0, 0]));
   fill.arm(mask);
   const loop = createHostLoop(sim, undefined, () => {}, (slot, current) => fill.fill(slot, current));
   loop.startMatch([0, 1]);

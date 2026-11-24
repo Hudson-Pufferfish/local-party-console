@@ -12,31 +12,34 @@ const FLAGS = 8;
 const ALIVE = 1;
 const SLOTS = 8;
 
-const LEVEL_TABLE: readonly (readonly number[])[] = [
-  [],
-  [3],
-  [2, 5],
-  [1, 3, 5],
-  [1, 3, 5, 7],
-  [1, 2, 4, 5, 7],
-  [1, 2, 3, 5, 6, 7],
-  [1, 2, 3, 4, 5, 6, 7],
-];
+export type LevelRng = () => number;
 
-export function assignBotLevels(count: number): readonly number[] {
+const LEVEL_DECK = [1, 2, 3, 4, 5, 6, 7];
+
+export function assignBotLevels(count: number, rng: LevelRng = Math.random): readonly number[] {
   let n = Math.trunc(count);
   if (!Number.isFinite(count) || n < 0) n = 0;
   if (n > 7) n = 7;
-  return LEVEL_TABLE[n] ?? [];
+  if (n === 0) return [];
+  const deck = LEVEL_DECK.slice();
+  for (let index = deck.length - 1; index > 0; index -= 1) {
+    let pick = Math.floor(rng() * (index + 1));
+    if (pick < 0) pick = 0;
+    if (pick > index) pick = index;
+    const swap = deck[index] ?? 1;
+    deck[index] = deck[pick] ?? 1;
+    deck[pick] = swap;
+  }
+  return deck.slice(0, n);
 }
 
-export function levelsForMask(mask: Uint8Array): Uint8Array {
+export function levelsForMask(mask: Uint8Array, rng: LevelRng = Math.random): Uint8Array {
   let count = 0;
   const limit = mask.length < SLOTS ? mask.length : SLOTS;
   for (let index = 0; index < limit; index += 1) {
     if (mask[index] === 1) count += 1;
   }
-  const levels = assignBotLevels(count);
+  const levels = assignBotLevels(count, rng);
   const out = new Uint8Array(SLOTS);
   let placed = 0;
   for (let index = 0; index < limit; index += 1) {
@@ -76,7 +79,7 @@ export function writeHeuristic(
 
   const skill = clampLevel(level);
   const share = skill / LEVEL_SCALE;
-  const pace = 0.78 + share * 0.15;
+  const pace = 0.5 + share * 0.15;
   const safe = 0.8 + share * 0.03;
   const x = state[base];
   const y = state[base + 1];
@@ -142,6 +145,7 @@ export function writeHeuristic(
   const steerLen = Math.hypot(steerX, steerY);
   let unitX = 0;
   let unitY = 0;
+  let contactYield = false;
   if (steerLen === 0 && found === 0) {
     axisX[botIndex] = 0;
     axisY[botIndex] = 0;
@@ -149,6 +153,7 @@ export function writeHeuristic(
     const meR = Math.hypot(x, y);
     const foeOut = Math.hypot(rawAimX, rawAimY);
     if (foeOut + 16 < meR && meR > 0) {
+      contactYield = true;
       unitX = -x / meR;
       unitY = -y / meR;
     } else {
@@ -189,19 +194,36 @@ export function writeHeuristic(
   }
 
   let dash = 0;
-  if (found === 1 && (unitX !== 0 || unitY !== 0)) {
+  if (found === 1 && steerLen > 0) {
     const aimDx = rawAimX - x;
     const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
+    const dashRange = 80 + share * 300;
+    const alignNeed = 0.94 - share * 0.08;
     let align = 0;
-    if (aimDist !== 0) {
+    if (aimDist !== 0 && (unitX !== 0 || unitY !== 0)) {
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);
     }
-    const land = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
-    const dashRange = 90 + share * 300;
-    const alignNeed = 0.94 - share * 0.08;
-    if (aimDist < dashRange && align > alignNeed && land <= DASH_LIMIT * arena) {
+    const landStick = Math.hypot(x + unitX * TRAVEL, y + unitY * TRAVEL);
+    const stickDash = aimDist < dashRange && align > alignNeed && landStick <= DASH_LIMIT * arena;
+    if (stickDash) {
       dash = 1;
+    } else if (!contactYield && aimDist > 0 && aimDist < dashRange) {
+      const faceX = steerX / steerLen;
+      const faceY = steerY / steerLen;
+      const faceAlign = faceX * (aimDx / aimDist) + faceY * (aimDy / aimDist);
+      const land = Math.hypot(x + faceX * TRAVEL, y + faceY * TRAVEL);
+      if (faceAlign > alignNeed && land <= DASH_LIMIT * arena) {
+        dash = 1;
+        let faceAxisX = Math.round(faceX * 127 * pace);
+        let faceAxisY = Math.round(faceY * 127 * pace);
+        if (faceAxisX > 127) faceAxisX = 127;
+        if (faceAxisX < -127) faceAxisX = -127;
+        if (faceAxisY > 127) faceAxisY = 127;
+        if (faceAxisY < -127) faceAxisY = -127;
+        axisX[botIndex] = faceAxisX;
+        axisY[botIndex] = faceAxisY;
+      }
     }
   }
   buttons[botIndex] = dash;
