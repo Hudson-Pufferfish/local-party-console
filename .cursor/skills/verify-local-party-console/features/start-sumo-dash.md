@@ -25,7 +25,7 @@ Preconditions:
 - A second `LIVE` player requires a second browser profile. This harness starts one profile.
 
 - **Select the game.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser tab use "room=<code>&view=holistic"`. Then run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser click --text "SUMO DASH"`. `browser facts` shows `SUMO DASH` with `pressed` `true`. The screen still shows `ROOM` and `START`.
-- **Read the phone.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser tab use "controller?rev=4&room=<code>"`. The text contains `ALIVE 0`, `MOVE`, and `DASH`. It does not contain `NO GAME`.
+- **Read the phone.** Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser tab use "controller?rev=5&room=<code>"`. The text contains `ALIVE 0`, `MOVE`, and `DASH`. It does not contain `NO GAME`.
 - **See START stay off.** Return to the holistic tab. With one `LIVE` player, `START` is `disabled`. Stop here when you have only this Chrome profile. Report the missing second player. Do not call the click a start.
 - **Start with two players.** When two names show `LIVE`, `START` is enabled. Run `.cursor/skills/verify-local-party-console/scripts/verify.mjs browser click --text START`. The lobby headings `PLAYERS` and `GAMES` leave. A match canvas is on screen. `PLAY AGAIN` is absent.
 - **Proof.** Save the disabled-start facts when the second player is missing. Save the post-start text only after `START` succeeds. Put both files in `.cursor/skills/verify-local-party-console/evidence/start-sumo-dash/`.

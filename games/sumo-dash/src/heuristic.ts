@@ -2,7 +2,7 @@ import { SUMO_CONSTANTS } from './constants';
 
 const PREDICT = 0.15;
 const DASH_LIMIT = 0.85;
-const SEPARATE = 32;
+const CONTACT = SUMO_CONSTANTS.puckRadius * 2 + 40;
 const TRAVEL = SUMO_CONSTANTS.dashSpeed * SUMO_CONSTANTS.dashActive;
 const ARENA = 3;
 const PLAYER = 8;
@@ -129,7 +129,7 @@ export function writeHeuristic(
   if (steerLen === 0 && found === 0) {
     axisX[botIndex] = 0;
     axisY[botIndex] = 0;
-  } else if (steerLen < SEPARATE && found === 1) {
+  } else if (found === 1 && bestDist < CONTACT) {
     const side = botIndex % 2 === 0 ? 1 : -1;
     unitX = side;
     unitY = skill >= 5 ? 0 : side;
