@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, Show, type VoidComponent } from 'solid-js';
+import type { ScoreRow } from '../../games/sumo-dash/src/scoreboard.ts';
 import type { PlayerSlot } from '../../shared/src/types/game.ts';
 import { Badge } from './badge.tsx';
 import {
@@ -23,7 +24,7 @@ export const App: VoidComponent = () => {
   const [standby, setStandby] = createSignal<string | null>(null);
   const [match, setMatch] = createSignal(false);
   const [matchOver, setMatchOver] = createSignal(false);
-  const [scoreRows, setScoreRows] = createSignal<string[]>([]);
+  const [scoreRows, setScoreRows] = createSignal<ScoreRow[]>([]);
   const [banner, setBanner] = createSignal('');
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
@@ -151,7 +152,18 @@ export const App: VoidComponent = () => {
                 height={800}
               />
               <ol class="scoreboard">
-                <For each={scoreRows()}>{(row) => <li>{row}</li>}</For>
+                <For each={scoreRows()} keyed={(row) => row.slot}>
+                  {(row) => (
+                    <li class="score-row">
+                      <span
+                        class="score-dot"
+                        aria-hidden="true"
+                        style={{ 'background-color': row().color }}
+                      />
+                      <span>{row().text}</span>
+                    </li>
+                  )}
+                </For>
               </ol>
               <Show when={primary() && matchOver()}>
                 <div class="podium">

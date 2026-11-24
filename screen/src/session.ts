@@ -1,7 +1,7 @@
 import { toCanvas } from 'qrcode';
-import { bannerCopy } from '../../games/sumo-dash/src/banner.ts';
+import { bannerCopy, matchWinnerTag } from '../../games/sumo-dash/src/banner.ts';
 import { SUMO_CONSTANTS } from '../../games/sumo-dash/src/constants.ts';
-import { scoreboardRows } from '../../games/sumo-dash/src/scoreboard.ts';
+import { scoreboardRows, type ScoreRow } from '../../games/sumo-dash/src/scoreboard.ts';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
 import type { GameManifest, PlayerSlot, ScreenViewTarget } from '../../shared/src/types/game.ts';
 import { standbyCopy } from '../../shared/src/view/policy.ts';
@@ -28,7 +28,7 @@ export interface SessionHandlers {
   setStandby: (value: string | null) => void;
   setMatch: (value: boolean) => void;
   setMatchOver: (value: boolean) => void;
-  setScoreRows: (value: string[]) => void;
+  setScoreRows: (value: ScoreRow[]) => void;
   setBanner: (value: string) => void;
   setNotice: (value: string) => void;
   setSelectedId: (value: string) => void;
@@ -111,6 +111,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const publishView = new Uint8Array(publishBytes);
   const connected = new Uint8Array(8);
   const mirror = new Float32Array(88);
+  let lastScoreRows: ScoreRow[] = [];
   let seenEpoch = -1;
   const snapMessage = { epoch: 0, bytes: publishBytes };
   let channel: BroadcastChannel | null = null;
@@ -207,8 +208,14 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
 
   function publishScores(): void {
     const state = primary && loop !== null ? loop.state : mirror;
-    handlers.setScoreRows(scoreboardRows(state, scoreNames(), SUMO_CONSTANTS.scoreToWin));
-    handlers.setBanner(bannerCopy(state[1] ?? 0, state[2] ?? 0));
+    const names = scoreNames();
+    const rows = scoreboardRows(state, names, SUMO_CONSTANTS.scoreToWin);
+    if (!sameScoreRows(lastScoreRows, rows)) {
+      lastScoreRows = rows;
+      handlers.setScoreRows(rows);
+    }
+    const winner = matchWinnerTag(state, names, SUMO_CONSTANTS.scoreToWin);
+    handlers.setBanner(bannerCopy(state[1] ?? 0, state[2] ?? 0, winner));
   }
 
   function clearMatch(): void {
@@ -377,6 +384,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       destroyRenderer();
       handlers.setMatch(false);
       handlers.setMatchOver(false);
+      lastScoreRows = [];
       handlers.setScoreRows([]);
       handlers.setBanner('');
       send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
@@ -510,6 +518,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           destroyRenderer();
           handlers.setMatch(false);
           handlers.setMatchOver(false);
+          lastScoreRows = [];
           handlers.setScoreRows([]);
           handlers.setBanner('');
         }
@@ -679,4 +688,17 @@ function readT(payload: unknown): number | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const t = (payload as { t?: unknown }).t;
   return typeof t === 'number' && Number.isFinite(t) ? t : null;
+}
+
+function sameScoreRows(a: readonly ScoreRow[], b: readonly ScoreRow[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index];
+    const right = b[index];
+    if (left === undefined || right === undefined) return false;
+    if (left.slot !== right.slot || left.color !== right.color || left.text !== right.text) {
+      return false;
+    }
+  }
+  return true;
 }

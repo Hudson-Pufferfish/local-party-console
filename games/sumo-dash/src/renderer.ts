@@ -27,7 +27,6 @@ export function createSumoRenderer(
   for (let index = 0; index < 12; index += 1) sparks.push({ x: 0, y: 0, life: 0 });
   let board: Phaser.GameObjects.Graphics | null = null;
   let lastHit = 0;
-  let shake = 0;
   let gone = false;
 
   class ArenaScene extends Phaser.Scene {
@@ -73,12 +72,9 @@ export function createSumoRenderer(
     const state = readState();
     const hit = state[6] ?? 0;
     if (hit > lastHit) {
-      shake = 3;
       armSparks(state, sparks);
     }
     lastHit = hit;
-    if (shake > 0) shake -= 1;
-    if (shake < 0) shake = 0;
     paint();
   }
 
@@ -91,9 +87,6 @@ export function createSumoRenderer(
     const centerX = width * 0.5;
     const centerY = height * 0.5;
     const scale = (Math.min(centerX, centerY) - 24) / R0;
-    const mag = shake > 3 ? 3 : shake;
-    const ox = mag;
-    const oy = mag * 0.5;
     const arena = (state[3] ?? R0) * scale;
     const target = (state[4] ?? R0) * scale;
 
@@ -101,19 +94,19 @@ export function createSumoRenderer(
     gfx.fillStyle(PUTTY, 1);
     gfx.fillRect(0, 0, width, height);
     gfx.fillStyle(PLATE, 1);
-    gfx.fillCircle(centerX + ox, centerY + oy, arena);
+    gfx.fillCircle(centerX, centerY, arena);
     gfx.lineStyle(4, INK, 1);
-    gfx.strokeCircle(centerX + ox, centerY + oy, arena);
+    gfx.strokeCircle(centerX, centerY, arena);
     gfx.lineStyle(2, INK, 1);
     for (let step = 0; step < 24; step += 1) {
       const angle = (step / 24) * Math.PI * 2;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       gfx.lineBetween(
-        centerX + ox + cos * (arena - 16),
-        centerY + oy + sin * (arena - 16),
-        centerX + ox + cos * (arena - 2),
-        centerY + oy + sin * (arena - 2),
+        centerX + cos * (arena - 16),
+        centerY + sin * (arena - 16),
+        centerX + cos * (arena - 2),
+        centerY + sin * (arena - 2),
       );
     }
     if (Math.abs(target - arena) > 1) {
@@ -121,8 +114,8 @@ export function createSumoRenderer(
       for (let step = 0; step < 48; step += 2) {
         gfx.beginPath();
         gfx.arc(
-          centerX + ox,
-          centerY + oy,
+          centerX,
+          centerY,
           target,
           (step / 48) * Math.PI * 2,
           ((step + 1) / 48) * Math.PI * 2,
@@ -141,8 +134,8 @@ export function createSumoRenderer(
       const x = state[base] ?? 0;
       const y = state[base + 1] ?? 0;
       if ((flags & 1) === 0 && score === 0 && x === 0 && y === 0) continue;
-      const px = centerX + ox + x * scale;
-      const py = centerY + oy + y * scale;
+      const px = centerX + x * scale;
+      const py = centerY + y * scale;
       const color = PUCK[index] ?? INK;
       gfx.fillStyle(INK, 1);
       gfx.fillCircle(px + 5, py + 5, puck);
@@ -175,7 +168,7 @@ export function createSumoRenderer(
     gfx.fillStyle(HAZARD, 1);
     for (const spark of sparks) {
       if (spark.life <= 0) continue;
-      gfx.fillRect(centerX + ox + spark.x * scale - 4, centerY + oy + spark.y * scale - 4, 8, 8);
+      gfx.fillRect(centerX + spark.x * scale - 4, centerY + spark.y * scale - 4, 8, 8);
       spark.life -= 1;
     }
 

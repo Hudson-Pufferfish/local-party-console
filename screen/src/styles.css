@@ -225,3 +225,19 @@ h2 {
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
 }
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.score-dot {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2.5px solid #111111;
+}
