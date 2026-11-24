@@ -35,6 +35,23 @@ test('bot levels are unique, inside 1..7, and never 8..10', () => {
   expect(Array.from(levelsForMask(mask))).toEqual([0, 0, 2, 5, 0, 0, 0, 0]);
 });
 
+test('a close bot still rams the opponent', () => {
+  const state = new Float32Array(88);
+  state[3] = 400;
+  state[8] = 0;
+  state[9] = 0;
+  state[16] = 1;
+  state[18] = 60;
+  state[19] = 0;
+  state[26] = 1;
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 5);
+  expect(axisX[0]).toBeGreaterThan(80);
+  expect(Math.abs(axisY[0] ?? 0)).toBeLessThan(Math.abs(axisX[0] ?? 0));
+});
+
 test('two stacked bots of different levels do not share a zero steer', () => {
   const state = new Float32Array(88);
   state[3] = 400;

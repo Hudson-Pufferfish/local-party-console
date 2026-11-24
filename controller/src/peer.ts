@@ -35,7 +35,8 @@ export interface JoinedSlot {
 export type SendResult = 'open' | 'queued' | 'closed';
 
 export function joinNotice(result: SendResult | 'missing'): string {
-  return result === 'open' ? 'JOIN // SENT' : 'LINK // DOWN';
+  if (result === 'open' || result === 'queued') return 'JOIN // SENT';
+  return 'LINK // DOWN';
 }
 
 export interface PhoneLink {
@@ -194,11 +195,15 @@ export function connectPhone(
       markJoined();
       const clock = readSendClock();
       setSendClock({ slot: joined.index, offsetMs: clock.offsetMs, tier: clock.tier });
-      startPeer();
-      startClock();
-      startHeartbeat();
-      watchLongTasks();
       hooks.onJoined(joined);
+      try {
+        startPeer();
+        startClock();
+        startHeartbeat();
+        watchLongTasks();
+      } catch {
+        // The badge updates even when the data channel cannot open.
+      }
       return;
     }
     if (type === 'room:full') {

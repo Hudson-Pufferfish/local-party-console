@@ -82,6 +82,8 @@ export function writeHeuristic(
   let bestDist = 0;
   let aimX = 0;
   let aimY = 0;
+  let rawAimX = 0;
+  let rawAimY = 0;
   for (let index = 0; index < SLOTS; index += 1) {
     if (index === botIndex) continue;
     const other = PLAYER + index * STRIDE;
@@ -92,8 +94,10 @@ export function writeHeuristic(
     if (found === 1 && dist >= bestDist) continue;
     found = 1;
     bestDist = dist;
-    aimX = state[other] + PREDICT * state[other + 2];
-    aimY = state[other + 1] + PREDICT * state[other + 3];
+    rawAimX = state[other] + PREDICT * state[other + 2];
+    rawAimY = state[other + 1] + PREDICT * state[other + 3];
+    aimX = rawAimX;
+    aimY = rawAimY;
   }
 
   const outside = Math.hypot(x, y) > home * arena;
@@ -131,8 +135,20 @@ export function writeHeuristic(
     axisY[botIndex] = 0;
   } else if (found === 1 && bestDist < CONTACT) {
     const side = botIndex % 2 === 0 ? 1 : -1;
-    unitX = side;
-    unitY = skill >= 5 ? 0 : side;
+    let towardX = rawAimX - x;
+    let towardY = rawAimY - y;
+    let toward = Math.hypot(towardX, towardY);
+    if (toward === 0) {
+      towardX = side;
+      towardY = skill >= 5 ? 0 : side;
+      toward = Math.hypot(towardX, towardY);
+    }
+    towardX /= toward;
+    towardY /= toward;
+    const ram = 0.45 + skill * 0.07;
+    const lateral = 1 - ram;
+    unitX = towardX * ram - towardY * side * lateral;
+    unitY = towardY * ram + towardX * side * lateral;
     const unit = Math.hypot(unitX, unitY);
     unitX /= unit;
     unitY /= unit;

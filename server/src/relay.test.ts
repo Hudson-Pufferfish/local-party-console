@@ -92,6 +92,36 @@ test('game:mount marker reaches the other client in the room', async () => {
   }
 });
 
+test('a phone that joins after the game is chosen still receives game:mount', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    sockets.push(screen);
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    screen.send(JSON.stringify({
+      type: 'game:mount',
+      payload: { gameId: 'sumo-dash', marker: 9 },
+    }));
+    await settle();
+
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(phone);
+    const mounted = waitForText(phone, 'game:mount');
+    phone.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const frame = await mounted;
+    expect(frame.payload?.gameId).toBe('sumo-dash');
+    expect(frame.payload?.marker).toBe(9);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
 function asBuffer(data: RawData): Buffer {
   if (Buffer.isBuffer(data)) return data;
   if (data instanceof ArrayBuffer) return Buffer.from(data);
