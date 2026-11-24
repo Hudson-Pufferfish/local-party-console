@@ -1,5 +1,7 @@
 .DS_Store
 .cursor/mcp.json
+.cursor/skills/verify-local-party-console/.run/
+.cursor/skills/verify-local-party-console/evidence/
 node_modules/
 .env
 .env.*
