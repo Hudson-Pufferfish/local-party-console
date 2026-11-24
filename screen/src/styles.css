@@ -252,6 +252,13 @@ h2 {
   transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
 }
 
+@media (hover: hover) {
+  .podium .key:hover:not(:disabled) {
+    background: var(--theme-yellow, #f5c518);
+    color: var(--ink, #111111);
+  }
+}
+
 .game-key[data-selected="true"] {
   background: var(--theme-yellow);
   color: var(--ink, #111111);
