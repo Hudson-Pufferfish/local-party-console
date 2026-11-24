@@ -63,7 +63,7 @@ export const ArcadeButton: VoidComponent<{
       type="button"
       class="arcade-button"
       disabled={props.disabled}
-      style={{ background: props.color ?? '#ff4d00' }}
+      style={{ background: props.color ?? 'var(--accent, #f5c518)' }}
     >
       {props.label}
     </button>

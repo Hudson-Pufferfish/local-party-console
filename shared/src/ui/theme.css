@@ -1,0 +1,11 @@
+:root {
+  --theme-yellow: #f5c518;
+  --theme-yellow-bright: #ffe14d;
+  --theme-yellow-warm: #e5a800;
+  --theme-yellow-deep: #c88a00;
+  --accent: var(--theme-yellow);
+  --accent-hazard: var(--theme-yellow-deep);
+  --accent-dash: var(--theme-yellow-warm);
+  --accent-spark: var(--theme-yellow-bright);
+  --warn: var(--theme-yellow);
+}

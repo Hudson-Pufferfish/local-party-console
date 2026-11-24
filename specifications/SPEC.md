@@ -82,6 +82,7 @@ Enforce two boundaries on Day 1 so v1.1 heuristic bots, Stretch 2 (SharedWorker 
   * Unpressed Depth: `box-shadow: 0px 6px 0px #111111` + `inset 0px 2px 0px rgba(255,255,255,0.35)`.
   * Pressed Depth (`[data-pressed="true"]`): `transform: translate3d(0, 6px, 0)` + `box-shadow: 0px 0px 0px #111111` (`transition: transform 35ms cubic-bezier(0.2, 0, 0, 1)`).
 * **Typography:** `'Space Grotesk'` or `'Chakra Petch'` (uppercase, `font-weight: 800`, tight tracking) for display headers + `'JetBrains Mono'` with `font-variant-numeric: tabular-nums` for timers, room codes, monitor view badges, and telemetry.
+* **Global Yellow App Theme (`shared/src/ui/theme.css` + `shared/src/theme.ts`):** Define global `:root` yellow tokens anchored on the `VIEW // HOLISTIC` badge (`--theme-yellow: #F5C518`, `--theme-yellow-bright: #FFE14D`, `--theme-yellow-warm: #E5A800`, `--theme-yellow-deep: #C88A00`, plus semantic aliases `--accent`, `--accent-hazard`, `--accent-dash`, `--accent-spark`, `--warn`). App chrome, lobby `START`, warning pills, and game canvas accents reuse these CSS variables (canvas renderers resolve them via `readYellowTheme()` / `getComputedStyle`).
 * **6 Custom Primitives Only (`/shared/ui`):** `<ArcadeButton/>`, `<VirtualJoystick/>`, `<SwipeZone/>`, `<PlayerBadge/>`, `<GameCard/>`, and `<HudModal/>`.
 
 ---
@@ -125,7 +126,7 @@ Enforce two boundaries on Day 1 so v1.1 heuristic bots, Stretch 2 (SharedWorker 
 
 ### 1. Core Platform Functionalities ("The Console OS")
 * **Instant QR Room Pairing + Pre-Flight Status Strip:** Monitor displays a 4-letter room code and dynamic QR code. Scanning opens the lobby card in Safari/Chrome with a non-blocking 3-item Pre-Flight Strip (`[POWER: 60/120Hz OK vs. 30Hz Low Power Warning]`, `[WI-FI: Ping/Jitter]`, `[ORIENTATION: Rotate Sideways]`).
-* **8-Slot Persistent Player & Team Registry:** Supports 1 to 8 players (assigned high-contrast industrial colors P1–P8) and authoritative team assignments (`teamId: 1..4`) that persist across games and support lobby team-switching/auto-balancing. Stores a `sessionToken` in phone `localStorage` so accidental refreshes or locked screens restore the player's exact slot and team mid-game.
+* **8-Slot Persistent Player & Team Registry:** Supports 1 to 8 players (assigned high-contrast industrial colors P1–P8: `#FF4D00`, `#00C853`, `#2979FF`, `#E10600`, `#FF2BD6`, `#00B7C2`, `#111111`, `#F4F1EA`; yellow is reserved for the global app theme and game accents, so no human or bot slot uses yellow) and authoritative team assignments (`teamId: 1..4`) that persist across games and support lobby team-switching/auto-balancing. Stores a `sessionToken` in phone `localStorage` so accidental refreshes or locked screens restore the player's exact slot and team mid-game.
 * **Strict binary view enforcement (`holistic` vs. `team-exclusive`):**
   * Several Chrome windows may open the same room (`/screen?room=ABCD&view=holistic`, `&view=team-1`, `&view=team-2`). In v1 the primary tab owns the sim. The others render `BroadcastChannel` snapshots. Stretch 2 replaces that fan-out with `SharedArrayBuffer`.
   * Each monitor shows a corner badge (`VIEW // HOLISTIC` or `VIEW // TEAM 1`) and reattaches on refresh.

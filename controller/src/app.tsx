@@ -28,7 +28,7 @@ export const App: VoidComponent = () => {
   const [name, setName] = createSignal('');
   const [joined, setJoined] = createSignal(false);
   const [slot, setSlot] = createSignal(-1);
-  const [color, setColor] = createSignal('#f5c518');
+  const [color, setColor] = createSignal('var(--theme-yellow)');
   const [notice, setNotice] = createSignal('');
   const [power, setPower] = createSignal<'ok' | 'low-power'>('ok');
   const [powerReady, setPowerReady] = createSignal(false);
@@ -139,7 +139,7 @@ export const App: VoidComponent = () => {
           knownSlot = -1;
           setJoined(false);
           setSlot(-1);
-          setColor('#f5c518');
+          setColor('var(--theme-yellow)');
           setGameId('');
           setTheme({});
           setControl(null);
@@ -267,7 +267,7 @@ export const App: VoidComponent = () => {
           <ArcadeButton label="BUTTON" color={color()} onPressedChange={sendButton} />
             <ArcadeButton
               label="STATUS"
-              color="#f5c518"
+              color="var(--theme-yellow)"
               onPressedChange={(pressed) => {
                 if (!pressed) setModal(true);
               }}

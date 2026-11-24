@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { PLAYER_COLORS } from '../../../shared/src/registry.ts';
+import { readYellowTheme } from '../../../shared/src/theme.ts';
 
 const PUTTY = 0xeae6df;
 const PLATE = 0xd6d1c7;
 const INK = 0x111111;
-const HAZARD = 0xff4d00;
 const R0 = 400;
 const PUCK_R = 28;
 const DASH_MAX = 1.5;
@@ -25,6 +25,7 @@ export function createSumoRenderer(
   canvas: HTMLCanvasElement,
   readState: () => Float32Array,
 ): { draw(): void; destroy(): void } {
+  const theme = readYellowTheme();
   const sparks: Spark[] = [];
   for (let index = 0; index < 12; index += 1) sparks.push({ x: 0, y: 0, life: 0 });
   let board: Phaser.GameObjects.Graphics | null = null;
@@ -120,7 +121,7 @@ export function createSumoRenderer(
       );
     }
     if (Math.abs(target - arena) > 1) {
-      gfx.lineStyle(3, HAZARD, 1);
+      gfx.lineStyle(3, theme.hazard, 1);
       for (let step = 0; step < 48; step += 2) {
         gfx.beginPath();
         gfx.arc(
@@ -168,17 +169,21 @@ export function createSumoRenderer(
       const cool = state[base + 5] ?? 0;
       if (cool > 0) {
         const sweep = (cool / DASH_MAX) * Math.PI * 2;
-        gfx.lineStyle(4, HAZARD, 1);
+        gfx.lineStyle(4, theme.dash, 1);
         gfx.beginPath();
         gfx.arc(px, py, puck + 6, -Math.PI / 2, -Math.PI / 2 + sweep, false, 0);
         gfx.strokePath();
       }
     }
 
-    gfx.fillStyle(HAZARD, 1);
+    gfx.fillStyle(theme.spark, 1);
+    gfx.lineStyle(2, INK, 1);
     for (const spark of sparks) {
       if (spark.life <= 0) continue;
-      gfx.fillRect(centerX + ox + spark.x * scale - 4, centerY + oy + spark.y * scale - 4, 8, 8);
+      const sx = centerX + ox + spark.x * scale - 4;
+      const sy = centerY + oy + spark.y * scale - 4;
+      gfx.fillRect(sx, sy, 8, 8);
+      gfx.strokeRect(sx, sy, 8, 8);
       spark.life -= 1;
     }
 

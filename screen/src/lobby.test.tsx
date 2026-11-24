@@ -11,7 +11,7 @@ test('lobby renders the kick button on both LIVE and AWAY cards when canKick is 
   ];
   const baseProps = {
     roomId: 'ABCD',
-    qrUrl: 'https://10.0.0.1:8443/controller?rev=9&room=ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=10&room=ABCD',
     notice: '',
     sdpWarning: false,
     players,

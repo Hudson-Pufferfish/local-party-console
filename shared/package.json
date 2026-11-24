@@ -5,6 +5,7 @@
   "exports": {
     "./types": "./src/types/index.ts",
     "./registry": "./src/registry.ts",
+    "./theme": "./src/theme.ts",
     "./codec/input-packet": "./src/codec/input-packet.ts",
     "./view/policy": "./src/view/policy.ts",
     "./transport/policy": "./src/transport/policy.ts",

@@ -3,7 +3,7 @@ import type { GameManifest } from './types/game';
 export const PLAYER_COLORS = [
   '#FF4D00',
   '#00C853',
-  '#F5C518',
+  '#2979FF',
   '#E10600',
   '#FF2BD6',
   '#00B7C2',

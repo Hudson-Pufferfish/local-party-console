@@ -1,3 +1,4 @@
+import { APP_THEME } from '../../../shared/src/theme.ts';
 import type { GameManifest } from '../../../shared/src/types/game.ts';
 
 export const SUMO_DASH_MANIFEST: GameManifest = {
@@ -16,7 +17,9 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
   themeTokens: {
     '--bg-surface': '#EAE6DF',
     '--ink-primary': '#111111',
-    '--accent-hazard': '#FF4D00',
+    '--accent-hazard': APP_THEME.yellowDeep,
+    '--accent-dash': APP_THEME.yellowWarm,
+    '--accent-spark': APP_THEME.yellowBright,
     '--accent-ready': '#00C853',
     '--arena-plate': '#D6D1C7',
   },

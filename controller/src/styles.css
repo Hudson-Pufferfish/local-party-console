@@ -108,7 +108,7 @@ input {
 .notice {
   padding: 14px 12px;
   background: #111111;
-  color: #ff4d00;
+  color: var(--theme-yellow);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -139,7 +139,7 @@ input {
 }
 
 .pill[data-warn='true'] {
-  background: var(--warn, #ff4d00);
+  background: var(--warn, var(--theme-yellow));
 }
 
 .join-row,

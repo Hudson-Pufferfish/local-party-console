@@ -2,6 +2,7 @@
 @import "@fontsource/space-grotesk/700.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/700.css";
+@import "../../shared/src/ui/theme.css";
 
 :root {
   color: #111111;
@@ -79,7 +80,7 @@ input {
   margin: 0;
   padding: 8px 12px;
   border: 2.5px solid #111111;
-  background: #f5c518;
+  background: var(--theme-yellow);
   font-family: "JetBrains Mono";
   font-size: 14px;
   font-weight: 500;
@@ -194,7 +195,7 @@ h2 {
 }
 
 .player-kick:hover {
-  background: #ff4d00;
+  background: var(--theme-yellow-warm);
   color: #111111;
 }
 
@@ -246,7 +247,8 @@ h2 {
 
 .start {
   margin-top: 32px;
-  background: #ff4d00;
+  background: var(--theme-yellow);
+  color: #111111;
   font-size: 28px;
 }
 

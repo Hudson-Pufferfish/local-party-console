@@ -28,7 +28,9 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
   themeTokens: {
     '--bg-surface': '#EAE6DF',      // Matte Warm Putty
     '--ink-primary': '#111111',     // Industrial Carbon
-    '--accent-hazard': '#FF4D00',   // Safety Orange
+    '--accent-hazard': '#C88A00',   // Ochre Yellow (warning ring; global --theme-yellow-deep)
+    '--accent-dash': '#E5A800',     // Amber Gold (dash cooldown arc; global --theme-yellow-warm)
+    '--accent-spark': '#FFE14D',    // Spark Yellow (collision sparks; global --theme-yellow-bright)
     '--accent-ready': '#00C853',    // Hardware LED Green
     '--arena-plate': '#D6D1C7',     // Brushed Steel Plate
   },
@@ -47,7 +49,7 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
   * For the first $5.0\text{s}$ of `ROUND_ACTIVE`, $R(t) = R_0$ (safe opening skirmish).
   * After that the hazard ring shrinks continuously at $v_{\text{shrink}} = 14\text{ units/s}$ until $R_{\min}$.
   * It holds at $R_{\min}$ for $4.0\text{s}$. If everyone is still in, it closes at $36\text{ units/s}$ down to $R_{\text{floor}}$. On that small ring, if more than one puck would leave in the same tick, only the outermost is out, so the round still awards a point. At the floor the outermost puck is out, one at a time.
-  * A dashed orange warning ring ($R_{\text{target}}$) previews the next $3.0\text{s}$ of shrinkage so players can read ledge positioning.
+  * A dashed yellow warning ring ($R_{\text{target}}$, resolved from `--accent-hazard` / `--theme-yellow-deep`) previews the next $3.0\text{s}$ of shrinkage so players can read ledge positioning.
 * **Spawn Formation:** Active players $N \in [2, 8]$ spawn equidistantly on a circle of radius $R_{\text{spawn}} = 240\text{ units}$, facing inward toward $(0, 0)$:
   $$\theta_i = \frac{2\pi i}{N}, \quad (x_i, y_i) = (R_{\text{spawn}}\cos\theta_i,\ R_{\text{spawn}}\sin\theta_i)$$
 
