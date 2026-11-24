@@ -40,6 +40,7 @@ export function createHostLoop(
   sim: ScreenSim,
   eventsFromHeaderDiff: ((prev: Float32Array, next: Float32Array) => Envelope[]) | undefined,
   emit: (events: readonly Envelope[]) => void,
+  fillBot?: (slot: number, sim: ScreenSim) => boolean,
 ): HostLoop {
   const lastSeq = new Int32Array(SLOT_COUNT);
   const lastButtons = new Uint8Array(SLOT_COUNT);
@@ -137,6 +138,7 @@ export function createHostLoop(
     while (accumulator >= STEP_MS && substeps < MAX_SUBSTEPS) {
       for (let slot = 0; slot < SLOT_COUNT; slot += 1) {
         if (joined[slot] === 0) continue;
+        if (fillBot !== undefined && fillBot(slot, sim)) continue;
         const at = lastAt[slot] ?? 0;
         const silent = at === 0 || now - at >= SILENCE_MS;
         if (silent && latch[slot] === 1) {

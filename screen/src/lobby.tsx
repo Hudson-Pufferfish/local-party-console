@@ -10,6 +10,10 @@ export const Lobby: VoidComponent<{
   games: readonly GameManifest[];
   selectedId: string;
   startEnabled: boolean;
+  botCount: number;
+  botControlEnabled: boolean;
+  botNotice: string;
+  onBotStep: (delta: -1 | 1) => void;
   onQr: (canvas: HTMLCanvasElement) => void;
   onSelect: (id: string) => void;
   onStart: () => void;
@@ -66,6 +70,39 @@ export const Lobby: VoidComponent<{
           </div>
         </Show>
       </section>
+      <Show when={props.games.find((game) => game.id === props.selectedId)?.supportsBots === true}>
+        <section class="panel">
+          <h2>BOTS</h2>
+          <div class="carousel">
+            <button
+              type="button"
+              class="key"
+              disabled={!props.botControlEnabled}
+              onClick={() => {
+                if (!props.botControlEnabled) return;
+                props.onBotStep(-1);
+              }}
+            >
+              -
+            </button>
+            <span class="mono">{props.botCount}</span>
+            <button
+              type="button"
+              class="key"
+              disabled={!props.botControlEnabled}
+              onClick={() => {
+                if (!props.botControlEnabled) return;
+                props.onBotStep(1);
+              }}
+            >
+              +
+            </button>
+          </div>
+          <Show when={props.botNotice !== ''}>
+            <p class="notice">{props.botNotice}</p>
+          </Show>
+        </section>
+      </Show>
       <button
         type="button"
         class="key start"

@@ -1,0 +1,214 @@
+import { expect, it } from 'vitest';
+import { writeHeuristic } from '../../games/sumo-dash/src/heuristic.ts';
+import { createSumoSimulation } from '../../games/sumo-dash/src/simulation.ts';
+import type { PlayerSlot } from '../../shared/src/types/game.ts';
+import {
+  botMaskAfterHumanLeave,
+  clampBotCount,
+  createBotFill,
+  createBotLobby,
+  lockBotCount,
+  nextBotCount,
+  rosterForStart,
+  startBlockReason,
+  startNotice,
+  unlockBotCount,
+} from './bot-fill.ts';
+
+const SUMO = { minPlayers: 2, maxPlayers: 8, supportsBots: true };
+const OVER_CAP = 'exceed max — modify bot count';
+const NO_HUMAN = 'need minimum one real player';
+
+function player(index: number, connected: boolean): PlayerSlot {
+  return { index, name: '', color: '#111111', teamId: null, connected };
+}
+
+function humans(count: number): PlayerSlot[] {
+  const list: PlayerSlot[] = [];
+  for (let index = 0; index < count; index += 1) list.push(player(index, true));
+  return list;
+}
+
+function reason(humanCount: number, bots: number, supportsBots = true) {
+  return startBlockReason({
+    humans: humanCount,
+    bots,
+    minPlayers: 2,
+    maxPlayers: 8,
+    supportsBots,
+  });
+}
+
+it('default bot count is 0', () => {
+  expect(createBotLobby()).toEqual({ botCount: 0, locked: false });
+});
+
+it('bot toggle is a no-op when no human is connected', () => {
+  const state = createBotLobby();
+  const next = nextBotCount(state, 2, 0, 8, true);
+  expect(next).toBe(state);
+  expect(next.botCount).toBe(0);
+});
+
+it('one human and one bot enables start', () => {
+  const state = nextBotCount(createBotLobby(), 1, 1, 8, true);
+  expect(reason(1, state.botCount)).toBeNull();
+  const roster = rosterForStart([player(0, true)], SUMO, state.botCount);
+  expect(roster).not.toBeNull();
+  expect(roster?.slots).toHaveLength(2);
+  let bits = 0;
+  for (const bit of roster?.botMask ?? []) bits += bit;
+  expect(bits).toBe(1);
+});
+
+it('one human and zero bots disables start', () => {
+  const block = reason(1, 0);
+  expect(block).toBe('below-min');
+  expect(startNotice(block)).toBe('');
+  expect(rosterForStart([player(0, true)], SUMO, 0)).toBeNull();
+});
+
+it('four humans and four bots enable start', () => {
+  const state = nextBotCount(createBotLobby(), 4, 4, 8, true);
+  expect(reason(4, state.botCount)).toBeNull();
+  expect(rosterForStart(humans(4), SUMO, state.botCount)?.slots).toHaveLength(8);
+});
+
+it('fifth human over cap disables start', () => {
+  const state = nextBotCount(createBotLobby(), 4, 4, 8, true);
+  const block = reason(5, state.botCount);
+  expect(block).toBe('over-cap');
+  expect(startNotice(block)).toBe(OVER_CAP);
+  expect(state.botCount).toBe(4);
+  expect(rosterForStart(humans(5), SUMO, state.botCount)).toBeNull();
+});
+
+it('fifth human quitting enables start again', () => {
+  const state = nextBotCount(createBotLobby(), 4, 4, 8, true);
+  expect(reason(5, state.botCount)).toBe('over-cap');
+  expect(state.botCount).toBe(4);
+  expect(reason(4, state.botCount)).toBeNull();
+  expect(rosterForStart(humans(4), SUMO, state.botCount)?.slots).toHaveLength(8);
+});
+
+it('locked bot count ignores a change', () => {
+  const state = lockBotCount(nextBotCount(createBotLobby(), 1, 1, 8, true));
+  const next = nextBotCount(state, 4, 1, 8, true);
+  expect(next).toBe(state);
+  expect(next).toEqual({ botCount: 1, locked: true });
+});
+
+it('last human leaving disables start', () => {
+  const state = nextBotCount(createBotLobby(), 2, 1, 8, true);
+  const block = reason(0, state.botCount);
+  expect(block).toBe('no-human');
+  expect(startNotice(block)).toBe(NO_HUMAN);
+  expect(state.botCount).toBe(2);
+  expect(rosterForStart([], SUMO, state.botCount)).toBeNull();
+});
+
+it('bots alone do not enable start', () => {
+  const block = reason(0, 2);
+  expect(block).toBe('no-human');
+  expect(startNotice(block)).toBe(NO_HUMAN);
+  expect(rosterForStart([], SUMO, 2)).toBeNull();
+});
+
+it('lowering bots after over cap enables start', () => {
+  const stored = nextBotCount(createBotLobby(), 4, 4, 8, true);
+  expect(reason(5, stored.botCount)).toBe('over-cap');
+  const state = nextBotCount(stored, 3, 5, 8, true);
+  expect(state.botCount).toBe(3);
+  expect(reason(5, state.botCount)).toBeNull();
+  expect(rosterForStart(humans(5), SUMO, state.botCount)).not.toBeNull();
+});
+
+it('minus walks a count down when it is more than one over the cap', () => {
+  const stored = nextBotCount(createBotLobby(), 4, 4, 8, true);
+  const once = nextBotCount(stored, 3, 6, 8, true);
+  expect(once.botCount).toBe(3);
+  expect(reason(6, once.botCount)).toBe('over-cap');
+  const twice = nextBotCount(once, 2, 6, 8, true);
+  expect(twice.botCount).toBe(2);
+  expect(reason(6, twice.botCount)).toBeNull();
+  expect(nextBotCount(stored, 5, 6, 8, true).botCount).toBe(4);
+});
+
+it('a raise above remaining seats is rejected', () => {
+  expect(clampBotCount(5, 4, 8)).toBe(4);
+  const state = nextBotCount(createBotLobby(), 4, 4, 8, true);
+  const next = nextBotCount(state, 5, 4, 8, true);
+  expect(next).toBe(state);
+  expect(next.botCount).toBe(4);
+  expect(reason(4, next.botCount)).toBeNull();
+});
+
+it('play again keeps the frozen count and the lobby unlocks at that count', () => {
+  const locked = lockBotCount(nextBotCount(createBotLobby(), 2, 2, 8, true));
+  const roster = rosterForStart(humans(2), SUMO, locked.botCount);
+  expect(locked.locked).toBe(true);
+  expect(roster?.slots).toHaveLength(4);
+  let bits = 0;
+  for (const bit of roster?.botMask ?? []) bits += bit;
+  expect(bits).toBe(2);
+  const unlocked = unlockBotCount(locked);
+  expect(unlocked.botCount).toBe(2);
+  expect(unlocked.locked).toBe(false);
+  expect(createBotLobby()).toEqual({ botCount: 0, locked: false });
+});
+
+it('a human leave during a match does not add a bot', () => {
+  const state = lockBotCount(nextBotCount(createBotLobby(), 1, 2, 8, true));
+  const roster = rosterForStart(humans(2), SUMO, state.botCount);
+  const mask = roster?.botMask ?? new Uint8Array(8);
+  const next = botMaskAfterHumanLeave(mask, 0);
+  expect(next).not.toBe(mask);
+  expect(Array.from(next)).toEqual(Array.from(mask));
+  expect(next[0]).toBe(0);
+  expect(state.botCount).toBe(1);
+  let bits = 0;
+  for (const bit of next) bits += bit;
+  expect(bits).toBe(1);
+});
+
+it('a second human does not change the bot count', () => {
+  const state = nextBotCount(createBotLobby(), 1, 1, 8, true);
+  expect(state).toEqual({ botCount: 1, locked: false });
+  expect(reason(2, state.botCount)).toBeNull();
+  const roster = rosterForStart(humans(2), SUMO, state.botCount);
+  expect(roster?.slots).toHaveLength(3);
+  let bits = 0;
+  for (const bit of roster?.botMask ?? []) bits += bit;
+  expect(bits).toBe(1);
+});
+
+it('an away slot stays occupied', () => {
+  const roster = rosterForStart([player(0, true), player(1, false)], SUMO, 1);
+  expect(roster?.slots).toEqual([0, 2]);
+  expect(roster?.botMask[1]).toBe(0);
+  expect(roster?.botMask[2]).toBe(1);
+  expect(roster?.botMask.length).toBe(8);
+});
+
+it('bot fill calls applyInput', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  sim.state[18] = 340;
+  sim.state[19] = 0;
+  const fill = createBotFill(writeHeuristic);
+  const roster = rosterForStart([player(0, true)], SUMO, 1);
+  expect(roster).not.toBeNull();
+  fill.arm(roster?.botMask ?? new Uint8Array(8));
+  expect(fill.fill(0, sim)).toBe(false);
+  expect(fill.fill(1, sim)).toBe(true);
+  expect(sim.state[22]).toBeCloseTo(Math.PI);
+});
+
+it('supportsBots false adds no bots', () => {
+  const off = { minPlayers: 2, maxPlayers: 8, supportsBots: false };
+  expect(reason(1, 4, false)).toBe('below-min');
+  expect(nextBotCount(createBotLobby(), 3, 2, 8, false).botCount).toBe(0);
+  const roster = rosterForStart([player(0, true), player(1, true)], off, 3);
+  expect(roster?.slots).toEqual([0, 1]);
+  expect(Array.from(roster?.botMask ?? [])).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+});
