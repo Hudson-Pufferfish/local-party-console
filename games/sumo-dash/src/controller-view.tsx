@@ -1,4 +1,5 @@
 import { createEffect, createSignal, type VoidComponent } from 'solid-js';
+import { playerStyleVars } from '../../../shared/src/theme.ts';
 import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
 import './controller-view.css';
 
@@ -46,9 +47,9 @@ export const SumoController: VoidComponent<{
   const title = (): string => (props.name.trim() === '' ? 'PLAYER' : props.name.trim());
 
   return (
-    <section class="sumo-board">
+    <section class="sumo-board" style={playerStyleVars(props.slot, props.color)}>
       <header class="sumo-bar">
-        <PlayerBadge name={title()} label={label()} color={props.color} />
+        <PlayerBadge name={title()} label={label()} />
         <p class="sumo-readout">
           {alive() ? 'ALIVE' : 'OUT'} {score()}
         </p>
@@ -61,7 +62,7 @@ export const SumoController: VoidComponent<{
             data-cool={cool() ? 'true' : 'false'}
             onTransitionEnd={() => setCool(false)}
           />
-          <ArcadeButton label="DASH" color={props.color} onPressedChange={onDash} />
+          <ArcadeButton label="DASH" onPressedChange={onDash} />
         </div>
       </div>
     </section>

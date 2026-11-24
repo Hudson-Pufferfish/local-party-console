@@ -2,6 +2,7 @@ import { createEffect, createSignal, Show, type VoidComponent } from 'solid-js';
 import { classifyPower, rfc3550Jitter } from '../../shared/src/controller/preflight.ts';
 import { tierFor } from '../../shared/src/stretch1/tier.ts';
 import { CONTROLLER_REV } from '../../shared/src/sdp/qr-target.ts';
+import { playerStyleVars } from '../../shared/src/theme.ts';
 import {
   ArcadeButton,
   GameCard,
@@ -218,15 +219,19 @@ export const App: VoidComponent = () => {
     }, 2000);
   }
 
+  const shellStyle = (): ThemeVars => {
+    if (!joined() || slot() < 0) return theme();
+    return { ...theme(), ...playerStyleVars(slot(), color()) };
+  };
+
   return (
-    <main class="shell" style={theme()}>
+    <main class="shell" data-joined={joined() ? 'true' : 'false'} style={shellStyle()}>
       <header class="mast">
         <p class="room-code">{room === '' ? '----' : room}<span class="rev">REV {CONTROLLER_REV}</span></p>
         <Show when={view() === null}>
           <PlayerBadge
             name={name().trim() === '' ? 'OPEN' : name().trim()}
             label={slot() < 0 ? 'P-' : `P${slot() + 1}`}
-            color={color()}
           />
         </Show>
       </header>
@@ -264,14 +269,13 @@ export const App: VoidComponent = () => {
           <SwipeZone label="SWIPE" />
         </div>
         <div class="actions">
-          <ArcadeButton label="BUTTON" color={color()} onPressedChange={sendButton} />
-            <ArcadeButton
-              label="STATUS"
-              color="var(--theme-yellow)"
-              onPressedChange={(pressed) => {
-                if (!pressed) setModal(true);
-              }}
-            />
+          <ArcadeButton label="BUTTON" onPressedChange={sendButton} />
+          <ArcadeButton
+            label="STATUS"
+            onPressedChange={(pressed) => {
+              if (!pressed) setModal(true);
+            }}
+          />
         </div>
       </Show>
       <Show when={view()} keyed>

@@ -1,8 +1,10 @@
 import { onCleanup, type VoidComponent } from 'solid-js';
+import { parseCssColorToHex, pickContrastInk } from '../theme';
 
 export const ArcadeButton: VoidComponent<{
   label: string;
   color?: string;
+  ink?: string;
   disabled?: boolean;
   onPressedChange: (pressed: boolean, timeStamp: number) => void;
 }> = (props) => {
@@ -51,6 +53,15 @@ export const ArcadeButton: VoidComponent<{
     button.removeEventListener('click', onClick);
   });
 
+  const buttonStyle = () => {
+    const raw = props.color;
+    if (raw === undefined || raw === '') {
+      return props.ink !== undefined ? { color: props.ink } : undefined;
+    }
+    const resolvedInk = props.ink ?? (parseCssColorToHex(raw) !== null ? pickContrastInk(raw) : undefined);
+    return resolvedInk !== undefined ? { background: raw, color: resolvedInk } : { background: raw };
+  };
+
   return (
     <button
       ref={(el) => {
@@ -63,7 +74,7 @@ export const ArcadeButton: VoidComponent<{
       type="button"
       class="arcade-button"
       disabled={props.disabled}
-      style={{ background: props.color ?? 'var(--accent, #f5c518)' }}
+      style={buttonStyle()}
     >
       {props.label}
     </button>

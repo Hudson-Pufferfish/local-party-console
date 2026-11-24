@@ -1,4 +1,5 @@
 import { createSignal, For, Show, type VoidComponent } from 'solid-js';
+import { playerStyleVars } from '../../shared/src/theme.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
 import { kickButtonLabel, playerDisplayName } from './lobby-kick.ts';
 
@@ -45,8 +46,8 @@ export const Lobby: VoidComponent<{
         <ul class="players">
           <For each={props.players}>
             {(player) => (
-              <li class="player">
-                <span class="swatch" style={{ "background-color": player.color }} />
+              <li class="player" style={playerStyleVars(player.index, player.color)}>
+                <span class="swatch" />
                 <span class="mono">{playerDisplayName(player.name)}</span>
                 <span class="mono">{player.connected ? 'LIVE' : 'AWAY'}</span>
                 <Show when={props.canKick === true && props.onKick !== undefined}>

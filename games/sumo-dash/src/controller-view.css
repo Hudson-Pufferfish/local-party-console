@@ -59,7 +59,7 @@
   right: 0;
   bottom: 0;
   height: 10px;
-  background: #111111;
+  background: var(--player-ink, var(--ink, #111111));
   transform: scaleX(0);
   transform-origin: left center;
   pointer-events: none;

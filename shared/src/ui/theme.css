@@ -1,4 +1,6 @@
 :root {
+  --ink: #111111;
+  --paper: #f4f1ea;
   --theme-yellow: #f5c518;
   --theme-yellow-bright: #ffe14d;
   --theme-yellow-warm: #e5a800;
@@ -8,4 +10,20 @@
   --accent-dash: var(--theme-yellow-warm);
   --accent-spark: var(--theme-yellow-bright);
   --warn: var(--theme-yellow);
+  --player-1: #FF4D00;
+  --player-2: #00C853;
+  --player-3: #2979FF;
+  --player-4: #E10600;
+  --player-5: #FF2BD6;
+  --player-6: #00B7C2;
+  --player-7: #111111;
+  --player-8: #F4F1EA;
+  --player-1-ink: #111111;
+  --player-2-ink: #111111;
+  --player-3-ink: #111111;
+  --player-4-ink: #F4F1EA;
+  --player-5-ink: #111111;
+  --player-6-ink: #111111;
+  --player-7-ink: #F4F1EA;
+  --player-8-ink: #111111;
 }

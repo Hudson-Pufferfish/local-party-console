@@ -17,7 +17,6 @@ export const HudModal: VoidComponent<{
           <p>{props.body}</p>
           <ArcadeButton
             label="CLOSE"
-            color="var(--theme-yellow)"
             onPressedChange={(pressed) => {
               if (releaseClosesModal(pressed, sawDown)) props.onClose();
               sawDown = pressed;
