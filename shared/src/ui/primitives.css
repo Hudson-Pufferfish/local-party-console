@@ -21,6 +21,9 @@
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
   will-change: transform;
 }
 
@@ -128,6 +131,9 @@
   text-align: left;
   cursor: pointer;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .game-card[data-selected='true'] {

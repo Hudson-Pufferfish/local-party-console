@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import type { PlayerSlot } from '@shared/types';
+import type { PlayerSlot, RoomPhase } from '@shared/types';
 import { PLAYER_COLORS } from '../../shared/src/registry.ts';
 
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -23,14 +23,21 @@ export interface Slot {
 export interface Room {
   roomId: string;
   hostToken: string;
+  phase: RoomPhase;
   slots: Array<Slot | null>;
   tokens: Map<string, number>;
+  revokedTokens: Set<string>;
   views: Map<string, ViewRecord>;
 }
 
 export type JoinResult =
   | { kind: 'joined'; index: number; sessionToken: string; players: PlayerSlot[] }
-  | { kind: 'full' };
+  | { kind: 'full' }
+  | { kind: 'kicked' };
+
+export type KickResult =
+  | { kind: 'kicked'; index: number; players: PlayerSlot[] }
+  | { kind: 'ignored' };
 
 export interface RoomStore {
   rooms: Map<string, Room>;
@@ -49,8 +56,10 @@ export function createRoom(store: RoomStore): { roomId: string; hostToken: strin
   const room: Room = {
     roomId,
     hostToken,
+    phase: 'lobby',
     slots: Array.from({ length: MAX_SLOTS }, () => null),
     tokens: new Map(),
+    revokedTokens: new Set(),
     views: new Map(),
   };
   store.rooms.set(roomId, room);
@@ -67,6 +76,7 @@ export function hostTokenMatches(room: Room, presented: string): boolean {
 export function joinRoom(room: Room, name: string, sessionToken?: string): JoinResult {
   const trimmed = name.trim().slice(0, MAX_NAME);
   if (sessionToken !== undefined && sessionToken !== '') {
+    if (room.revokedTokens.has(sessionToken)) return { kind: 'kicked' };
     const existing = room.tokens.get(sessionToken);
     const slot = existing === undefined ? undefined : room.slots[existing];
     if (slot !== undefined && slot !== null) {
@@ -95,6 +105,21 @@ export function joinRoom(room: Room, name: string, sessionToken?: string): JoinR
   };
   room.tokens.set(issued, index);
   return { kind: 'joined', index, sessionToken: issued, players: publicPlayers(room) };
+}
+
+export function setRoomPhase(room: Room, phase: RoomPhase): void {
+  room.phase = phase;
+}
+
+export function kickInactiveSlot(room: Room, index: number): KickResult {
+  if (room.phase !== 'lobby') return { kind: 'ignored' };
+  if (!Number.isInteger(index) || index < 0 || index >= MAX_SLOTS) return { kind: 'ignored' };
+  const slot = room.slots[index];
+  if (slot === undefined || slot === null || slot.connected) return { kind: 'ignored' };
+  room.tokens.delete(slot.sessionToken);
+  room.revokedTokens.add(slot.sessionToken);
+  room.slots[index] = null;
+  return { kind: 'kicked', index, players: publicPlayers(room) };
 }
 
 export function markSlotDisconnected(room: Room, index: number): void {

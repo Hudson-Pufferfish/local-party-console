@@ -15,6 +15,7 @@ import {
   type BotLobbyState,
 } from './bot-fill.ts';
 import { SNAPSHOT_BYTES, createHostLoop, type HostLoop } from './host-loop.ts';
+import { kickRequestFor } from './lobby-kick.ts';
 import { createPeerMap, type PeerMap } from './peer.ts';
 import { createIngest, type TelemetryRead } from './telemetry/ingest.ts';
 import { screenGames, type ArenaRenderer, type ScreenGame } from './register-games.ts';
@@ -41,6 +42,7 @@ export interface ScreenSession {
   start: () => void;
   playAgain: () => void;
   returnToLobby: () => void;
+  kickPlayer: (index: number) => void;
   setBotCount: (requested: number) => void;
   readTelemetry: (slot: number) => TelemetryRead | null;
   resumeAudio: () => void;
@@ -359,6 +361,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
+      send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
       startFrames();
     },
@@ -372,6 +375,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
+      send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
       send({ type: 'sumo:rematch', payload: { action: 'restart' } });
     },
@@ -387,7 +391,13 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       lastScoreRows = [];
       handlers.setScoreRows([]);
       handlers.setBanner('');
+      send({ type: 'room:phase', payload: { phase: 'lobby' } });
       send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
+    },
+    kickPlayer(index: number): void {
+      const request = kickRequestFor(players, index, primary, loop?.inMatch === true);
+      if (request === null) return;
+      send(request);
     },
     readTelemetry(slot: number): TelemetryRead | null {
       if (slot < 0 || slot > 7) return null;
@@ -586,6 +596,7 @@ function idleSession(view: ScreenViewTarget): ScreenSession {
     start() {},
     playAgain() {},
     returnToLobby() {},
+    kickPlayer() {},
     setBotCount() {},
     readTelemetry() {
       return null;

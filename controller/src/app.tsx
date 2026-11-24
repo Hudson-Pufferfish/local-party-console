@@ -128,7 +128,23 @@ export const App: VoidComponent = () => {
           if (next.name !== '') setName(next.name);
           setNotice('');
         },
-        onFull: () => setNotice('ROOM // FULL'),
+        onFull: () => {
+          joinPending = false;
+          window.clearTimeout(joinTimer);
+          setNotice('ROOM // FULL');
+        },
+        onKicked: () => {
+          joinPending = false;
+          window.clearTimeout(joinTimer);
+          knownSlot = -1;
+          setJoined(false);
+          setSlot(-1);
+          setColor('#f5c518');
+          setGameId('');
+          setTheme({});
+          setControl(null);
+          setNotice('REMOVED // TAP JOIN');
+        },
         onMount: (id) => {
           setTheme(localTheme(id));
           setGameId(id);

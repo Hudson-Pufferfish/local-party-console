@@ -131,6 +131,7 @@ export const App: VoidComponent = () => {
                 botCount={botLobby().botCount}
                 botControlEnabled={selectedGame()?.supportsBots === true && connectedHumans() > 0}
                 botNotice={botNotice()}
+                canKick={primary()}
                 onBotStep={(delta) => session?.setBotCount(botLobby().botCount + delta)}
                 onQr={(canvas) => {
                   canvases.qr = canvas;
@@ -138,6 +139,7 @@ export const App: VoidComponent = () => {
                 }}
                 onSelect={(id) => session?.selectGame(id)}
                 onStart={() => session?.start()}
+                onKick={(index) => session?.kickPlayer(index)}
               />
             }
           >

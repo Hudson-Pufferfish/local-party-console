@@ -1,9 +1,11 @@
 import path from 'node:path';
+import solid from '@solidjs/vite-plugin';
 import { defineConfig } from 'vitest/config';
 
 const root = path.resolve(import.meta.dirname, '..');
 
 export default defineConfig({
+  plugins: [solid({ ssr: true })],
   server: {
     fs: {
       allow: [root],
@@ -11,6 +13,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 });

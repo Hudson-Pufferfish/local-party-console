@@ -1,5 +1,6 @@
 import { createSignal, For, Show, type VoidComponent } from 'solid-js';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
+import { kickButtonLabel, playerDisplayName } from './lobby-kick.ts';
 
 export const Lobby: VoidComponent<{
   roomId: string;
@@ -13,10 +14,12 @@ export const Lobby: VoidComponent<{
   botCount: number;
   botControlEnabled: boolean;
   botNotice: string;
+  canKick?: boolean;
   onBotStep: (delta: -1 | 1) => void;
   onQr: (canvas: HTMLCanvasElement) => void;
   onSelect: (id: string) => void;
   onStart: () => void;
+  onKick?: (index: number) => void;
 }> = (props) => {
   const [pressed, setPressed] = createSignal(false);
 
@@ -44,8 +47,19 @@ export const Lobby: VoidComponent<{
             {(player) => (
               <li class="player">
                 <span class="swatch" style={{ "background-color": player.color }} />
-                <span class="mono">{player.name === '' ? 'PLAYER' : player.name}</span>
+                <span class="mono">{playerDisplayName(player.name)}</span>
                 <span class="mono">{player.connected ? 'LIVE' : 'AWAY'}</span>
+                <Show when={!player.connected && props.canKick === true && props.onKick !== undefined}>
+                  <button
+                    type="button"
+                    class="player-kick"
+                    aria-label={kickButtonLabel(player.name)}
+                    title="Remove inactive player"
+                    onClick={() => props.onKick?.(player.index)}
+                  >
+                    ×
+                  </button>
+                </Show>
               </li>
             )}
           </For>

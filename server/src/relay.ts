@@ -5,11 +5,14 @@
 import type { Server, IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
+import type { RoomPhase } from '@shared/types';
 import {
   hostTokenMatches,
   joinRoom,
+  kickInactiveSlot,
   markSlotDisconnected,
   publicPlayers,
+  setRoomPhase,
   type Room,
   type RoomStore,
 } from './rooms.ts';
@@ -150,6 +153,17 @@ function handleText(
     handleJoin(clients, mounts, room, client, message.payload);
     return;
   }
+  if (type === 'room:phase') {
+    if (primaries.get(room) !== client) return;
+    const phase = readPhase(message.payload);
+    if (phase !== null) setRoomPhase(room, phase);
+    return;
+  }
+  if (type === 'room:kick') {
+    if (primaries.get(room) !== client) return;
+    handleKick(clients, room, message.payload);
+    return;
+  }
   if (type === 'game:mount' || type.startsWith('sumo:')) {
     if (primaries.get(room) !== client) return;
     if (type === 'game:mount') mounts.set(room, raw);
@@ -177,6 +191,10 @@ function handleJoin(
     client.ws.send(JSON.stringify({ type: 'room:full', payload: {} }));
     return;
   }
+  if (result.kind === 'kicked') {
+    client.ws.send(JSON.stringify({ type: 'room:kicked', payload: { reason: 'kicked' } }));
+    return;
+  }
   const group = clients.get(room);
   if (group !== undefined) {
     for (const other of group) {
@@ -198,6 +216,40 @@ function handleJoin(
   }));
   const mounted = mounts.get(room);
   if (mounted !== undefined) client.ws.send(mounted);
+}
+
+function handleKick(clients: Map<Room, Set<Client>>, room: Room, payload: unknown): void {
+  const index = readKickIndex(payload);
+  if (index === null) return;
+  const result = kickInactiveSlot(room, index);
+  if (result.kind !== 'kicked') return;
+  const group = clients.get(room);
+  if (group === undefined) return;
+  const kickedFrame = JSON.stringify({ type: 'room:kicked', payload: { reason: 'kicked' } });
+  const playersFrame = JSON.stringify({
+    type: 'room:players',
+    payload: { players: result.players },
+  });
+  for (const member of group) {
+    if (member.slotIndex === result.index) {
+      member.slotIndex = null;
+      if (member.ws.readyState === WebSocket.OPEN) member.ws.send(kickedFrame);
+    }
+    if (member.ws.readyState === WebSocket.OPEN) member.ws.send(playersFrame);
+  }
+}
+
+function readKickIndex(payload: unknown): number | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const index = (payload as { index?: unknown }).index;
+  if (typeof index !== 'number' || !Number.isInteger(index) || index < 0 || index > 7) return null;
+  return index;
+}
+
+function readPhase(payload: unknown): RoomPhase | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const phase = (payload as { phase?: unknown }).phase;
+  return phase === 'lobby' || phase === 'match' ? phase : null;
 }
 
 function handleBinary(primaries: WeakMap<Room, Client>, client: Client, data: Buffer): void {

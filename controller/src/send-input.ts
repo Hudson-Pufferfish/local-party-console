@@ -60,6 +60,17 @@ export function markJoined(): void {
   joined = true;
 }
 
+export function markUnjoined(): void {
+  joined = false;
+  haveSent = false;
+  axisX = 0;
+  axisY = 0;
+  buttons = 0;
+  buttonDown = false;
+  dashEdge = false;
+  cancelPending();
+}
+
 export function setSendClock(next: { slot: number; offsetMs: number; tier: '60' | '30' }): void {
   clockSlot = next.slot;
   offsetMs = next.offsetMs;

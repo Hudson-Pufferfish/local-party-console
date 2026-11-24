@@ -319,3 +319,142 @@ test('rejoin keeps the slot and the broadcast omits the session token', async ()
     await relay.close();
   }
 });
+
+test('kicking an AWAY player in lobby removes them, frees their slot, and refuses LIVE or in-match kicks', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const ada = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const bea = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, ada, bea);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+
+    const adaJoined = waitForText(ada, 'room:joined');
+    const adaRoster = waitForText(screen, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const adaFrame = await adaJoined;
+    await adaRoster;
+    expect(adaFrame.payload?.index).toBe(0);
+
+    const beaJoined = waitForText(bea, 'room:joined');
+    const beaRoster = waitForText(screen, 'room:players');
+    bea.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    const beaFrame = await beaJoined;
+    await beaRoster;
+    expect(beaFrame.payload?.index).toBe(1);
+
+    const screenUpdates: Array<Array<{ index: number; name: string; connected: boolean }>> = [];
+    screen.on('message', (data, isBinary) => {
+      if (isBinary) return;
+      const frame = JSON.parse(data.toString()) as {
+        type: string;
+        payload?: { players?: Array<{ index: number; name: string; connected: boolean }> };
+      };
+      if (frame.type === 'room:players' && Array.isArray(frame.payload?.players)) {
+        screenUpdates.push(frame.payload.players);
+      }
+    });
+
+    // Refuses kicking a LIVE player or unknown slot
+    const beforeRefused = screenUpdates.length;
+    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
+    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 7 } }));
+    await settle();
+    expect(screenUpdates.length).toBe(beforeRefused);
+
+    // Disconnect Ada so slot 0 becomes AWAY
+    const awayUpdate = waitForText(screen, 'room:players');
+    ada.close();
+    await awayUpdate;
+
+    // Refuses kicking an AWAY player during an active match
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
+    await settle();
+    const beforeMatchKick = screenUpdates.length;
+    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
+    await settle();
+    expect(screenUpdates.length).toBe(beforeMatchKick);
+
+    // Returning to lobby permits kicking the AWAY player and broadcasts to screen + connected controllers
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'lobby' } }));
+    const screenAfterKick = waitForText(screen, 'room:players');
+    const beaAfterKick = waitForText(bea, 'room:players');
+    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
+    const [screenFrame, beaNotice] = await Promise.all([screenAfterKick, beaAfterKick]);
+    expect(screenFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+    ]);
+    expect(beaNotice.payload?.players).toEqual([
+      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+    ]);
+
+    // Slot 0 is freed and reused by the next joining player
+    const cy = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(cy);
+    const cyJoined = waitForText(cy, 'room:joined');
+    cy.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
+    const cyFrame = await cyJoined;
+    expect(cyFrame.payload?.index).toBe(0);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+test('a kicked phone token is rejected with room:kicked instead of silently rejoining', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const joined = waitForText(phone, 'room:joined');
+    const joinRoster = waitForText(screen, 'room:players');
+    phone.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const first = await joined;
+    await joinRoster;
+    const oldToken = first.payload?.sessionToken;
+    expect(typeof oldToken).toBe('string');
+
+    const awayNotice = waitForText(screen, 'room:players');
+    phone.close();
+    await awayNotice;
+
+    const kickedNotice = waitForText(screen, 'room:players');
+    screen.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
+    const emptyRoster = await kickedNotice;
+    expect(emptyRoster.payload?.players).toEqual([]);
+
+    // Stale reconnect with kicked token is rejected cleanly and does not add a player
+    const returning = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(returning);
+    const rejected = waitForText(returning, 'room:kicked');
+    returning.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Ada', sessionToken: oldToken },
+    }));
+    await rejected;
+
+    // Explicit fresh join without the revoked token succeeds
+    const freshJoined = waitForText(returning, 'room:joined');
+    returning.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const fresh = await freshJoined;
+    expect(fresh.payload?.index).toBe(0);
+    expect(fresh.payload?.sessionToken).not.toBe(oldToken);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});

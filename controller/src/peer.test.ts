@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { connectPhone, joinNotice } from './peer.ts';
+import { connectPhone, joinNotice, storedSeq, storedToken } from './peer.ts';
+import { sendAxes } from './send-input.ts';
 
 class IdleSocket extends EventTarget {
   static CONNECTING = 0;
@@ -120,6 +121,77 @@ test('room:joined updates the phone even when the data channel cannot open', () 
     globalThis.RTCPeerConnection = previousPeer;
   }
   expect(seen).toEqual([1]);
+});
+
+test('room:kicked clears stored reconnect state and notifies the controller', () => {
+  const memory = new Map<string, string>([
+    ['party-session-ABCD', 'stale-token'],
+    ['party-seq-ABCD', '42'],
+  ]);
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memory.set(key, value);
+    },
+    removeItem: (key: string) => {
+      memory.delete(key);
+    },
+  });
+  vi.stubGlobal('location', { host: '10.0.0.72:8443' });
+  globalThis.window = globalThis as unknown as Window & typeof globalThis;
+  openSockets.length = 0;
+  const previousSocket = globalThis.WebSocket;
+  const previousPeer = globalThis.RTCPeerConnection;
+  globalThis.WebSocket = OpenSocket as unknown as typeof WebSocket;
+  globalThis.RTCPeerConnection = class {
+    constructor() {
+      throw new Error('no pc');
+    }
+  } as unknown as typeof RTCPeerConnection;
+  let kickedCount = 0;
+  const sentBuffers: ArrayBuffer[] = [];
+  try {
+    const link = connectPhone('ABCD', {
+      onJoined() {},
+      onFull() {},
+      onKicked() {
+        kickedCount += 1;
+      },
+      onMount() {},
+      onPong() {},
+      onLink() {},
+    });
+    const socket = openSockets[0];
+    if (socket === undefined) throw new Error('missing socket');
+    socket.send = (data: string | ArrayBuffer) => {
+      if (data instanceof ArrayBuffer) sentBuffers.push(data);
+    };
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:joined',
+        payload: {
+          index: 0,
+          sessionToken: 'stale-token',
+          players: [{ index: 0, name: 'Ada', color: '#FF4D00' }],
+        },
+      }),
+    }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:kicked',
+        payload: { reason: 'kicked' },
+      }),
+    }));
+    sendAxes(1, 0, performance.now());
+    link.close();
+  } finally {
+    globalThis.WebSocket = previousSocket;
+    globalThis.RTCPeerConnection = previousPeer;
+  }
+  expect(kickedCount).toBe(1);
+  expect(storedToken('ABCD')).toBeNull();
+  expect(storedSeq('ABCD')).toBe(-1);
+  expect(sentBuffers).toEqual([]);
 });
 
 class OpenSocket extends EventTarget {

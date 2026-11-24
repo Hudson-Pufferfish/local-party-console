@@ -7,6 +7,7 @@ import {
   flushHeartbeat,
   lastInputAt,
   markJoined,
+  markUnjoined,
   readSendClock,
   setSendClock,
   setSeq,
@@ -54,6 +55,10 @@ export function storeToken(room: string, token: string): void {
   localStorage.setItem(sessionKey(room), token);
 }
 
+export function clearToken(room: string): void {
+  localStorage.removeItem(sessionKey(room));
+}
+
 export function storedSeq(room: string): number {
   const raw = localStorage.getItem(seqKey(room));
   if (raw === null) return -1;
@@ -66,11 +71,16 @@ export function storeSeq(room: string, seq: number): void {
   localStorage.setItem(seqKey(room), String(seq & 0xffff));
 }
 
+export function clearSeq(room: string): void {
+  localStorage.removeItem(seqKey(room));
+}
+
 export function connectPhone(
   room: string,
   hooks: {
     onJoined: (slot: JoinedSlot) => void;
     onFull: () => void;
+    onKicked?: () => void;
     onMount: (gameId: string) => void;
     onPong: (sentAt: number, receivedAt: number) => void;
     onLink: (up: boolean) => void;
@@ -210,6 +220,11 @@ export function connectPhone(
       hooks.onFull();
       return;
     }
+    if (type === 'room:kicked') {
+      clearSession();
+      hooks.onKicked?.();
+      return;
+    }
     if (type === 'game:mount') {
       const mountedRoom = readRoomId(payload);
       if (mountedRoom !== null && mountedRoom !== room) return;
@@ -251,6 +266,30 @@ export function connectPhone(
       return;
     }
     if (type === 'signal:ice') onIce(payload);
+  }
+
+  function clearSession(): void {
+    slot = -1;
+    startedAt = 0;
+    answering = false;
+    lastBeat = 0;
+    if (syncTimer !== 0) {
+      window.clearTimeout(syncTimer);
+      syncTimer = 0;
+    }
+    if (beatTimer !== 0) {
+      window.clearTimeout(beatTimer);
+      beatTimer = 0;
+    }
+    observer?.disconnect();
+    observer = null;
+    dc?.close();
+    dc = null;
+    pc?.close();
+    pc = null;
+    markUnjoined();
+    clearToken(room);
+    clearSeq(room);
   }
 
   function startClock(): void {
