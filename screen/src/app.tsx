@@ -1,11 +1,18 @@
 import { createEffect, createMemo, createSignal, Show, type VoidComponent } from 'solid-js';
 import type { PlayerSlot } from '../../shared/src/types/game.ts';
-import { canStart } from '../../shared/src/view/policy.ts';
 import { Badge } from './badge.tsx';
+import {
+  createBotLobby,
+  rosterForStart,
+  startBlockReason,
+  startNotice,
+  type BotLobbyState,
+} from './bot-fill.ts';
 import { Lobby } from './lobby.tsx';
 import { listScreenManifests, screenGames } from './register-games.ts';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
+import { TabHud } from './telemetry/tab-hud.tsx';
 
 export const App: VoidComponent = () => {
   const [roomId, setRoomId] = createSignal('');
@@ -18,6 +25,7 @@ export const App: VoidComponent = () => {
   const [matchOver, setMatchOver] = createSignal(false);
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
+  const [botLobby, setBotLobby] = createSignal<BotLobbyState>(createBotLobby());
   const games = listScreenManifests();
   const view = readScreenView(new URLSearchParams(location.search).get('view'));
   const themeKeys: string[] = [];
@@ -40,6 +48,7 @@ export const App: VoidComponent = () => {
         setMatchOver,
         setNotice,
         setSelectedId,
+        setBotLobby,
       });
       if (canvases.qr !== null) session.attachQr(canvases.qr);
       if (canvases.match !== null) session.attachMatch(canvases.match);
@@ -63,19 +72,42 @@ export const App: VoidComponent = () => {
     },
   );
 
-  const startEnabled = createMemo(() => {
+  const connectedHumans = createMemo(() => {
     let count = 0;
     for (const player of players()) {
       if (player.connected) count += 1;
     }
-    const game = games.find((item) => item.id === selectedId());
+    return count;
+  });
+
+  const selectedGame = createMemo(() => games.find((item) => item.id === selectedId()));
+
+  const startEnabled = createMemo(() => {
+    const game = selectedGame();
     if (game === undefined || !primary()) return false;
-    return canStart(count, game.minPlayers);
+    return rosterForStart(players(), game, botLobby().botCount) !== null;
+  });
+
+  const botNotice = createMemo(() => {
+    const game = selectedGame();
+    if (game === undefined) return '';
+    return startNotice(startBlockReason({
+      humans: connectedHumans(),
+      bots: botLobby().botCount,
+      minPlayers: game.minPlayers,
+      maxPlayers: game.maxPlayers,
+      supportsBots: game.supportsBots,
+    }));
   });
 
   return (
     <>
       <Badge view={view} />
+      <TabHud
+        primary={primary()}
+        players={players()}
+        read={(slot) => session?.readTelemetry(slot) ?? null}
+      />
       <Show
         when={standby()}
         fallback={
@@ -91,6 +123,10 @@ export const App: VoidComponent = () => {
                 games={games}
                 selectedId={selectedId()}
                 startEnabled={startEnabled()}
+                botCount={botLobby().botCount}
+                botControlEnabled={selectedGame()?.supportsBots === true && connectedHumans() > 0}
+                botNotice={botNotice()}
+                onBotStep={(delta) => session?.setBotCount(botLobby().botCount + delta)}
                 onQr={(canvas) => {
                   canvases.qr = canvas;
                   session?.attachQr(canvas);

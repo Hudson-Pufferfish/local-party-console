@@ -16,7 +16,8 @@ import {
 
 const MAX_PAYLOAD = 65536;
 const MAX_SOCKETS_PER_ADDRESS = 12;
-const BINARY_FRAME = 8;
+const INPUT_FRAME = 8;
+const HEARTBEAT_FRAME = 4;
 
 interface Client {
   ws: WebSocket;
@@ -194,10 +195,11 @@ function handleJoin(
 }
 
 function handleBinary(primaries: WeakMap<Room, Client>, client: Client, data: Buffer): void {
-  if (data.length !== BINARY_FRAME || client.slotIndex === null) return;
+  const size = data.length;
+  if ((size !== INPUT_FRAME && size !== HEARTBEAT_FRAME) || client.slotIndex === null) return;
   const primary = primaries.get(client.room);
   if (primary === undefined || primary.ws.readyState !== WebSocket.OPEN) return;
-  const out = Buffer.alloc(BINARY_FRAME + 1);
+  const out = Buffer.alloc(size + 1);
   out[0] = client.slotIndex;
   data.copy(out, 1);
   primary.ws.send(out);

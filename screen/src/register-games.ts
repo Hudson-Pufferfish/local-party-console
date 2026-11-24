@@ -1,10 +1,12 @@
 import { eventsFromHeaderDiff } from '../../games/sumo-dash/src/events.ts';
+import { writeHeuristic } from '../../games/sumo-dash/src/heuristic.ts';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import { createSumoRenderer } from '../../games/sumo-dash/src/renderer.ts';
 import { createSumoSimulation } from '../../games/sumo-dash/src/simulation.ts';
 import { GameRegistry } from '../../shared/src/registry.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
 import type { GameManifest } from '../../shared/src/types/game.ts';
+import type { WriteBotInput } from './bot-fill.ts';
 import type { ScreenSim } from './host-loop.ts';
 
 export interface ArenaRenderer {
@@ -17,6 +19,7 @@ export interface ScreenGame {
   createSim: () => ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array) => Envelope[];
   createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array) => ArenaRenderer;
+  writeBotInput?: WriteBotInput;
 }
 
 export const screenGames = new Map<string, ScreenGame>();
@@ -34,4 +37,5 @@ screenGames.set(SUMO_DASH_MANIFEST.id, {
   createSim: () => createSumoSimulation(),
   eventsFromHeaderDiff,
   createRenderer: createSumoRenderer,
+  writeBotInput: writeHeuristic,
 });

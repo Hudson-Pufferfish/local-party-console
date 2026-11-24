@@ -7,7 +7,7 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
   maxPlayers: 8,
   supportsTeams: false,
   maxTeams: 0,
-  supportsBots: false, // v1 humans only. v1.1 sets this true and adds the heuristic below.
+  supportsBots: true, // Heuristic policy lives in heuristic.ts.
   rendererType: 'phaser-2d',
   viewConfig: {
     mode: 'holistic',

@@ -10,7 +10,7 @@
 
 | ID | Game Title | Spec File | Status | Engine | Players / Bots | View Mode | Input Buffer Mode |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `sumo-dash` | **Sumo Dash** | [`./sumo-dash.md`](./sumo-dash.md) | **v1 Active** *(humans only; heuristic bots are v1.1)* | 2D (`Phaser 4`) | 2–8 human players | `holistic` | `zero-buffer` |
+| `sumo-dash` | **Sumo Dash** | [`./sumo-dash.md`](./sumo-dash.md) | **v1.1** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
 
 *(Additional game specification files will be added to this folder and registered in this index as the platform expands.)*
 
@@ -79,6 +79,6 @@ When introducing a new game to `games-spec/`:
    * `GameManifest` and strict `GameViewConfig` (`holistic` vs. `team-exclusive`, plus camera/fog-of-war rules for `team-exclusive` games).
    * Exact `Float32Array` flat-buffer memory layout per entity/player.
    * Phone controller layout and byte-level mapping for `Byte 5` (buttons) and `Bytes 6..7` (axes).
-   * Bot rules only when `supportsBots` is true. v1 `sumo-dash` sets `supportsBots: false`. The heuristic is specified under v1.1 in that file and is not part of the v1 build.
+   * Bot rules only when `supportsBots` is true. `sumo-dash` sets `supportsBots: true`. The heuristic is in that file.
 2. Add the game to the **Active Game Index** table above.
 3. Register the module in the platform's central `GameRegistry` so it automatically appears in the monitor lobby carousel.

@@ -7,7 +7,7 @@ test('sumo-dash manifest is the v1 holistic contract', () => {
   expect(view.mode).toBe('holistic');
   if (view.mode !== 'holistic') return;
   expect(view.inputBufferMode).toBe('zero-buffer');
-  expect(SUMO_DASH_MANIFEST.supportsBots).toBe(false);
+  expect(SUMO_DASH_MANIFEST.supportsBots).toBe(true);
   expect(SUMO_DASH_MANIFEST.minPlayers).toBe(2);
   expect(SUMO_DASH_MANIFEST.maxPlayers).toBe(8);
 });

@@ -1,5 +1,6 @@
 import { createEffect, createSignal, Show, type VoidComponent } from 'solid-js';
 import { classifyPower, rfc3550Jitter } from '../../shared/src/controller/preflight.ts';
+import { tierFor } from '../../shared/src/stretch1/tier.ts';
 import { CONTROLLER_REV } from '../../shared/src/sdp/qr-target.ts';
 import {
   ArcadeButton,
@@ -18,7 +19,7 @@ import {
   type ControllerViewProps,
   type ThemeVars,
 } from './register-games.ts';
-import { lastSentSeq, sendAxes, sendButton } from './send-input.ts';
+import { lastSentSeq, readSendClock, sendAxes, sendButton, setSendClock } from './send-input.ts';
 
 const room = new URLSearchParams(location.search).get('room') ?? '';
 
@@ -51,6 +52,29 @@ export const App: VoidComponent = () => {
         return;
       }
       let raf = 0;
+      let knownSlot = -1;
+      let knownPower: 'ok' | 'low-power' = 'ok';
+      let knownCores = 0;
+      let probeDone = false;
+      const publishTier = (): void => {
+        const tier = tierFor({ power: knownPower, cores: knownCores });
+        const clock = readSendClock();
+        setSendClock({
+          slot: knownSlot < 0 ? clock.slot : knownSlot,
+          offsetMs: clock.offsetMs,
+          tier,
+        });
+        if (!probeDone || knownSlot < 0 || link === undefined) return;
+        link.sendText({
+          type: 'phone:tier',
+          payload: {
+            slot: knownSlot,
+            tier,
+            lowPower: knownPower === 'low-power',
+            cores: knownCores,
+          },
+        });
+      };
       let samples = 0;
       let firstSent = 0;
       let firstRecv = 0;
@@ -64,9 +88,13 @@ export const App: VoidComponent = () => {
         }
         last = now;
         if (count >= 10) {
-          setPower(classifyPower(deltas));
-          setCores(navigator.hardwareConcurrency);
+          knownPower = classifyPower(deltas);
+          knownCores = navigator.hardwareConcurrency;
+          probeDone = true;
+          setPower(knownPower);
+          setCores(knownCores);
           setPowerReady(true);
+          publishTier();
           return;
         }
         raf = window.requestAnimationFrame(frame);
@@ -93,8 +121,10 @@ export const App: VoidComponent = () => {
           joinPending = false;
           window.clearTimeout(joinTimer);
           setJoined(true);
+          knownSlot = next.index;
           setSlot(next.index);
           setColor(next.color);
+          publishTier();
           if (next.name !== '') setName(next.name);
           setNotice('');
         },
@@ -253,5 +283,7 @@ export const App: VoidComponent = () => {
 function modalBody(cores: number, ready: boolean, power: 'ok' | 'low-power'): string {
   const coreText = cores < 0 ? '--' : String(cores);
   const powerText = !ready ? 'POWER --' : power === 'low-power' ? 'LOW POWER' : 'POWER OK';
-  return `CORES ${coreText} // ${powerText}. SEND STAYS 60HZ.`;
+  const tier = tierFor({ power: ready && power === 'low-power' ? 'low-power' : 'ok', cores });
+  const send = tier === '30' ? 'SEND 30HZ' : 'SEND 60HZ';
+  return `CORES ${coreText} // ${powerText}. ${send}.`;
 }

@@ -6,7 +6,7 @@
 
 ## 1. Overview & `GameManifest` Contract
 
-**Sumo Dash** is a fast-paced, 2-to-8 player top-down 2D arena brawler where chunky Neo-Brutalist pucks steer and dash to knock opponents off a shrinking circular steel platform. Rounds last 15–30 seconds; first player to **5 round wins** takes the match. v1 is human players only.
+**Sumo Dash** is a fast-paced, 2-to-8 player top-down 2D arena brawler where chunky Neo-Brutalist pucks steer and dash to knock opponents off a shrinking circular steel platform. Rounds last 15–30 seconds; first player to **5 round wins** takes the match. v1 is human players only. v1.1 fills empty slots with the heuristic bot.
 
 ### Declarative Manifest (`manifest.ts`)
 ```typescript
@@ -19,7 +19,7 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
   maxPlayers: 8,
   supportsTeams: false,
   maxTeams: 0,
-  supportsBots: false, // v1 humans only. v1.1 sets this true and adds the heuristic below.
+  supportsBots: true, // Heuristic policy lives in heuristic.ts.
   rendererType: 'phaser-2d',
   viewConfig: {
     mode: 'holistic',
@@ -99,8 +99,8 @@ If a phone stops sending input, that slot's axes and buttons become zero until t
   * Each puck rendered with its P1–P8 high-contrast fill, `3px #111111` border, hard offset shadow (`+5px, +5px`), directional nose wedge, and a radial `DASH` cooldown arc around the rim.
   * **Hit-Stop & Juice:** Heavy dash impacts set `hitStopFrames = 3`. The renderer pauses drawing for those frames (~25ms at 120Hz). `step(dt)` keeps running, and input keeps arriving. Camera shake is at most 8px. Sparks are hard-edged squares (no soft blur).
 
-### Deferred — v1.1 Heuristic Bot (do not build in v1)
-When `supportsBots` becomes true, an empty slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim:
+### Heuristic bot
+An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz inside the host sim:
 1. If $\|\vec{p}_{\text{bot}}\| > 0.72 \cdot R_{\text{arena}}$, steer toward $(0, 0)$.
 2. Else steer toward the nearest alive opponent's predicted point $\vec{p}_j + 0.15 \cdot \vec{v}_j$.
 3. Fire `DASH` when distance $< 180$, alignment $> 0.88$, and the dash would not carry the bot past $0.85 \cdot R_{\text{arena}}$.
@@ -250,7 +250,7 @@ Every PR or AI-generated change to `sumo-dash` must preserve these invariants:
 * **Collision & Knockback Math:** A head-on hit applies equal-and-opposite impulses (momentum conserved) with restitution $e = 0.85$ (kinetic energy drops). A dashing puck applies $1.75\times$ knockback and `0.22s` stun to a non-dashing puck. Zero-distance overlap does not produce `NaN` (`INV-1`).
 * **Dash Edge-Triggering:** Verify holding `Bit 0 = 1` across multiple frames only fires **one** dash on the rising edge (`0 -> 1`) and respects the $1.50\text{s}$ cooldown (`INV-3`).
 * **Ring-Out & Simultaneous Draw:** Place two pucks at $x = R_{\text{arena}} + 1$ on the exact same tick and verify `aliveCount === 0` triggers a `DRAW` without awarding a phantom point (`INV-5`).
-* **v1.1 bot safety (not a v1 test):** Spawn a bot at $0.85 \cdot R_{\text{arena}}$ and verify its output vector points toward $(0, 0)$ and does not dash off the ring.
+* **v1.1 bot safety:** Spawn a bot at $0.85 \cdot R_{\text{arena}}$ and verify its output vector points toward $(0, 0)$ and does not dash off the ring. `heuristic.test.ts` covers that vector.
 
 ### 2. State Machine & Property-Based / Fuzz Tests
 * **10,000-Tick Fuzz Simulation:** Feed randomized 8-player binary inputs (`Uint8` bitmasks and `Int8` axes) into `GameSimulation` for $10,000$ ticks across multiple rounds. Assert `INV-1` through `INV-5` after every single tick.

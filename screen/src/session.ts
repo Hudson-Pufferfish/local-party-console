@@ -1,10 +1,20 @@
 import { toCanvas } from 'qrcode';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
 import type { GameManifest, PlayerSlot, ScreenViewTarget } from '../../shared/src/types/game.ts';
-import { canStart, standbyCopy } from '../../shared/src/view/policy.ts';
+import { standbyCopy } from '../../shared/src/view/policy.ts';
+import {
+  createBotFill,
+  createBotLobby,
+  lockBotCount,
+  nextBotCount,
+  rosterForStart,
+  unlockBotCount,
+  type BotLobbyState,
+} from './bot-fill.ts';
 import { SNAPSHOT_BYTES, createHostLoop, type HostLoop } from './host-loop.ts';
 import { createPeerMap, type PeerMap } from './peer.ts';
-import { screenGames, type ArenaRenderer } from './register-games.ts';
+import { createIngest, type TelemetryRead } from './telemetry/ingest.ts';
+import { screenGames, type ArenaRenderer, type ScreenGame } from './register-games.ts';
 
 export interface SessionHandlers {
   setRoomId: (value: string) => void;
@@ -17,6 +27,7 @@ export interface SessionHandlers {
   setMatchOver: (value: boolean) => void;
   setNotice: (value: string) => void;
   setSelectedId: (value: string) => void;
+  setBotLobby: (value: BotLobbyState) => void;
 }
 
 export interface ScreenSession {
@@ -25,6 +36,8 @@ export interface ScreenSession {
   start: () => void;
   playAgain: () => void;
   returnToLobby: () => void;
+  setBotCount: (requested: number) => void;
+  readTelemetry: (slot: number) => TelemetryRead | null;
   resumeAudio: () => void;
   attachQr: (canvas: HTMLCanvasElement) => void;
   attachMatch: (canvas: HTMLCanvasElement) => void;
@@ -69,6 +82,12 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let renderer: ArenaRenderer | null = null;
   let players: PlayerSlot[] = [];
   let selectedId = '';
+  let botLobby = createBotLobby();
+  const bots = createBotFill((state, botIndex, axisX, axisY, buttons) => {
+    const writer = screenGames.get(selectedId)?.writeBotInput;
+    if (writer === undefined) return;
+    writer(state, botIndex, axisX, axisY, buttons);
+  });
   let primary = false;
   let socket: WebSocket | null = null;
   let socketOpen = false;
@@ -87,10 +106,26 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const snapMessage = { epoch: 0, bytes: publishBytes };
   let channel: BroadcastChannel | null = null;
 
+  const ingest = createIngest();
   const peers: PeerMap = createPeerMap({
-    onPacket: (slot, seq, buttons, axisX, axisY) => {
-      loop?.accept(slot, seq, buttons, axisX, axisY, performance.now());
+    onPacket: (slot, seq, buttons, axisX, axisY, phoneTs, touchLag) => {
+      const now = performance.now();
+      ingest.onInput(slot, seq, phoneTs, touchLag, now);
+      loop?.accept(slot, seq, buttons, axisX, axisY, now);
     },
+    onHeartbeat: (slot) => {
+      ingest.onHeartbeat(slot, performance.now());
+    },
+    onOffset: (slot, theta) => {
+      ingest.onOffset(slot, theta);
+    },
+    onTier: (slot, tier, lowPower, cores) => {
+      ingest.onTier(slot, tier, lowPower, cores);
+    },
+    onLongTask: (slot, n) => {
+      ingest.onLongTask(slot, n);
+    },
+    isPrimary: () => primary,
     onSdp: (ok) => {
       if (!ok) handlers.setSdpWarning(true);
     },
@@ -222,29 +257,24 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     handlers.setStandby(standbyCopy(view, config));
   }
 
-  function begin(slots: number[]): void {
-    if (!primary || view !== 'holistic') return;
-    const game = screenGames.get(selectedId);
-    if (game === undefined) return;
-    if (!canStart(slots.length, game.manifest.minPlayers)) return;
-    if (loop === null) {
-      loop = createHostLoop(game.createSim(), game.eventsFromHeaderDiff, (events) => {
-        for (const event of events) send(event);
-      });
+  function connectedHumans(): number {
+    let count = 0;
+    for (const player of players) {
+      if (player.connected) count += 1;
     }
-    loop.startMatch(slots);
-    handlers.setMatch(true);
-    handlers.setMatchOver(false);
-    publish();
-    startFrames();
+    return count;
   }
 
-  function connectedSlots(): number[] {
-    const slots: number[] = [];
-    for (const player of players) {
-      if (player.connected) slots.push(player.index);
-    }
-    return slots;
+  function openLoop(game: ScreenGame): void {
+    if (loop !== null) return;
+    loop = createHostLoop(
+      game.createSim(),
+      game.eventsFromHeaderDiff,
+      (events) => {
+        for (const event of events) send(event);
+      },
+      (slot, sim) => bots.fill(slot, sim),
+    );
   }
 
   function startFrames(): void {
@@ -284,11 +314,30 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     },
     start(): void {
       resumeAudio();
-      begin(connectedSlots());
+      if (!primary || view !== 'holistic') return;
+      const game = screenGames.get(selectedId);
+      if (game === undefined) return;
+      const roster = rosterForStart(players, game.manifest, botLobby.botCount);
+      if (roster === null) return;
+      botLobby = lockBotCount(botLobby);
+      handlers.setBotLobby(botLobby);
+      openLoop(game);
+      if (loop === null) return;
+      bots.arm(roster.botMask);
+      loop.startMatch(roster.slots);
+      handlers.setMatch(true);
+      handlers.setMatchOver(false);
+      publish();
+      startFrames();
     },
     playAgain(): void {
       if (!primary || loop === null) return;
-      loop.startMatch(connectedSlots());
+      const game = screenGames.get(selectedId);
+      if (game === undefined) return;
+      const roster = rosterForStart(players, game.manifest, botLobby.botCount);
+      if (roster === null) return;
+      bots.arm(roster.botMask);
+      loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
       publish();
@@ -296,12 +345,30 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     },
     returnToLobby(): void {
       if (!primary || loop === null) return;
+      botLobby = unlockBotCount(botLobby);
+      handlers.setBotLobby(botLobby);
       loop.release();
       stopFrames();
       destroyRenderer();
       handlers.setMatch(false);
       handlers.setMatchOver(false);
       send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
+    },
+    readTelemetry(slot: number): TelemetryRead | null {
+      if (slot < 0 || slot > 7) return null;
+      ingest.setTransport(slot, peers.mode(slot));
+      return ingest.read(slot);
+    },
+    setBotCount(requested: number): void {
+      const game = screenGames.get(selectedId);
+      botLobby = nextBotCount(
+        botLobby,
+        requested,
+        connectedHumans(),
+        game?.manifest.maxPlayers ?? 8,
+        game?.manifest.supportsBots === true,
+      );
+      handlers.setBotLobby(botLobby);
     },
     resumeAudio,
     attachQr(canvas: HTMLCanvasElement): void {
@@ -401,6 +468,15 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         if (t !== null) send({ type: 'net:pong', payload: { t } });
         return;
       }
+      if (
+        message.type === 'clock:sync'
+        || message.type === 'clock:offset'
+        || message.type === 'phone:tier'
+        || message.type === 'phone:longtask'
+      ) {
+        peers.handleText(message.type, message.payload);
+        return;
+      }
       if (message.type === 'sumo:rematch' && !primary) {
         const action = readAction(message.payload);
         if (action === 'lobby' && view === 'holistic') {
@@ -472,6 +548,10 @@ function idleSession(view: ScreenViewTarget): ScreenSession {
     start() {},
     playAgain() {},
     returnToLobby() {},
+    setBotCount() {},
+    readTelemetry() {
+      return null;
+    },
     resumeAudio() {},
     attachQr() {},
     attachMatch() {},
