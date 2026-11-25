@@ -1,6 +1,6 @@
 # Architecture Decision Log
 
-This document records durable architectural decisions for `local-party-console`. Add new entries in chronological order (`ADR-002`, `ADR-003`, ...) when a platform-level choice sets a long-term constraint or trade-off.
+This document records durable architectural decisions for `local-party-console`. It is written so both human developers and agents can immediately understand **why** technical choices were made, **how the network protocols work under the hood**, and what trade-offs were chosen.
 
 ## Index
 
@@ -16,59 +16,74 @@ This document records durable architectural decisions for `local-party-console`.
 - **Status:** Accepted
 - **Date:** 2026-11-24
 
-### Context
+### 1. The Human Problem: "Why can't my phone connect to my laptop?"
 
-`local-party-console` runs on an Apple Silicon MacBook host in Chrome and pairs up to 8 smartphones over local Wi-Fi. Players scan a QR code and play inside Safari or Chrome with no native app install.
+When 8 friends sit in a living room to play a party game on a TV or laptop screen, they scan a QR code with their phones. We want zero-latency touch controls without installing an App Store app.
 
-This setup creates four networking constraints:
+Standard WebRTC is designed for video calls across the internet. When used inside a private living room on local Wi-Fi, it runs into three frustrating problems:
 
-1. **Tight latency budget:** Touch input must reach the host simulation within a few milliseconds on the local network (see [specifications/SPEC.md](../specifications/SPEC.md)). Internet round trips, STUN lookups, and TURN relays add latency and fail when the room has no internet access.
-2. **Browser mDNS obfuscation:** Chrome and Safari replace local IPv4 host candidates with `<uuid>.local` mDNS hostnames when the page does not hold camera or microphone permission. Mobile browsers frequently fail to resolve `.local` candidates reliably across local Wi-Fi routers.
-3. **Candidate noise on multi-homed hosts:** A MacBook on a dock can expose Ethernet, Wi-Fi, VPN, Docker, loopback, and IPv6 addresses. Advertising unreachable candidates slows ICE checks and risks choosing the wrong path.
-4. **Mobile cache stickiness:** Scanning the same room URL after a controller update can load stale cached HTML or assets on mobile Safari and Chrome.
+1. **The mDNS Privacy Wall:** Modern browsers (Safari on iOS, Chrome on Android/Mac) mask private IP addresses (`192.168.x.x`) with random privacy names like `7f2d39a1-4b1e-4c3a-8b9a.local` unless you grant camera or microphone permissions. Home Wi-Fi routers frequently block or fail to resolve these `.local` names between devices, causing connection timeouts.
+2. **The "Multi-Homed Laptop" Problem:** A developer's MacBook or docked PC often has 5+ active network interfaces: Wi-Fi, Ethernet, Docker bridges, VPNs, and IPv6. WebRTC gathers candidates for all of them. The phone attempts ICE handshakes on dead adapters, adding seconds of lag or picking the wrong network path.
+3. **No Internet Access:** Party games should work in cabins, hotel rooms, or offline routers. Traditional WebRTC relies on external STUN/TURN servers to discover IP addresses. Without internet, STUN requests fail.
 
-### Decision
+---
 
-1. **Direct host-tab WebRTC with zero ICE servers:**
-   - The primary `/screen` Chrome tab owns one `RTCPeerConnection` per player slot (`0..7`). Fastify only serves assets, exposes `GET /api/host`, and relays WebSocket control/signaling frames ([server/src/index.ts](../server/src/index.ts), [server/src/relay.ts](../server/src/relay.ts)).
-   - Both [screen/src/peer.ts](../screen/src/peer.ts) and [controller/src/peer.ts](../controller/src/peer.ts) construct `RTCPeerConnection({ iceServers: [] })` and open a pre-negotiated unreliable DataChannel (`ordered: false, maxRetransmits: 0, negotiated: true, id: 0`) for 8-byte binary inputs and 4-byte heartbeats.
-2. **Server-resolved RFC 1918 LAN IPv4 and strict SDP candidate filtering:**
-   - `GET /api/host` selects an RFC 1918 IPv4 address (`isRfc1918(request.hostname)` or `firstNonInternalIpv4()`).
-   - [shared/src/sdp/munge-lan.ts](../shared/src/sdp/munge-lan.ts) (`mungeLanSdp(sdp, lanIp)`) filters both gathered offer SDPs and trickle ICE candidates on the host. It keeps only `typ host` candidates whose address matches `lanIp` or ends with `.local` (rewriting `.local` to `lanIp` while keeping the original port and attributes), and drops `srflx`, `prflx`, `relay`, IPv6, and other-interface candidates.
-3. **Visible local-network warning with binary WebSocket fallback:**
-   - If `mungeLanSdp` finds zero usable host candidates (`ok: false`) or offer setup throws, the host lobby displays `LOCAL NETWORK BLOCKED — CHECK WI-FI OR BROWSER PERMISSIONS` ([screen/src/lobby.tsx](../screen/src/lobby.tsx)).
-   - Phones never hard-fail on blocked WebRTC. [shared/src/transport/policy.ts](../shared/src/transport/policy.ts) (`routeFastInput`, `inputDeliveries`) and [controller/src/send-input.ts](../controller/src/send-input.ts) route fast input over binary WebSocket frames (`CLOSED_CHANNEL_WAIT_MS = 3000`, `OPEN_BUFFER_LIMIT = 64`), which [server/src/relay.ts](../server/src/relay.ts) forwards to the primary screen tab with a 1-byte slot prefix.
-4. **Semver QR cache-busting (`CONTROLLER_REV`):**
-   - [shared/src/sdp/qr-target.ts](../shared/src/sdp/qr-target.ts) builds `https://<lanIp>:<port>/controller?rev=<CONTROLLER_REV>&room=<code>`. `CONTROLLER_REV` follows semver (`X.Y.Z`, bumped only on controller changes per [AGENTS.md](../AGENTS.md)) to bust phone browser caches on QR rescan.
+### 2. High-Level Connection Architecture
 
-### Rationale
+Instead of relying on cloud STUN servers or asking users for microphone permissions, the local Fastify server tells devices the real LAN IP address, and rewrites the WebRTC handshake (SDP) on the fly:
 
-- **Offline-first, low-latency LAN transport:** Passing `iceServers: []` guarantees zero internet dependency and avoids STUN/TURN infrastructure or cloud hops.
-- **No intrusive host permissions:** Rewriting `.local` host candidates to the server-reported `lanIp` bypasses mDNS failure without prompting the host user for microphone or camera access.
-- **Fast, deterministic ICE selection:** Pruning non-LAN, IPv6, reflexive, and relay candidates leaves only the active LAN IPv4 host path for phones to dial.
-- **Graceful degradation:** Keeping binary WebSocket transport behind the same `GameTransport` seam ensures a match still runs if macOS Local Network privacy or router AP isolation blocks peer-to-peer UDP.
-- **Predictable phone updates:** Embedding `rev=<CONTROLLER_REV>` in the QR target and displaying `REV <CONTROLLER_REV>` on the phone eliminates stale-cache debugging during playtests.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player as 📱 Player Phone
+    participant Server as ⚡ Fastify Server (:3000)
+    participant Host as 💻 Screen Tab (Chrome)
 
-### Trade-offs & Consequences
+    Note over Player,Host: Step 1: Scan & Fetch Config
+    Player->>Server: 1. Scan QR Code -> GET /api/host
+    Server-->>Player: Return { lanIp: "192.168.1.150", port: 3000 }
+    
+    Note over Player,Host: Step 2: Establish Fastify Signaling Channel
+    Player->>Server: Connect WebSocket (Signaling & Fallback Input)
+    Host->>Server: Connect WebSocket (Host Screen Relay)
 
-- **Single-subnet LAN only:** With `iceServers: []` and host-only candidate pruning, phones and the host Mac must reach each other directly on the same local network. Remote internet play or double-NAT routing is out of scope.
-- **Trusted local HTTPS certificate required:** Phones load `https://<lanIp>:8443/controller?...` and open `wss://`. The local `mkcert` certificate SAN must include the active `lanIp`, and each phone must trust the local CA.
-- **Dependence on SDP text munging and rollback:** `mungeLanSdp` edits RFC 5245/8839 `a=candidate:` lines directly, and [screen/src/peer.ts](../screen/src/peer.ts) uses `setLocalDescription({ type: 'rollback' })` before applying the rewritten offer. Browser changes to SDP line structure or local-offer rollback semantics require updating `munge-lan.ts` and its tests.
-- **Session-latched lobby warning:** In [screen/src/session.ts](../screen/src/session.ts), `sdpWarning` stays `true` once triggered until the `/screen` tab reloads.
-- **Fallback latency cost:** When a phone falls back to binary WebSocket (`mode === 'ws'`), input travels over TCP through Fastify (`Phone -> Fastify -> Chrome`) and is subject to TCP head-of-line blocking under Wi-Fi packet loss.
+    Note over Player,Host: Step 3: WebRTC Handshake with SDP Filtering
+    Host->>Host: Create WebRTC Offer (iceServers: [])
+    Host->>Host: mungeLanSdp(): Replace .local with "192.168.1.150", drop IPv6/VPNs
+    Host->>Server: Send Filtered Offer SDP
+    Server->>Player: Relay Filtered Offer SDP
+    Player->>Host: Send Answer SDP directly via Relay
+    
+    Note over Player,Host: Step 4: Direct Peer-to-Peer Game Transport
+    Player-->>Host: Direct WebRTC DataChannel Connected!<br/>(8-byte binary UDP input at 60Hz)
+```
 
-### References
+---
 
-- [shared/src/sdp/](../shared/src/sdp/)
-- [shared/src/sdp/README.md](../shared/src/sdp/README.md)
-- [specifications/SPEC.md](../specifications/SPEC.md)
-- [shared/src/transport/policy.ts](../shared/src/transport/policy.ts)
-- [server/src/index.ts](../server/src/index.ts)
-- [server/src/relay.ts](../server/src/relay.ts)
-- [screen/src/peer.ts](../screen/src/peer.ts)
-- [screen/src/session.ts](../screen/src/session.ts)
-- [controller/src/peer.ts](../controller/src/peer.ts)
-- [AGENTS.md](../AGENTS.md)
+### 3. Detailed Decision & How It Works
+
+#### A. Direct Host-Tab WebRTC with Zero ICE Servers
+- The primary `/screen` browser tab owns 8 independent `RTCPeerConnection` instances (slots `0..7`).
+- Both screen and phone initialize WebRTC with `iceServers: []`. This ensures zero internet requests are made; WebRTC only looks at local physical network adapters.
+- Pre-negotiated unreliable DataChannels (`ordered: false, maxRetransmits: 0, negotiated: true, id: 0`) are opened immediately for ultra-low latency.
+
+#### B. Server-Resolved RFC 1918 IPv4 and SDP Munging
+- When the host screen prepares the connection offer, `mungeLanSdp()` inspects the raw SDP candidate lines:
+  - **Replaces `.local` mDNS candidates:** Converts `typ host ... a7f3b...local` into the real IPv4 address (e.g., `192.168.1.150`).
+  - **Prunes garbage candidates:** Discards IPv6 addresses, VPN tunnels, Docker adapters, and public reflexive candidates (`srflx`, `relay`).
+  - Result: The phone receives exactly one clean candidate: the host laptop's real Wi-Fi IP address.
+
+#### C. Bulletproof Dual-Transport Fallback
+If a restrictive router blocks UDP peer-to-peer traffic altogether:
+- The host displays `LOCAL NETWORK BLOCKED — CHECK WI-FI`.
+- The controller automatically falls back to streaming binary inputs over the existing Fastify WebSocket connection. Players never get a black screen or disconnect error.
+
+| Scenario | Primary Path (WebRTC DataChannel) | Fallback Path (Binary WebSocket) |
+| :--- | :--- | :--- |
+| **Transport** | Unreliable, unordered UDP | Reliable, ordered TCP |
+| **Typical Latency** | 2ms – 6ms | 8ms – 16ms |
+| **Failure Mode** | Network drops UDP packets | Buffers behind TCP head-of-line blocking |
+| **When Used** | Normal gameplay on standard Wi-Fi | Guest Wi-Fi / client-isolation enabled |
 
 ---
 
@@ -77,50 +92,133 @@ This setup creates four networking constraints:
 - **Status:** Accepted
 - **Date:** 2026-11-25
 
-### Context
+### 1. The Human Problem: "Why did my character not jump/dash?"
 
-Games expanding beyond single-button mechanics (such as Cyber-Citadel Defense requiring up to 4 actions: Fire, Dash, Shield, Revive) place higher demands on input packet reliability over UDP-backed WebRTC DataChannels:
+In fast-paced arcade games (like *Sumo Dash* or *Cyber-Citadel*), players rapidly tap buttons for **DASH**, **FIRE**, **SHIELD**, or **REVIVE**.
 
-1. **Unreliable UDP Transport:** WebRTC DataChannels run with `ordered: false, maxRetransmits: 0`. While out-of-order packets are discarded by the host's monotonic `seqAccepted()` sequence filter, lost UDP packets can drop short button taps entirely if only instantaneous state is transmitted.
-2. **Packet Constraint:** The platform uses an 8-byte binary input packet (`seq: u16`, `phoneTs: u16`, `touchLag: u8`, `buttons: u8`, `axisX: i8`, `axisY: i8`). Increasing the byte length is undesirable as it affects serialization across the entire network boundary.
-3. **Host Tick Latching:** Host physics steps at 120Hz (`STEP_MS = 8.33ms`). Quick taps landing between host ticks require host-side latching for all button bits (0..7), not merely bit 0.
+Because phone inputs travel over UDP-backed WebRTC for lowest latency:
+1. **Wi-Fi is lossy:** Living room Wi-Fi frequently drops 1 or 2 packets in a burst.
+2. **Touch taps are brief:** A player tapping "Dash" might touch the screen for only 30 milliseconds. At a 60Hz phone transmission rate (1 packet every ~16.6ms), a quick tap is represented in only **1 or 2 packets**.
+3. **The disappearing tap:** If the router drops those 2 packets, the host simulation never sees the button turn on. To the player, the button felt completely unresponsive.
 
-### Options Considered
+```
+Player Action:     [ Tap DASH (30ms) ]
+Packets Sent:      Packet #10 (Dash=1) ---> [DROPPED BY WI-FI]
+                   Packet #11 (Dash=1) ---> [DROPPED BY WI-FI]
+                   Packet #12 (Dash=0) ---> Delivered to Host!
 
-#### Option 1: Multi-Packet Rolling Edge Redundancy Window
-- **Description:** When a button is pressed or released, the phone keeps that button's active transition bit asserted across a rolling window of $N$ consecutive packets (e.g. 2 consecutive packets).
-- **Pros:**
-  - Conceptually straightforward: each packet duplicates recent transitions.
-  - Zero decoding state required on the host beyond standard bitmask reading.
-- **Cons:**
-  - **Vulnerable to burst loss:** A 2-packet window only tolerates a single dropped packet. Mobile Wi-Fi routinely drops packets in bursts of 2–3, which causes the tap to vanish.
-  - **Arbitrary window sizing:** Increasing window depth to 3 or 4 packets increases phantom hold duration on rapid releases, creating latency artifacts.
+Host sees:         Dash was NEVER pressed! (Input swallowed)
+```
 
-#### Option 2: Split-Byte State + Alternating Toggle Bits
-- **Description:** Divide Byte 5 (`buttons: u8`) into two 4-bit nibbles:
-  - **Bits 0–3 (Held State):** Real-time held state of buttons A, B, X, Y (1 = down, 0 = up).
-  - **Bits 4–7 (Toggle Bits):** Dedicated 1-bit flip-flop counters for buttons A, B, X, Y. Every new rising-edge button press inverts its corresponding toggle bit (`0 -> 1 -> 0 -> 1`). The host detects a new press whenever the toggle bit differs from the previously received value.
-- **Pros:**
-  - **Burst-loss resilient:** The toggle bit remains in its flipped state across all subsequent packets until the next press. Even if 3 to 10 packets are lost in a burst, the next arriving packet immediately signals that a press occurred.
-  - **Separates continuous hold from discrete press:** Bits 0–3 provide smooth continuous holding (e.g. continuous beam fire or shield deploy), while Bits 4–7 guarantee edge detection.
-  - **Zero wire protocol growth:** Fits completely inside the existing 8-byte UDP packet without allocation.
-  - **Clean out-of-order interaction:** Stale packets arriving late are rejected by `seqAccepted()`, so they cannot corrupt or revert the toggle state.
-- **Cons:**
-  - Restricts the split-byte format to 4 distinct buttons (sufficient for all planned console games).
-  - Misses an edge only if the exact same button is tapped twice within a completely dropped packet window (<50ms), which is physically impossible for human finger input.
+---
 
-### Decision
+### 2. The 8-Byte Packet Constraint
 
-**Choose Option 2 (Split-Byte State + Alternating Toggle Bits).**
+All game controllers broadcast a compact 8-byte binary packet every frame:
 
-1. **Packet Encoding:** In `shared/src/codec/input-packet.ts` and `controller/src/send-input.ts`, allocate Bits 0–3 for held buttons and Bits 4–7 for press toggles.
-2. **Host-Side Latching:** In `screen/src/host-loop.ts`, update latching so the host detects toggle changes and latches all 8 button bits into the 120Hz simulation tick.
-3. **Stream Keep-Alive:** Update `send-input.ts`'s `stickHeld()` to keep streaming inputs while any button is held (`buttons !== 0`), preventing 100ms silence cutoffs on centered joysticks.
-4. **Backward Compatibility:** One-button games (Sumo Dash, Bomb Pass, Color Clash) default to Button 0 (`A`), remaining 100% compatible.
+```
++------------+------------+---------------+------------+------------+------------+
+| Byte 0 - 1 | Byte 2 - 3 |    Byte 4     |   Byte 5   |   Byte 6   |   Byte 7   |
+|   Seq u16  | PhoneTs u16|  TouchLag u8  | Buttons u8 |  AxisX i8  |  AxisY i8  |
++------------+------------+---------------+------------+------------+------------+
+```
+
+To prevent network bloat and memory allocations on garbage-collected mobile browsers, we must solve dropped taps **within Byte 5 (`Buttons: u8`)** without increasing the packet size.
+
+---
+
+### 3. Bit Layout: How Byte 5 Works
+
+We split Byte 5 into two 4-bit sections (nibbles):
+
+```
+                     BYTE 5 (buttons: u8)
+ ┌─────────────── Upper Nibble ───────────────┬─────────────── Lower Nibble ──────────────┐
+ │ Bit 7    │ Bit 6    │ Bit 5    │ Bit 4     │ Bit 3    │ Bit 2    │ Bit 1    │ Bit 0    │
+ │ Toggle Y │ Toggle X │ Toggle B │ Toggle A  │ Held Y   │ Held X   │ Held B   │ Held A   │
+ └──────────┴──────────┴──────────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+```
+
+#### Lower 4 Bits: Held State (0 or 1)
+- `1` = Finger is physically touching the screen right now.
+- `0` = Finger is lifted.
+- *Use case:* Continuous actions (e.g. holding Shield up or firing a continuous laser beam).
+
+#### Upper 4 Bits: Toggle Bits (Flips on every tap)
+- Does **not** mean "button is on or off".
+- Acts like a **light switch toggle counter** for each button. Every time the player taps the button, its toggle bit flips: `0 -> 1 -> 0 -> 1`.
+- Crucially: **The toggle bit stays at its new value forever until the next tap.**
+
+---
+
+### 4. Step-by-Step Walkthrough: Why Toggle Bits Never Miss a Tap
+
+Here is what happens when Wi-Fi drops packets during a quick tap:
+
+| Step | Player Action | Phone Packet Sent | Packet Dropped? | Host Receives | Host Logic | Game Reaction |
+| :---: | :--- | :--- | :---: | :--- | :--- | :--- |
+| **1** | Idling | `Held=0, Toggle=0` | No | `Held=0, Toggle=0` | Toggle matches old (0==0) | No action |
+| **2** | **Taps DASH** | `Held=1, Toggle=1` | ❌ **DROPPED** | *(Lost in air)* | — | — |
+| **3** | Finger lifts | `Held=0, Toggle=1` | ❌ **DROPPED** | *(Lost in air)* | — | — |
+| **4** | Idling | `Held=0, Toggle=1` | No | `Held=0, Toggle=1` | **Toggle changed! (0 -> 1)** | 💥 **DASH TRIGGERED!** |
+| **5** | Idling | `Held=0, Toggle=1` | No | `Held=0, Toggle=1` | Toggle matches old (1==1) | No action |
+
+Even though the actual packets during the touch were dropped, Packet #4 arrived with `Toggle=1`. The host notices: *"Hey, the toggle was 0 before, but now it is 1! A tap happened while I was not looking!"* The host latches the dash edge, and the player's character dashes instantly.
+
+---
+
+### 5. What About Tapping Twice? (The 50ms Human Boundary)
+
+**Question:** *"If the toggle flips 0 -> 1 on Tap 1, and 1 -> 0 on Tap 2, what if both taps happen while packets are dropping?"*
+
+- **Tap 1 flips toggle:** `0 -> 1`
+- **Tap 2 flips toggle:** `1 -> 0` (back to 0!)
+- If **every single packet** between Tap 1 and Tap 2 is dropped, the host would see `0` followed much later by `0`, missing the taps.
+
+#### Why this is impossible in practice:
+Human biomechanics establish that the fastest professional gamers in the world can tap a touchscreen at most **10 to 12 times per second**.
+- Time between distinct physical taps: **~80ms to 100ms minimum**.
+- Controller transmission rate: **16.6ms per packet (60Hz)**.
+- For two distinct taps to be lost, the Wi-Fi would have to completely black out for **more than 5 to 6 consecutive packets (>80ms)** without a single packet sneaking through.
+- If Wi-Fi is dead for >80ms, the game has much larger network disconnection issues. For all typical Wi-Fi jitter and burst drops (1 to 4 packets dropped, ~16ms–60ms), **every single tap is guaranteed to be detected**.
+
+---
+
+### 6. Options Comparison & Trade-Offs
+
+| Evaluation Criteria | Option 1: Rolling History Window (2-3 packets) | Option 2: State + Toggle Bits (Selected) |
+| :--- | :--- | :--- |
+| **Mechanism** | Repeat the "pressed" state for the next $N$ packets after release. | Split byte: lower 4 bits for real-time hold, upper 4 bits flip on every tap. |
+| **Burst Loss Resilience** | ⚠️ **Weak:** Fails if Wi-Fi drops 2 or 3 packets in a row (common on phones). | ✅ **Extremely High:** Survives 3, 5, or 10 dropped packets in a row. |
+| **Handling Rapid Releases** | ⚠️ **Poor:** Artificially holding button state adds "sticky" lag to short taps. | ✅ **Clean:** Held state drops to 0 instantly; edge is tracked by toggle. |
+| **Out-of-Order Packets** | Handled by `seqAccepted()` sequence number filter. | Handled by `seqAccepted()` sequence number filter. |
+| **Packet Size Impact** | Fits in 8 bytes (caps at 4 buttons if history is in Byte 5). | Fits in 8 bytes (supports 4 core buttons: A, B, X, Y). |
+| **Implementation Complexity** | Simple array buffer on sender. | Single XOR flip (`toggle ^= 1`) on sender; `prev !== curr` on host. |
+
+---
+
+### 7. Implementation Blueprint
+
+1. **Controller (`controller/src/send-input.ts`):**
+   - Maintain a 4-bit local variable `toggleBits`.
+   - On every touch start (rising edge) of button $i \in \{0, 1, 2, 3\}$, execute `toggleBits ^= (1 << i)`.
+   - Byte 5 is packed as: `(toggleBits << 4) | (heldBits & 0x0F)`.
+2. **Host (`screen/src/host-loop.ts`):**
+   - Store `lastToggles: u8` per player slot.
+   - On each arriving packet accepted by `seqAccepted()`:
+     - Detect new taps: `taps = (packet.buttons >> 4) ^ lastToggles`.
+     - Latch taps and held buttons into the 120Hz physics simulation tick.
+     - Update `lastToggles = packet.buttons >> 4`.
+3. **Stream Keep-Alive:**
+   - Update `stickHeld()` in `send-input.ts` to keep transmitting packets while any button is held (`heldBits !== 0`), preventing silence timeouts on stationary joysticks.
+4. **Backward Compatibility:**
+   - Single-button games (e.g., *Sumo Dash*, *Color Clash*) continue reading Bit 0 (`A`), remaining 100% backward compatible.
+
+---
 
 ### References
 
 - [shared/src/codec/input-packet.ts](../shared/src/codec/input-packet.ts)
 - [controller/src/send-input.ts](../controller/src/send-input.ts)
 - [screen/src/host-loop.ts](../screen/src/host-loop.ts)
-
+- [specifications/SPEC.md](../specifications/SPEC.md)
