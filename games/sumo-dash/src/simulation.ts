@@ -1,4 +1,5 @@
 import { SUMO_CONSTANTS as C } from './constants';
+import { targetScoreForCount } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -50,6 +51,7 @@ export function createSumoSimulation(): SumoSimulation {
   const state = new Float32Array(C.stateFloats);
   const joined = new Uint8Array(C.maxPlayers);
   const spawnOrder = new Int8Array(C.maxPlayers);
+  const eliminatedTick = new Int32Array(C.maxPlayers);
   const inputs: Channel[] = [
     createChannel(),
     createChannel(),
@@ -61,6 +63,9 @@ export function createSumoSimulation(): SumoSimulation {
     createChannel(),
   ];
   let joinedCount = 0;
+  let matchTarget: number = C.minTargetScore;
+  let roundTick = 0;
+  eliminatedTick.fill(-1);
 
   function writeAliveMask(): void {
     let mask = 0;
@@ -110,6 +115,8 @@ export function createSumoSimulation(): SumoSimulation {
     state[TIMER] = C.countdown;
     state[ARENA] = C.r0;
     state[TARGET] = C.r0;
+    eliminatedTick.fill(-1);
+    roundTick = 0;
     resetBodies();
     placeSpawn(false);
     writeAliveMask();
@@ -161,6 +168,8 @@ export function createSumoSimulation(): SumoSimulation {
     joinedCount = 0;
     joined.fill(0);
     spawnOrder.fill(-1);
+    eliminatedTick.fill(-1);
+    roundTick = 0;
     for (let index = 0; index < slots.length; index += 1) {
       const slot = slots[index];
       if (slot !== (slot | 0) || slot < 0 || slot > 7 || joined[slot] === 1) {
@@ -170,6 +179,7 @@ export function createSumoSimulation(): SumoSimulation {
       spawnOrder[joinedCount] = slot;
       joinedCount += 1;
     }
+    matchTarget = targetScoreForCount(joinedCount);
     for (let i = 0; i < C.maxPlayers; i += 1) {
       inputs[i].axisX = 0;
       inputs[i].axisY = 0;
@@ -330,7 +340,7 @@ export function createSumoSimulation(): SumoSimulation {
             maxScore = score;
           }
         }
-        if (maxScore >= C.scoreToWin) {
+        if (maxScore >= matchTarget) {
           state[PHASE] = MATCH_OVER;
           state[TIMER] = 0;
         } else {
@@ -354,6 +364,7 @@ export function createSumoSimulation(): SumoSimulation {
       return;
     }
 
+    roundTick += 1;
     state[TIMER] += dt;
     const elapsed = state[TIMER];
     state[ARENA] = radiusAt(elapsed);
@@ -379,20 +390,27 @@ export function createSumoSimulation(): SumoSimulation {
         farthestOutR = radiusSq;
       }
     }
+    let eliminatedThisTick = 0;
     if (outCount > 0 && outCount === aliveBefore && state[ARENA] > C.rMin) {
       pullInside(state[ARENA]);
-    } else if (outCount > 1 && state[ARENA] <= C.rMin && farthestOut >= 0) {
+    } else if (outCount === aliveBefore && state[ARENA] <= C.rMin && farthestOut >= 0) {
       state[PLAYER + farthestOut * STRIDE + 8] = 0;
+      eliminatedTick[farthestOut] = roundTick;
+      eliminatedThisTick = 1;
     } else if (outCount > 0) {
       for (let i = 0; i < C.maxPlayers; i += 1) {
         const base = PLAYER + i * STRIDE;
         if ((state[base + 8] & ALIVE) === 0) continue;
         const x = state[base];
         const y = state[base + 1];
-        if (x * x + y * y > limit) state[base + 8] = 0;
+        if (x * x + y * y > limit) {
+          state[base + 8] = 0;
+          eliminatedTick[i] = roundTick;
+          eliminatedThisTick += 1;
+        }
       }
     }
-    if (state[ARENA] <= C.rFloor + 1e-4) {
+    if (eliminatedThisTick === 0 && state[ARENA] <= C.rFloor + 1e-4) {
       let farthest = -1;
       let farthestR = -1;
       let alive = 0;
@@ -410,24 +428,47 @@ export function createSumoSimulation(): SumoSimulation {
       }
       if (alive > 1 && farthest >= 0) {
         state[PLAYER + farthest * STRIDE + 8] = 0;
+        eliminatedTick[farthest] = roundTick;
       }
     }
     let aliveCount = 0;
-    let winner = -1;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       if ((state[base + 8] & ALIVE) === 0) continue;
       aliveCount += 1;
-      winner = i;
     }
     if (aliveCount <= 1) {
       if (aliveCount === 1) {
-        state[PLAYER + winner * STRIDE + 9] += 1;
+        awardRoundPoints();
       }
       state[PHASE] = ROUND_END;
       state[TIMER] = C.roundEnd;
     }
     writeAliveMask();
+  }
+
+  function awardRoundPoints(): void {
+    const count = joinedCount;
+    if (count < 2) return;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      if (joined[i] === 0) continue;
+      const baseI = PLAYER + i * STRIDE;
+      let better = 0;
+      if ((state[baseI + 8] & ALIVE) === 0) {
+        const tickI = eliminatedTick[i];
+        for (let j = 0; j < C.maxPlayers; j += 1) {
+          if (joined[j] === 0 || j === i) continue;
+          const aliveJ = (state[PLAYER + j * STRIDE + 8] & ALIVE) !== 0;
+          if (aliveJ || eliminatedTick[j] > tickI) {
+            better += 1;
+          }
+        }
+      }
+      const points = count - 1 - better;
+      if (points > 0) {
+        state[baseI + 9] += points;
+      }
+    }
   }
 
   function pullInside(arena: number): void {

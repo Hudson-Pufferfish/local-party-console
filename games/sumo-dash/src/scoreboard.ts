@@ -1,14 +1,67 @@
 import { PLAYER_COLORS } from '../../../shared/src/registry';
+import { SUMO_CONSTANTS } from './constants';
 
 const PLAYER = 8;
 const STRIDE = 10;
 const SLOTS = 8;
 const FALLBACK_COLOR = '#111111';
+const ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH', '7TH', '8TH'] as const;
 
 export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
   readonly text: string;
+}
+
+export interface ScoreRuleRow {
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface ScoreRules {
+  readonly rows: readonly ScoreRuleRow[];
+}
+
+export function targetScoreForCount(playerCount: number): number {
+  const scaled = (playerCount - 1) * SUMO_CONSTANTS.targetMultiplier;
+  return scaled > SUMO_CONSTANTS.minTargetScore ? scaled : SUMO_CONSTANTS.minTargetScore;
+}
+
+export function activePlayerCount(state: Float32Array): number {
+  let count = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    const base = PLAYER + index * STRIDE;
+    const flags = state[base + 8] ?? 0;
+    const score = state[base + 9] ?? 0;
+    const x = state[base] ?? 0;
+    const y = state[base + 1] ?? 0;
+    if ((flags & 1) === 0 && score === 0 && x === 0 && y === 0) continue;
+    count += 1;
+  }
+  return count;
+}
+
+export function targetScoreForState(state: Float32Array): number {
+  return targetScoreForCount(activePlayerCount(state));
+}
+
+export function scoreboardHeader(state: Float32Array): string {
+  const count = activePlayerCount(state);
+  if (count < 2) return '';
+  return `THRESHOLD: ${targetScoreForCount(count)}`;
+}
+
+export function scoreRules(state: Float32Array): ScoreRules | null {
+  const count = activePlayerCount(state);
+  if (count < 2) return null;
+  const rows: ScoreRuleRow[] = [];
+  for (let rank = 1; rank <= count; rank += 1) {
+    rows.push({
+      label: ORDINALS[rank - 1] ?? `${rank}TH`,
+      value: `+${count - rank}`,
+    });
+  }
+  return { rows };
 }
 
 export function shortTag(name: string, slot: number): string {
@@ -26,7 +79,10 @@ export function shortTag(name: string, slot: number): string {
   return `p${slot + 1}`;
 }
 
-export function scoreboardRows(state: Float32Array, names: readonly string[], win: number): ScoreRow[] {
+export function scoreboardRows(
+  state: Float32Array,
+  names: readonly string[],
+): ScoreRow[] {
   const rows: ScoreRow[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
     const base = PLAYER + index * STRIDE;
@@ -39,12 +95,15 @@ export function scoreboardRows(state: Float32Array, names: readonly string[], wi
     rows.push({
       slot: index,
       color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
-      text: `${tag} ${score}/${win}`,
+      text: `${tag} ${score}`,
     });
   }
   return rows;
 }
 
-export function scoreboardLine(state: Float32Array, names: readonly string[], win: number): string {
-  return scoreboardRows(state, names, win).map((row) => row.text).join('  ');
+export function scoreboardLine(
+  state: Float32Array,
+  names: readonly string[],
+): string {
+  return scoreboardRows(state, names).map((row) => row.text).join('  ');
 }

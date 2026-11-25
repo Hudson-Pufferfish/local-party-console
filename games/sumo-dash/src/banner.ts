@@ -1,4 +1,4 @@
-import { shortTag } from './scoreboard';
+import { shortTag, targetScoreForState } from './scoreboard';
 
 const PLAYER = 8;
 const STRIDE = 10;
@@ -7,13 +7,25 @@ const SLOTS = 8;
 export function matchWinnerTag(
   state: Float32Array,
   names: readonly string[],
-  win: number,
+  win?: number,
 ): string | undefined {
+  const target = win ?? targetScoreForState(state);
+  let bestSlot = -1;
+  let bestScore = -1;
+  let bestAlive = 0;
   for (let index = 0; index < SLOTS; index += 1) {
-    const score = state[PLAYER + index * STRIDE + 9] ?? 0;
-    if (score >= win) return shortTag(names[index] ?? '', index);
+    const base = PLAYER + index * STRIDE;
+    const score = state[base + 9] ?? 0;
+    if (score < target) continue;
+    const alive = (state[base + 8] ?? 0) & 1;
+    if (score > bestScore || (score === bestScore && alive > bestAlive)) {
+      bestSlot = index;
+      bestScore = score;
+      bestAlive = alive;
+    }
   }
-  return undefined;
+  if (bestSlot < 0) return undefined;
+  return shortTag(names[bestSlot] ?? '', bestSlot);
 }
 
 export function bannerCopy(phase: number, timer: number, winner?: string): string {

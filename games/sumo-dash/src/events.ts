@@ -1,5 +1,5 @@
 import type { Envelope } from '../../../shared/src/types/envelope.ts';
-import { SUMO_CONSTANTS } from './constants';
+import { targetScoreForState } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -11,7 +11,6 @@ const SCORE = 9;
 const STUN = 7;
 const COUNTDOWN = 0;
 const ROUND_END = 2;
-const SCORE_TO_WIN = SUMO_CONSTANTS.scoreToWin;
 const SLOTS = 8;
 
 export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): Envelope[] {
@@ -38,9 +37,9 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
 
   if (nextPhase === ROUND_END && prevPhase !== ROUND_END) {
     events.push(envelope('sumo:round_end', {
-      winnerIndex: scoreGainer(prev, next),
+      winnerIndex: roundWinner(prev, next),
       scores: scoreList(next),
-      matchOver: maxScore(next) >= SCORE_TO_WIN,
+      matchOver: maxScore(next) >= targetScoreForState(next),
     }));
   }
 
@@ -80,13 +79,28 @@ function impactStarted(prev: Float32Array, next: Float32Array): boolean {
   return false;
 }
 
-function scoreGainer(prev: Float32Array, next: Float32Array): number | null {
+function roundWinner(prev: Float32Array, next: Float32Array): number | null {
+  let survivor = -1;
+  let alive = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    if (((next[PLAYER + index * STRIDE + FLAGS] ?? 0) & 1) !== 0) {
+      survivor = index;
+      alive += 1;
+    }
+  }
+  if (alive === 1) return survivor;
+  let bestSlot: number | null = null;
+  let bestGain = 0;
   for (let index = 0; index < SLOTS; index += 1) {
     const before = prev[PLAYER + index * STRIDE + SCORE] ?? 0;
     const after = next[PLAYER + index * STRIDE + SCORE] ?? 0;
-    if (after > before) return index;
+    const gain = after - before;
+    if (gain > bestGain) {
+      bestGain = gain;
+      bestSlot = index;
+    }
   }
-  return null;
+  return bestSlot;
 }
 
 function maxScore(state: Float32Array): number {
