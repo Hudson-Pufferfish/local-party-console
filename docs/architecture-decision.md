@@ -92,20 +92,29 @@ If a restrictive router blocks UDP peer-to-peer traffic altogether:
 - **Status:** Accepted
 - **Date:** 2026-11-25
 
-### 1. The Human Problem: "Why did my character not jump/dash?"
+### 1. The Core Architecture: Continuous Snapshot Streaming (Not Discrete Events)
 
-In fast-paced arcade games (like *Sumo Dash* or *Cyber-Citadel*), players rapidly tap buttons for **DASH**, **FIRE**, **SHIELD**, or **REVIVE**.
+Before comparing options, it is essential to understand how input flows from the phone to the host:
 
-Because phone inputs travel over UDP-backed WebRTC for lowest latency:
-1. **Wi-Fi is lossy:** Living room Wi-Fi frequently drops 1 or 2 packets in a burst.
-2. **Touch taps are brief:** A player tapping "Dash" might touch the screen for only 30 milliseconds. At a 60Hz phone transmission rate (1 packet every ~16.6ms), a quick tap is represented in only **1 or 2 packets**.
-3. **The disappearing tap:** If the router drops those 2 packets, the host simulation never sees the button turn on. To the player, the button felt completely unresponsive.
+The controller does **not** send event messages like `"Button Pressed"` or `"Button Released"`. That would require reliable TCP queues with ACKs and retransmissions, which add lag and cause buffering.
+
+Instead, the phone acts like a continuous hardware gamepad: **every 16.6 milliseconds (60 times a second), it captures a complete instantaneous snapshot of all controls and blasts an 8-byte UDP packet to the host.**
+
+```
+Every 16ms: [Snapshot Sequence #] + [Joystick X/Y] + [Instantaneous Button Snapshot Byte]
+```
+
+#### The Problem: Why Snapshot Streaming Fails on Quick Taps over UDP
+Because snapshots travel over lossy, unreliable UDP:
+1. **Wi-Fi is lossy:** Living room Wi-Fi regularly drops 1 or 2 packets in a burst.
+2. **Touch taps are brief:** A player tapping "Dash" might touch the screen for only 20 to 30 milliseconds. That tap will only be present in **1 or 2 consecutive snapshots**.
+3. **The disappearing tap:** If Wi-Fi drops those 2 snapshot packets, the host simulation never sees the button turn on in any snapshot. To the host, the player did nothing. To the player, the button felt completely dead!
 
 ```
 Player Action:     [ Tap DASH (30ms) ]
-Packets Sent:      Packet #10 (Dash=1) ---> [DROPPED BY WI-FI]
-                   Packet #11 (Dash=1) ---> [DROPPED BY WI-FI]
-                   Packet #12 (Dash=0) ---> Delivered to Host!
+Snapshot Stream:   Snapshot #10 (Dash=1) ---> [DROPPED BY WI-FI]
+                   Snapshot #11 (Dash=1) ---> [DROPPED BY WI-FI]
+                   Snapshot #12 (Dash=0) ---> Delivered to Host!
 
 Host sees:         Dash was NEVER pressed! (Input swallowed)
 ```
