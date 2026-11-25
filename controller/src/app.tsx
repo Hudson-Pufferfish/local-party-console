@@ -162,6 +162,7 @@ export const App: VoidComponent = () => {
         onMount: (id) => {
           setTheme(localTheme(id));
           setGameId(id);
+          window.scrollTo(0, 0);
         },
         onPhase: (phase) => {
           if (phase !== 'lobby') return;
@@ -232,6 +233,8 @@ export const App: VoidComponent = () => {
 
   function onJoin(pressed: boolean): void {
     if (!pressed || joined()) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    window.scrollTo(0, 0);
     const current = link;
     current?.reconnect();
     const token = storedToken(room);
@@ -304,6 +307,7 @@ export const App: VoidComponent = () => {
                   autocomplete="off"
                   value={name()}
                   onInput={(event) => setName(event.currentTarget.value)}
+                  onBlur={() => window.scrollTo(0, 0)}
                 />
                 <ArcadeButton
                   label="JOIN"

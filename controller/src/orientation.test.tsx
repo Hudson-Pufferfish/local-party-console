@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { renderToString } from '@solidjs/web';
 import { expect, test } from 'vitest';
 import type { StageRotationDeg } from '../../shared/src/controller/orientation.ts';
@@ -171,4 +173,32 @@ test('OrientationProvider, ControllerStage, and OrientationToggle persist prefs 
   ));
   expect(lockedHtml.match(/\bdisabled\b/g)).toHaveLength(3);
   expect(lockedHtml).toContain('data-pref="landscape-right"');
+});
+
+test('controller viewport, landscape name input, and in-match bars prevent iOS zoom clipping and shrink', () => {
+  const indexHtml = fs.readFileSync(path.resolve(import.meta.dirname, '../index.html'), 'utf8');
+  const viewportMeta = indexHtml.match(/<meta\s+name="viewport"\s+content="([^"]+)"/i)?.[1] ?? '';
+  expect(viewportMeta).toContain('maximum-scale=1');
+
+  const controllerCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles.css'), 'utf8');
+  const rootScrollBlock = controllerCss.match(/html,\s*body,\s*#root\s*\{[^}]*\}/)?.[0] ?? '';
+  expect(rootScrollBlock).toContain('overflow: hidden');
+
+  // iOS WebKit auto-zooms any focused <input> below 16px and leaves the match zoomed in.
+  const landscapeNameBlock =
+    controllerCss.match(/\.stage\[data-orientation='landscape'\]\s+\.name-field\s*\{[^}]*\}/)?.[0] ?? '';
+  const nameFontPx = Number(landscapeNameBlock.match(/font-size:\s*([\d.]+)px/)?.[1] ?? '0');
+  expect(nameFontPx).toBeGreaterThanOrEqual(16);
+
+  // Compact landscape PlayerBadge rules must apply to in-match game views, not only .lobby-status.
+  expect(controllerCss).toMatch(/\.stage\[data-orientation='landscape'\]\s+\.player-badge\s*\{/);
+
+  const sumoCss = fs.readFileSync(
+    path.resolve(import.meta.dirname, '../../games/sumo-dash/src/controller-view.css'),
+    'utf8',
+  );
+  const sumoBarBlock = sumoCss.match(/\.sumo-bar\s*\{[^}]*\}/)?.[0] ?? '';
+  const sumoReadoutBlock = sumoCss.match(/\.sumo-readout\s*\{[^}]*\}/)?.[0] ?? '';
+  expect(sumoBarBlock).toContain('flex-shrink: 0');
+  expect(sumoReadoutBlock).toContain('white-space: nowrap');
 });

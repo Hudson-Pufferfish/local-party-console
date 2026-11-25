@@ -28,7 +28,7 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   ];
   const baseProps = {
     roomId: 'ABCD',
-    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.2&room=ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.3&room=ABCD',
     notice: '',
     sdpWarning: false,
     players,
