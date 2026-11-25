@@ -121,7 +121,3 @@ On One UI: Settings → Security and privacy → More security settings → Encr
 Confirm the install warning and choose `rootCA.pem`.
 
 Install the CA for the app that will scan the QR. Chrome and Samsung Internet are separate. A warning you accept in one of them does not cover the other. Proceed on the page does not trust `wss`.
-
-## Do not
-
-Do not put play traffic on a Cloudflare Tunnel.
