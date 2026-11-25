@@ -204,19 +204,57 @@ To protect against lost packets, each packet carries both the **current button s
 └───────────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
-#### Step-by-Step Scenario with Option 1:
-Suppose a player does a quick 20ms tap on Button A:
+#### The Concrete Example: Option 1 Fails vs Option 2 Succeeds
 
-| Packet | Upper 4 Bits (History: Packet $N-1$) | Lower 4 Bits (Current: Packet $N$) | What Host Reads | Wi-Fi Packet Status |
-| :---: | :---: | :---: | :--- | :---: |
-| **Packet 1** | `0000` (nothing before) | `0001` (A pressed **now**) | *"A pressed"* | ❌ **DROPPED** |
-| **Packet 2** | `0001` (A pressed in **P1**) | `0000` (A released **now**) | *"A was pressed in P1!"* | ❌ **DROPPED** |
-| **Packet 3** | `0000` (nothing in **P2**) | `0000` (nothing **now**) | *"Nothing pressed"* | Delivered to Host |
+Here is an exact, realistic scenario that proves why Option 1 fails and how Option 2 rescues the player:
 
-#### Why Option 1 Fails:
-1. **Fails on 2-packet burst loss:** Phone Wi-Fi regularly drops 2 or 3 packets in a row. As shown above, if both Packet 1 (current) and Packet 2 (history reflection) are dropped, the tap is **completely erased** by Packet 3.
-2. **Cannot scale $N$ within 8 bytes:** To survive 3 dropped packets, you would need to reflect $N=3$ or $N=4$ past packets. But reflecting 4 buttons over 3 past packets requires $4 \times 3 = 12$ bits of history, which does not fit in Byte 5.
-3. **Phantom "Sticky" Buttons:** If the release packet is dropped, history bits repeating the pressed state cause the host to artificially prolong the tap, introducing control latency.
+**The Story:** A player taps **DASH (Button A)** for 20ms during a match. At 60Hz, their phone sends one packet every 16.6ms. Right as they tap, their home Wi-Fi suffers a tiny 35ms blip and drops 2 packets in a row.
+
+---
+
+##### What Happens in Option 1 (Rolling History Fails):
+
+In Option 1, the upper bits echo the last packet's state (`1 = pressed, 0 = released`).
+
+```
+Time 0ms:    Player taps DASH. Phone sends Packet 1 [Curr=1, Hist=0] -> ❌ DROPPED BY WI-FI
+Time 16ms:   Player lifts finger. Phone sends Packet 2 [Curr=0, Hist=1] -> ❌ DROPPED BY WI-FI
+Time 33ms:   Player is idling. Phone sends Packet 3 [Curr=0, Hist=0] -> ✅ ARRIVES AT HOST!
+```
+
+- When **Packet 3** arrives at the host:
+  - `Current = 0` (nothing pressed right now)
+  - `History = 0` (nothing was pressed in Packet 2)
+- **Result:** The host sees `0000 0000`. The host has **zero record** that DASH was ever tapped! The player yells: *"I pressed Dash and my character just stood there!"*
+
+---
+
+##### What Happens in Option 2 (Toggle Bits Succeeds):
+
+In Option 2, the upper bits are a **toggle switch** that flips when tapped (`0 -> 1`), and **stays at 1 forever** until the next tap.
+
+```
+Time 0ms:    Player taps DASH. Toggle flips 0 -> 1.
+             Phone sends Packet 1 [Held=1, Toggle=1] -> ❌ DROPPED BY WI-FI
+Time 16ms:   Player lifts finger.
+             Phone sends Packet 2 [Held=0, Toggle=1] -> ❌ DROPPED BY WI-FI
+Time 33ms:   Player is idling.
+             Phone sends Packet 3 [Held=0, Toggle=1] -> ✅ ARRIVES AT HOST!
+Time 50ms:   Player is idling.
+             Phone sends Packet 4 [Held=0, Toggle=1] -> ✅ ARRIVES AT HOST!
+```
+
+- When **Packet 3** arrives at the host:
+  - The host checks: *"What was the player's last toggle? It was `0`. What is the incoming toggle? It is `1`!"*
+  - **The toggle changed (`0 -> 1`)!**
+- **Result:** Even though Packets 1 and 2 were completely lost, Packet 3 **still carries `Toggle=1`**. The host instantly triggers the DASH! 
+- Even if Packet 3 had also dropped and only Packet 4 arrived, Packet 4 **still carries `Toggle=1`**, so the tap would still be caught!
+
+---
+
+#### Summary of the Core Difference:
+- **Option 1 has amnesia after 1 packet:** The button press is only remembered for 1 extra frame (16ms). If that single frame is lost, the memory is wiped clean.
+- **Option 2 has permanent memory:** The button press flips a switch that stays flipped indefinitely across all future packets until the user taps again. It is completely immune to Wi-Fi packet drop bursts.
 
 ---
 
