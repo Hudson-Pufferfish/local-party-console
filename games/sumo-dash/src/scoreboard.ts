@@ -118,7 +118,7 @@ export function shortTag(name: string, slot: number): string {
     const alpha = code >= 65 && code <= 90;
     if (!digit && !alpha) continue;
     letters += raw.charAt(index);
-    if (letters.length === 2) break;
+    if (letters.length === 6) break;
   }
   if (letters.length > 0) return letters;
   return `P${slot + 1}`;

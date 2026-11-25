@@ -19,11 +19,12 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   state[26] = 1;
   state[27] = 2;
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 3');
-  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('HU 1  DA 2');
+  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('HUDSON 1  DASH 2');
   state[17] = 3;
-  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('HU 3  DA 2');
-  expect(scoreboardLine(state, ['', 'Dash'])).toBe('P1 3  DA 2');
+  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('HUDSON 3  DASH 2');
+  expect(scoreboardLine(state, ['', 'Dash'])).toBe('P1 3  DASH 2');
   expect(scoreboardLine(state, ['x', 'p2'])).toBe('X 3  P2 2');
+  expect(scoreboardLine(state, ['Alexander', 'A-B_C 1234'])).toBe('ALEXAN 3  ABC123 2');
 
   // 4 active players -> threshold = (4 - 1) * 3 = 9
   state[28] = 120;
@@ -33,7 +34,7 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   state[46] = 0; // eliminated, still active via non-zero position
   state[47] = 0;
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
-  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 3  DA 2  AD 4  P4 0');
+  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HUDSON 3  DASH 2  ADA 4  P4 0');
 
   // Tied leaders >= threshold switch header to SUDDEN DEATH while keeping all rows visible
   state[17] = 9;
@@ -42,7 +43,7 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   expect(hasUniqueWinner(state)).toBe(false);
   expect(scoreboardHeader(state)).toBe('SUDDEN DEATH');
   expect(scoreRules(state)).toEqual({ rows: [{ label: '1ST', value: '+1 PTS' }] });
-  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 9  DA 2  AD 9  P4 0');
+  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HUDSON 9  DASH 2  ADA 9  P4 0');
 
   state[17] = 10;
   expect(isSuddenDeath(state)).toBe(false);
@@ -74,9 +75,9 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 21');
 
   const rows = scoreboardRows(state, ['Hudson', '', '', '', '', '', '', 'Ada']);
-  expect(rows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HU 0' });
+  expect(rows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HUDSON 0' });
   expect(rows[2]).toEqual({ slot: 2, color: PLAYER_COLORS[2], text: 'P3 2' });
-  expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'AD 7' });
+  expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'ADA 7' });
 
   const statusRows = scoreboardRows(
     state,
@@ -86,9 +87,9 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
       { index: 7, connected: false },
     ],
   );
-  expect(statusRows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HU 0', status: 'LIVE' });
+  expect(statusRows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HUDSON 0', status: 'LIVE' });
   expect(statusRows[1]).toEqual({ slot: 1, color: PLAYER_COLORS[1], text: 'P2 1' });
-  expect(statusRows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'AD 7', status: 'AWAY' });
+  expect(statusRows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'ADA 7', status: 'AWAY' });
 
   const rules = scoreRules(state);
   expect(rules).toEqual({

@@ -25,9 +25,9 @@ test('match-winning round suppresses POINT, picks the top scorer, and holds thro
 
   state[17] = 3; // slot 0 hits 3/3
   const humanWinner = matchWinnerTag(state, ['Hudson', 'Ada'], 3);
-  expect(humanWinner).toBe('HU');
-  expect(bannerCopy(2, 0.5, humanWinner)).toBe('HU WINS');
-  expect(bannerCopy(3, 0, humanWinner)).toBe('HU WINS');
+  expect(humanWinner).toBe('HUDSON');
+  expect(bannerCopy(2, 0.5, humanWinner)).toBe('HUDSON WINS');
+  expect(bannerCopy(3, 0, humanWinner)).toBe('HUDSON WINS');
 
   state[17] = 9; // slot 0 crosses 9
   state[16] = 0;

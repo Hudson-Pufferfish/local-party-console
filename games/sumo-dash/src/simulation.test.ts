@@ -577,7 +577,7 @@ test('three round wins end the match and the scoreboard follows the scores', () 
     sim.step(DT);
     expect(sim.state[PHASE]).toBe(2);
     expect(sim.state[slotBase(0) + 9]).toBe(round + 1);
-    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'])).toBe(`HU ${round + 1}  AD 0`);
+    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'])).toBe(`HUDSON ${round + 1}  ADA 0`);
   }
   let guard = 0;
   while (sim.state[PHASE] !== 3 && guard < 4000) {
@@ -786,7 +786,7 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
     'SUDDEN DEATH',
   );
   expect(scoreboardHeader(sim.state)).toBe('SUDDEN DEATH');
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 6', 'AD 6', 'MA 2']);
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 6', 'ADA 6', 'MAX 2']);
 
   const tieEndEvent = eventsFromHeaderDiff(beforeTieEnd, sim.state).find(
     (event) => event.type === 'sumo:round_end',
@@ -838,9 +838,9 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
   expect(sim.state[slotBase(2) + 9]).toBe(2);
   expect(isSuddenDeath(sim.state)).toBe(false);
   expect(hasUniqueWinner(sim.state)).toBe(true);
-  expect(matchWinnerTag(sim.state, names)).toBe('HU');
+  expect(matchWinnerTag(sim.state, names)).toBe('HUDSON');
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
-    'HU WINS',
+    'HUDSON WINS',
   );
 
   const winEndEvent = eventsFromHeaderDiff(beforeWinEnd, sim.state).find(
@@ -859,7 +859,7 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
   }
   expect(sim.state[PHASE]).toBe(3);
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
-    'HU WINS',
+    'HUDSON WINS',
   );
 });
 
@@ -938,7 +938,7 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
   expect(countAlive(sim)).toBe(3);
   expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
   expect(activePlayerCount(sim.state)).toBe(4);
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 9', 'AD 9', 'MA 9', 'ZO 0']);
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 9', 'ADA 9', 'MAX 9', 'ZOE 0']);
 
   reachCountdown(sim);
   expect(countAlive(sim)).toBe(3);
@@ -963,9 +963,9 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
   expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([9, 9, 10, 0]);
   expect(isSuddenDeath(sim.state)).toBe(false);
   expect(hasUniqueWinner(sim.state)).toBe(true);
-  expect(matchWinnerTag(sim.state, names)).toBe('MA');
+  expect(matchWinnerTag(sim.state, names)).toBe('MAX');
   expect(scoreboardHeader(sim.state)).toBe('THRESHOLD: 9');
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 9', 'AD 9', 'MA 10', 'ZO 0']);
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 9', 'ADA 9', 'MAX 10', 'ZOE 0']);
 
   guard = 0;
   while (sim.state[PHASE] === 2 && guard < 200) {
@@ -974,7 +974,7 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
   }
   expect(sim.state[PHASE]).toBe(3);
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
-    'MA WINS',
+    'MAX WINS',
   );
 });
 
@@ -1063,7 +1063,7 @@ test('sudden death excludes trailing players, repeats on simultaneous wipe, and 
   expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([13, 12, 8, 4]);
   expect(hasUniqueWinner(sim.state)).toBe(true);
   expect(isSuddenDeath(sim.state)).toBe(false);
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 13', 'AD 12', 'MA 8', 'ZO 4']);
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 13', 'ADA 12', 'MAX 8', 'ZOE 4']);
   expect(
     eventsFromHeaderDiff(beforeDecisive, sim.state).find((event) => event.type === 'sumo:round_end')?.payload,
   ).toEqual({
@@ -1078,8 +1078,8 @@ test('sudden death excludes trailing players, repeats on simultaneous wipe, and 
     guard += 1;
   }
   expect(sim.state[PHASE]).toBe(3);
-  expect(matchWinnerTag(sim.state, names)).toBe('HU');
+  expect(matchWinnerTag(sim.state, names)).toBe('HUDSON');
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
-    'HU WINS',
+    'HUDSON WINS',
   );
 });
