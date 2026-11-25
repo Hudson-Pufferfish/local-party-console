@@ -176,3 +176,32 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
+
+.controller-hands {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+[data-orientation='portrait'] .controller-hands {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1.35fr) minmax(96px, 0.65fr);
+}
+
+[data-orientation='landscape'] .controller-hands {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.controller-hands > * {
+  min-width: 0;
+  min-height: 0;
+}
+
+.controller-hands .joystick,
+.controller-hands .swipe-zone {
+  height: 100%;
+  min-height: 0;
+}

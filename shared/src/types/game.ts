@@ -1,5 +1,7 @@
 export type ScreenViewTarget = 'holistic' | 'team-1' | 'team-2' | 'team-3' | 'team-4';
 
+export type ControllerOrientation = 'portrait' | 'landscape';
+
 export interface PlayerSlot {
   index: number;
   name: string;
@@ -30,6 +32,7 @@ export interface GameManifest {
   supportsBots: boolean;
   rendererType: 'phaser-2d' | 'three-3d';
   viewConfig: GameViewConfig;
+  supportedOrientations?: readonly ControllerOrientation[];
   themeTokens: Record<string, string>;
 }
 

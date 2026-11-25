@@ -2,7 +2,7 @@ import type { JSX } from '@solidjs/web';
 import type { VoidComponent } from 'solid-js';
 import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
-import type { GameManifest } from '../../shared/src/types/game.ts';
+import type { ControllerOrientation, GameManifest } from '../../shared/src/types/game.ts';
 
 export interface ControllerControl {
   type: string;
@@ -46,4 +46,10 @@ controllerGames.set(SUMO_DASH_MANIFEST.id, {
 
 export function controllerView(gameId: string): VoidComponent<ControllerViewProps> | null {
   return controllerGames.get(gameId)?.View ?? null;
+}
+
+export function controllerSupportedOrientations(
+  gameId: string,
+): readonly ControllerOrientation[] | undefined {
+  return controllerGames.get(gameId)?.manifest.supportedOrientations;
 }

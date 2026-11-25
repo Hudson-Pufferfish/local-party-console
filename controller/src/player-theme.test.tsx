@@ -20,6 +20,7 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   ));
   expect(sumoHtml).toContain('--player-color:var(--player-7, #111111)');
   expect(sumoHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
+  expect(sumoHtml).toContain('controller-hands');
   expect(sumoHtml).not.toContain('var(--theme-yellow)');
   expect(sumoHtml).not.toContain('var(--accent');
 
@@ -34,17 +35,31 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   expect(explicitBadgeHtml).toContain('<p class="player-badge">');
   expect(explicitBadgeHtml).toContain('<span class="swatch" style="--player-color:#FF4D00">');
 
-  const stripHtml = renderToString(() => (
+  const warnStripHtml = renderToString(() => (
     <PreflightStrip
       power="low-power"
       powerReady={true}
       cores={4}
       rttMs={8}
       jitterMs={1}
-      portrait={true}
+      orientationOk={false}
     />
   ));
-  expect(stripHtml.match(/data-warn="true"/g)).toHaveLength(2);
+  expect(warnStripHtml.match(/data-warn="true"/g)).toHaveLength(2);
+  expect(warnStripHtml).toContain('TURN');
+
+  const okStripHtml = renderToString(() => (
+    <PreflightStrip
+      power="ok"
+      powerReady={true}
+      cores={8}
+      rttMs={4}
+      jitterMs={1}
+      orientationOk={true}
+    />
+  ));
+  expect(okStripHtml.match(/data-warn="true"/g)).toBeNull();
+  expect(okStripHtml).toContain('<span>ORIENTATION</span><span>OK</span>');
 
   const primitivesCss = fs.readFileSync(
     path.resolve(import.meta.dirname, '../../shared/src/ui/primitives.css'),

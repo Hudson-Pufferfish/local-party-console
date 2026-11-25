@@ -28,7 +28,7 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   ];
   const baseProps = {
     roomId: 'ABCD',
-    qrUrl: 'https://10.0.0.1:8443/controller?rev=12&room=ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=13&room=ABCD',
     notice: '',
     sdpWarning: false,
     players,
@@ -59,6 +59,8 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   expect(primaryHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
   expect(primaryHtml).toContain('class="key game-key"');
   expect(primaryHtml).toContain('data-selected="true"');
+  expect(primaryHtml).toContain('class="hint"');
+  expect(primaryHtml).toContain('ROTATION LOCK');
 
   const styles = fs.readFileSync(path.resolve(import.meta.dirname, 'styles.css'), 'utf8');
   const kickBlock = styles.match(/\.player-kick\s*\{[^}]*background:[^}]*\}/)?.[0] ?? '';

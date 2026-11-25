@@ -10,4 +10,5 @@ test('sumo-dash manifest is the v1 holistic contract', () => {
   expect(SUMO_DASH_MANIFEST.supportsBots).toBe(true);
   expect(SUMO_DASH_MANIFEST.minPlayers).toBe(2);
   expect(SUMO_DASH_MANIFEST.maxPlayers).toBe(8);
+  expect(SUMO_DASH_MANIFEST.supportedOrientations).toEqual(['portrait', 'landscape']);
 });
