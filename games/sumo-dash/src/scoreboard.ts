@@ -97,7 +97,7 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
   if (count < 2) return null;
   const target = targetScoreForCount(count);
   if (isSuddenDeath(state, target)) {
-    return { rows: [{ label: ORDINALS[0], value: '+1' }] };
+    return { rows: [{ label: ORDINALS[0], value: '+1 PTS' }] };
   }
   const rows: ScoreRuleRow[] = [];
   for (let rank = 1; rank <= count; rank += 1) {

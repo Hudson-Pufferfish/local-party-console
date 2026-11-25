@@ -41,7 +41,7 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   expect(isSuddenDeath(state)).toBe(true);
   expect(hasUniqueWinner(state)).toBe(false);
   expect(scoreboardHeader(state)).toBe('SUDDEN DEATH');
-  expect(scoreRules(state)).toEqual({ rows: [{ label: '1ST', value: '+1' }] });
+  expect(scoreRules(state)).toEqual({ rows: [{ label: '1ST', value: '+1 PTS' }] });
   expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 9  DA 2  AD 9  P4 0');
 
   state[17] = 10;
@@ -50,10 +50,10 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
   expect(scoreRules(state)).toEqual({
     rows: [
-      { label: '1ST', value: '+3' },
-      { label: '2ND', value: '+2' },
-      { label: '3RD', value: '+1' },
-      { label: '4TH', value: '+0' },
+      { label: '1ST', value: '+3 PTS' },
+      { label: '2ND', value: '+2 PTS' },
+      { label: '3RD', value: '+1 PTS' },
+      { label: '4TH', value: '+0 PTS' },
     ],
   });
 });
