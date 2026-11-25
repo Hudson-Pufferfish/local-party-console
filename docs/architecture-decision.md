@@ -184,20 +184,44 @@ Human biomechanics establish that the fastest professional gamers in the world c
 
 ---
 
-### 6. Options Comparison & Trade-Offs
+### 6. Deep Dive: What Was Option 1 and Why Was It Rejected?
 
-| Evaluation Criteria | Option 1: Rolling History Window (2-3 packets) | Option 2: State + Toggle Bits (Selected) |
-| :--- | :--- | :--- |
-| **Mechanism** | Repeat the "pressed" state for the next $N$ packets after release. | Split byte: lower 4 bits for real-time hold, upper 4 bits flip on every tap. |
-| **Burst Loss Resilience** | ⚠️ **Weak:** Fails if Wi-Fi drops 2 or 3 packets in a row (common on phones). | ✅ **Extremely High:** Survives 3, 5, or 10 dropped packets in a row. |
-| **Handling Rapid Releases** | ⚠️ **Poor:** Artificially holding button state adds "sticky" lag to short taps. | ✅ **Clean:** Held state drops to 0 instantly; edge is tracked by toggle. |
-| **Out-of-Order Packets** | Handled by `seqAccepted()` sequence number filter. | Handled by `seqAccepted()` sequence number filter. |
-| **Packet Size Impact** | Fits in 8 bytes (caps at 4 buttons if history is in Byte 5). | Fits in 8 bytes (supports 4 core buttons: A, B, X, Y). |
-| **Implementation Complexity** | Simple array buffer on sender. | Single XOR flip (`toggle ^= 1`) on sender; `prev !== curr` on host. |
+To solve packet loss without growing the 8-byte packet, we evaluated two competing architectures:
+
+#### What Was Option 1? (The "Echo / Rolling History Window")
+Option 1 splits Byte 5 so the lower 4 bits are the **current** button state, and the upper 4 bits are an **echo of the previous packet's** state:
+
+```
+                    Option 1: Rolling History Byte Layout
+┌──────────────── Upper 4 Bits ────────────────┬──────────────── Lower 4 Bits ────────────────┐
+│   Echo of previous packet (Packet N - 1)     │        Current state (Packet N)              │
+│ Bit 7: Old Y │ Bit 6: Old X │ ...            │ Bit 3: Curr Y │ Bit 2: Curr X │ ...          │
+└──────────────────────────────────────────────┴──────────────────────────────────────────────┘
+```
+
+- **How it works:** Whenever you tap a button, the phone sends `Current = 1`. In the next packet, it puts that same tap into `Old = 1`. Each tap is transmitted twice across 2 consecutive packets.
+- **Why it seems attractive:** It's intuitive. If the first packet is dropped, the host reads the "echo" in the second packet.
+- **Why it was rejected (The Flaws):**
+  1. **Only survives a single dropped packet:** Phone Wi-Fi does not drop isolated single packets; it drops packets in bursts of 2 or 3. If Wi-Fi drops 2 packets in a row, both the `Current` packet and the `Echo` packet vanish into thin air. The tap is permanently lost.
+  2. **Phantom "Sticky" Button Holds:** If the host misses the release packet, the history bits keep reporting the button as pressed in subsequent frames, causing "sticky" button behavior on quick taps.
+  3. **Wasted bits without burst protection:** 4 whole bits are burned just to protect against an isolated 1-packet drop, offering zero defense against realistic Wi-Fi stutter.
 
 ---
 
-### 7. Implementation Blueprint
+### 7. Options Comparison & Trade-Offs
+
+| Evaluation Criteria | Option 1: Rolling History Window (Echo Window) | Option 2: State + Toggle Bits (Selected) |
+| :--- | :--- | :--- |
+| **How it Works** | Upper 4 bits repeat/echo the previous packet's button states (`Packet N-1`). | Upper 4 bits act as flip-flop counters (`0 -> 1 -> 0 -> 1`) that stay flipped indefinitely until the next tap. |
+| **Burst Loss Resilience** | ⚠️ **Fails easily:** Survives only 1 dropped packet. If Wi-Fi drops 2 packets in a row, the tap is completely lost. | ✅ **Survives burst drops:** The toggle bit stays flipped across all future packets until the next tap. Survives 2, 5, or even 10 dropped packets in a row! |
+| **Handling Rapid Releases** | ⚠️ **Sticky inputs:** Echoing pressed states across packets artificially delays release detection. | ✅ **Instant release:** Lower 4 bits show `Held=0` instantly when the finger leaves the glass. |
+| **Out-of-Order Packets** | Filtered by `seqAccepted()`. | Filtered by `seqAccepted()`. |
+| **Button Capacity** | Max 4 buttons (fits in Byte 5). | Max 4 buttons (fits in Byte 5). |
+| **Decoding Complexity** | Host inspects both current and previous nibble. | Host performs single XOR (`taps = incoming_toggles ^ last_toggles`). |
+
+---
+
+### 8. Implementation Blueprint
 
 1. **Controller (`controller/src/send-input.ts`):**
    - Maintain a 4-bit local variable `toggleBits`.
