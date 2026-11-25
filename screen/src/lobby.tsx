@@ -1,6 +1,8 @@
 import { createSignal, For, Show, type VoidComponent } from 'solid-js';
+import { DEFAULT_BOT_DIFFICULTY, type BotDifficulty } from '../../shared/src/bot-difficulty.ts';
 import { playerStyleVars } from '../../shared/src/theme.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
+import { BotDifficultySelector } from '../../shared/src/ui/bot-difficulty-selector.tsx';
 import { kickButtonLabel, playerDisplayName } from './lobby-kick.ts';
 
 export const Lobby: VoidComponent<{
@@ -14,10 +16,12 @@ export const Lobby: VoidComponent<{
   startEnabled: boolean;
   starting?: boolean;
   botCount: number;
+  botDifficulty?: BotDifficulty;
   botControlEnabled: boolean;
   botNotice: string;
   canKick?: boolean;
   onBotStep: (delta: -1 | 1) => void;
+  onBotDifficulty?: (difficulty: BotDifficulty) => void;
   onQr: (canvas: HTMLCanvasElement) => void;
   onSelect: (id: string) => void;
   onStart: () => void;
@@ -96,6 +100,11 @@ export const Lobby: VoidComponent<{
                 +
               </button>
             </div>
+            <BotDifficultySelector
+              value={props.botDifficulty ?? DEFAULT_BOT_DIFFICULTY}
+              disabled={!props.botControlEnabled || props.botCount <= 0 || props.canKick === false}
+              onChange={(difficulty) => props.onBotDifficulty?.(difficulty)}
+            />
             <Show when={props.botNotice !== ''}>
               <p class="notice">{props.botNotice}</p>
             </Show>
