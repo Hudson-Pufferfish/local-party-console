@@ -1,5 +1,5 @@
 import { SUMO_CONSTANTS as C } from './constants';
-import { hasUniqueWinner, targetScoreForCount } from './scoreboard';
+import { hasUniqueWinner, isSuddenDeath, maxScoreForState, targetScoreForCount } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -16,6 +16,7 @@ const ROUND_END = 2;
 const MATCH_OVER = 3;
 const PRACTICE = 4;
 const ALIVE = 1;
+const OFFSCREEN = 10000;
 
 interface Channel {
   axisX: number;
@@ -77,12 +78,42 @@ export function createSumoSimulation(): SumoSimulation {
     state[MASK] = mask;
   }
 
+  function parkNonContender(slot: number): void {
+    inputs[slot].edge = 0;
+    const base = PLAYER + slot * STRIDE;
+    state[base] = OFFSCREEN;
+    state[base + 1] = OFFSCREEN;
+    state[base + 2] = 0;
+    state[base + 3] = 0;
+    state[base + 5] = 0;
+    state[base + 6] = 0;
+    state[base + 7] = 0;
+    state[base + 8] = 0;
+  }
+
   function placeSpawn(keepAngle: boolean): void {
-    const count = joinedCount;
-    for (let spawn = 0; spawn < count; spawn += 1) {
+    const sudden = isSuddenDeath(state, matchTarget);
+    const topScore = sudden ? maxScoreForState(state) : 0;
+    let count = joinedCount;
+    if (sudden) {
+      count = 0;
+      for (let i = 0; i < joinedCount; i += 1) {
+        const slot = spawnOrder[i];
+        if (state[PLAYER + slot * STRIDE + 9] === topScore) {
+          count += 1;
+        }
+      }
+    }
+    if (count === 0) return;
+    let placed = 0;
+    for (let spawn = 0; spawn < joinedCount; spawn += 1) {
       const slot = spawnOrder[spawn];
-      const theta = (Math.PI * 2 * spawn) / count;
       const base = PLAYER + slot * STRIDE;
+      if (sudden && state[base + 9] !== topScore) {
+        parkNonContender(slot);
+        continue;
+      }
+      const theta = (Math.PI * 2 * placed) / count;
       state[base] = C.rSpawn * Math.cos(theta);
       state[base + 1] = C.rSpawn * Math.sin(theta);
       state[base + 2] = 0;
@@ -91,6 +122,7 @@ export function createSumoSimulation(): SumoSimulation {
         state[base + 4] = theta + Math.PI;
       }
       state[base + 8] = ALIVE;
+      placed += 1;
     }
   }
 
@@ -150,10 +182,16 @@ export function createSumoSimulation(): SumoSimulation {
   function reviveForBreak(): void {
     const keep = C.r0 - C.puckRadius;
     const keepSq = keep * keep;
+    const sudden = isSuddenDeath(state, matchTarget);
+    const topScore = sudden ? maxScoreForState(state) : 0;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       if (joined[i] === 0) continue;
-      inputs[i].edge = 0;
       const base = PLAYER + i * STRIDE;
+      if (sudden && state[base + 9] !== topScore) {
+        parkNonContender(i);
+        continue;
+      }
+      inputs[i].edge = 0;
       state[base + 6] = 0;
       state[base + 7] = 0;
       state[base + 8] = ALIVE;
@@ -301,6 +339,9 @@ export function createSumoSimulation(): SumoSimulation {
     }
     const channel = inputs[playerIndex];
     if (phase === COUNTDOWN) {
+      if ((state[PLAYER + playerIndex * STRIDE + 8] & ALIVE) === 0) {
+        return;
+      }
       channel.axisX = x;
       channel.axisY = y;
       channel.buttons = buttons;
@@ -455,6 +496,17 @@ export function createSumoSimulation(): SumoSimulation {
   function awardRoundPoints(): void {
     const count = joinedCount;
     if (count < 2) return;
+    if (isSuddenDeath(state, matchTarget)) {
+      const topScore = maxScoreForState(state);
+      for (let i = 0; i < C.maxPlayers; i += 1) {
+        if (joined[i] === 0) continue;
+        const baseI = PLAYER + i * STRIDE;
+        if ((state[baseI + 8] & ALIVE) !== 0 && state[baseI + 9] === topScore) {
+          state[baseI + 9] += 1;
+        }
+      }
+      return;
+    }
     for (let i = 0; i < C.maxPlayers; i += 1) {
       if (joined[i] === 0) continue;
       const baseI = PLAYER + i * STRIDE;
