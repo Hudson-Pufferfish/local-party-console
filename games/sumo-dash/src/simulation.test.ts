@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { SUMO_CONSTANTS } from './constants';
 import { eventsFromHeaderDiff } from './events';
-import { scoreboardLine } from './scoreboard';
+import { scoreboardHeader, scoreboardLine } from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
 declare const Buffer: {
@@ -520,7 +520,7 @@ test('three round wins end the match and the scoreboard follows the scores', () 
     sim.step(DT);
     expect(sim.state[PHASE]).toBe(2);
     expect(sim.state[slotBase(0) + 9]).toBe(round + 1);
-    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'], 3)).toBe(`hu ${round + 1}/3  ad 0/3`);
+    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'])).toBe(`hu ${round + 1}  ad 0`);
   }
   let guard = 0;
   while (sim.state[PHASE] !== 3 && guard < 4000) {
@@ -553,8 +553,9 @@ test('a pack that stays inside still ends the round and scores', () => {
   }
   expect(sim.state[PHASE]).toBe(2);
   expect(scoreSum(sim)).toBe(3);
+  expect(scoreboardHeader(sim.state)).toBe('THRESHOLD: 6');
   const line = scoreboardLine(sim.state, ['Hudson', '', '']);
-  expect(line.includes('2/6')).toBe(true);
+  expect(line.includes(' 2')).toBe(true);
 });
 
 test('practice countdown lasts 15 seconds before entering 3-2-1 countdown', () => {

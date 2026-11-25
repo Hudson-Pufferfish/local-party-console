@@ -36,6 +36,7 @@ export interface SessionHandlers {
   setStandby: (value: string | null) => void;
   setMatch: (value: boolean) => void;
   setMatchOver: (value: boolean) => void;
+  setScoreHeader?: (value: string) => void;
   setScoreRows: (value: ScoreRow[]) => void;
   setScoreRules?: (value: ScoreRules | null) => void;
   setBanner: (value: string) => void;
@@ -125,6 +126,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const publishView = new Uint8Array(publishBytes);
   const connected = new Uint8Array(8);
   const mirror = new Float32Array(88);
+  let lastScoreHeader = '';
   let lastScoreRows: ScoreRow[] = [];
   let lastScoreRules: ScoreRules | null = null;
   let seenEpoch = -1;
@@ -264,6 +266,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     if (runtime === null) return;
     const state = primary && loop !== null ? loop.state : mirror;
     const names = scoreNames();
+    const header = runtime.scoreboardHeader?.(state) ?? '';
+    if (lastScoreHeader !== header) {
+      lastScoreHeader = header;
+      handlers.setScoreHeader?.(header);
+    }
     const rows = runtime.scoreboardRows?.(state, names) ?? [];
     if (!sameScoreRows(lastScoreRows, rows)) {
       lastScoreRows = rows;
@@ -476,6 +483,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       destroyRenderer();
       handlers.setMatch(false);
       handlers.setMatchOver(false);
+      lastScoreHeader = '';
+      handlers.setScoreHeader?.('');
       lastScoreRows = [];
       handlers.setScoreRows([]);
       lastScoreRules = null;
@@ -630,6 +639,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           destroyRenderer();
           handlers.setMatch(false);
           handlers.setMatchOver(false);
+          lastScoreHeader = '';
+          handlers.setScoreHeader?.('');
           lastScoreRows = [];
           handlers.setScoreRows([]);
           lastScoreRules = null;
@@ -818,7 +829,7 @@ function sameScoreRows(a: readonly ScoreRow[], b: readonly ScoreRow[]): boolean 
 function sameScoreRules(a: ScoreRules | null, b: ScoreRules | null): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
-  if (a.target !== b.target || a.rows.length !== b.rows.length) return false;
+  if (a.rows.length !== b.rows.length) return false;
   for (let index = 0; index < a.rows.length; index += 1) {
     const left = a.rows[index];
     const right = b.rows[index];

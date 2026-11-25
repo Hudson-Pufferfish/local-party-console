@@ -22,7 +22,6 @@ export interface ScoreRuleRow {
 }
 
 export interface ScoreRules {
-  readonly target: string;
   readonly rows: readonly ScoreRuleRow[];
 }
 
@@ -32,6 +31,7 @@ export interface ScreenGameRuntime {
   createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
+  scoreboardHeader?: (state: Float32Array) => string;
   scoreboardRows?: (state: Float32Array, names: readonly string[]) => ScoreRow[];
   scoreRules?: (state: Float32Array) => ScoreRules | null;
   bannerCopy?: (state: Float32Array, names: readonly string[]) => string;

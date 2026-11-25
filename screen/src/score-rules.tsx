@@ -1,10 +1,9 @@
-import { For, type VoidComponent } from 'solid-js';
-import type { ScoreRules } from './register-games.ts';
+import { For, Show, type VoidComponent } from 'solid-js';
+import type { ScoreRow, ScoreRules } from './register-games.ts';
 
 export const ScoreRulesPanel: VoidComponent<{ rules: ScoreRules }> = (props) => {
   return (
     <aside class="score-rules" aria-label="Scoring rules">
-      <p class="score-rules-target">{props.rules.target}</p>
       <ol class="score-rules-list">
         <For each={props.rules.rows} keyed={(row) => row.label}>
           {(row) => (
@@ -16,5 +15,32 @@ export const ScoreRulesPanel: VoidComponent<{ rules: ScoreRules }> = (props) => 
         </For>
       </ol>
     </aside>
+  );
+};
+
+export const ScoreboardPanel: VoidComponent<{
+  header: string;
+  rows: readonly ScoreRow[];
+}> = (props) => {
+  return (
+    <div class="scoreboard-panel">
+      <Show when={props.header !== ''}>
+        <p class="scoreboard-threshold">{props.header}</p>
+      </Show>
+      <ol class="scoreboard">
+        <For each={props.rows} keyed={(row) => row.slot}>
+          {(row) => (
+            <li class="score-row">
+              <span
+                class="score-dot"
+                aria-hidden="true"
+                style={{ 'background-color': row().color }}
+              />
+              <span>{row().text}</span>
+            </li>
+          )}
+        </For>
+      </ol>
+    </div>
   );
 };
