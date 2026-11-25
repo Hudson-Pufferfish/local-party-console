@@ -10,7 +10,13 @@ import {
 } from './bot-fill.ts';
 import { Lobby } from './lobby.tsx';
 import { installPointerGuard } from './pointer-guard.ts';
-import { listScreenManifests, screenGames, type ScoreRow } from './register-games.ts';
+import {
+  listScreenManifests,
+  screenGames,
+  type ScoreRow,
+  type ScoreRules,
+} from './register-games.ts';
+import { ScoreRulesPanel } from './score-rules.tsx';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
 import { TabHud } from './telemetry/tab-hud.tsx';
@@ -25,6 +31,7 @@ export const App: VoidComponent = () => {
   const [match, setMatch] = createSignal(false);
   const [matchOver, setMatchOver] = createSignal(false);
   const [scoreRows, setScoreRows] = createSignal<ScoreRow[]>([]);
+  const [scoreRules, setScoreRules] = createSignal<ScoreRules | null>(null);
   const [banner, setBanner] = createSignal('');
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
@@ -52,6 +59,7 @@ export const App: VoidComponent = () => {
         setMatch,
         setMatchOver,
         setScoreRows,
+        setScoreRules,
         setBanner,
         setNotice,
         setSelectedId,
@@ -154,6 +162,9 @@ export const App: VoidComponent = () => {
           >
             <section class="match" data-game={selectedId()}>
               <p class="hud">{banner()}</p>
+              <Show when={scoreRules()}>
+                {(rules) => <ScoreRulesPanel rules={rules()} />}
+              </Show>
               <canvas
                 ref={(canvas) => {
                   canvases.match = canvas;

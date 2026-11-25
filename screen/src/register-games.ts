@@ -16,6 +16,16 @@ export interface ScoreRow {
   readonly text: string;
 }
 
+export interface ScoreRuleRow {
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface ScoreRules {
+  readonly target: string;
+  readonly rows: readonly ScoreRuleRow[];
+}
+
 export interface ScreenGameRuntime {
   createSim: () => ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array) => Envelope[];
@@ -23,6 +33,7 @@ export interface ScreenGameRuntime {
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
   scoreboardRows?: (state: Float32Array, names: readonly string[]) => ScoreRow[];
+  scoreRules?: (state: Float32Array) => ScoreRules | null;
   bannerCopy?: (state: Float32Array, names: readonly string[]) => string;
   rematchEventType?: string;
 }

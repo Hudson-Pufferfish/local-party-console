@@ -21,6 +21,7 @@ import {
   screenGames,
   type ArenaRenderer,
   type ScoreRow,
+  type ScoreRules,
   type ScreenGameRuntime,
 } from './register-games.ts';
 import { createTabLock, type TabLockHandle } from './sim-lock.ts';
@@ -36,6 +37,7 @@ export interface SessionHandlers {
   setMatch: (value: boolean) => void;
   setMatchOver: (value: boolean) => void;
   setScoreRows: (value: ScoreRow[]) => void;
+  setScoreRules?: (value: ScoreRules | null) => void;
   setBanner: (value: string) => void;
   setNotice: (value: string) => void;
   setSelectedId: (value: string) => void;
@@ -124,6 +126,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const connected = new Uint8Array(8);
   const mirror = new Float32Array(88);
   let lastScoreRows: ScoreRow[] = [];
+  let lastScoreRules: ScoreRules | null = null;
   let seenEpoch = -1;
   const snapMessage = { epoch: 0, bytes: publishBytes };
   let channel: BroadcastChannel | null = null;
@@ -265,6 +268,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     if (!sameScoreRows(lastScoreRows, rows)) {
       lastScoreRows = rows;
       handlers.setScoreRows(rows);
+    }
+    const rules = runtime.scoreRules?.(state) ?? null;
+    if (!sameScoreRules(lastScoreRules, rules)) {
+      lastScoreRules = rules;
+      handlers.setScoreRules?.(rules);
     }
     handlers.setBanner(runtime.bannerCopy?.(state, names) ?? '');
   }
@@ -470,6 +478,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setMatchOver(false);
       lastScoreRows = [];
       handlers.setScoreRows([]);
+      lastScoreRules = null;
+      handlers.setScoreRules?.(null);
       handlers.setBanner('');
       send({ type: 'room:phase', payload: { phase: 'lobby' } });
       send({ type: rematchEventType(), payload: { action: 'lobby' } });
@@ -622,6 +632,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           handlers.setMatchOver(false);
           lastScoreRows = [];
           handlers.setScoreRows([]);
+          lastScoreRules = null;
+          handlers.setScoreRules?.(null);
           handlers.setBanner('');
         }
         if (action === 'restart' && view === 'holistic') {
@@ -799,6 +811,19 @@ function sameScoreRows(a: readonly ScoreRow[], b: readonly ScoreRow[]): boolean 
     if (left.slot !== right.slot || left.color !== right.color || left.text !== right.text) {
       return false;
     }
+  }
+  return true;
+}
+
+function sameScoreRules(a: ScoreRules | null, b: ScoreRules | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (a.target !== b.target || a.rows.length !== b.rows.length) return false;
+  for (let index = 0; index < a.rows.length; index += 1) {
+    const left = a.rows[index];
+    const right = b.rows[index];
+    if (left === undefined || right === undefined) return false;
+    if (left.label !== right.label || left.value !== right.value) return false;
   }
   return true;
 }

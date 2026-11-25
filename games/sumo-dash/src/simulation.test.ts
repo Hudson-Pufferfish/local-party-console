@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { SUMO_CONSTANTS } from './constants';
+import { eventsFromHeaderDiff } from './events';
 import { scoreboardLine } from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
@@ -201,7 +202,7 @@ test('everyone outside on a small ring does not open a scoreless break', () => {
       guard += 1;
     }
     if (sim.state[PHASE] === 2) {
-      expect(scoreSum(sim)).toBe(before + 1);
+      expect(scoreSum(sim)).toBe(before + 3);
     } else {
       expect(sim.state[PHASE]).toBe(1);
       expect(scoreSum(sim)).toBe(before);
@@ -435,14 +436,17 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
     if (previousPhase === 1 && phase === 2) {
       completed += 1;
       const nextScore = scoreSum(sim);
+      const gained = nextScore - score;
       if (countAlive(sim) === 0) {
-        expect(nextScore).toBe(score);
+        expect(gained).toBe(0);
       } else {
-        expect(nextScore).toBe(score + 1);
+        // 8 players: min sum without ties = 8*7/2 = 28, max with all losers tied 2nd = 7*7 = 49
+        expect(gained).toBeGreaterThanOrEqual(28);
+        expect(gained).toBeLessThanOrEqual(49);
       }
       score = nextScore;
     }
-    expect(scoreSum(sim)).toBeLessThanOrEqual(completed);
+    expect(scoreSum(sim)).toBeLessThanOrEqual(completed * 49);
     previousPhase = phase;
   }
 });
@@ -548,7 +552,127 @@ test('a pack that stays inside still ends the round and scores', () => {
     guard += 1;
   }
   expect(sim.state[PHASE]).toBe(2);
-  expect(scoreSum(sim)).toBe(1);
-  const line = scoreboardLine(sim.state, ['Hudson', '', ''], 3);
-  expect(line.includes('1/3')).toBe(true);
+  expect(scoreSum(sim)).toBe(3);
+  const line = scoreboardLine(sim.state, ['Hudson', '', '']);
+  expect(line.includes('2/6')).toBe(true);
+});
+
+test('practice countdown lasts 15 seconds before entering 3-2-1 countdown', () => {
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  expect(sim.state[PHASE]).toBe(4);
+  expect(sim.state[2]).toBeCloseTo(15, 5);
+
+  for (let tick = 0; tick < 15 * 120 - 2; tick += 1) {
+    sim.step(DT);
+  }
+  expect(sim.state[PHASE]).toBe(4);
+  expect(sim.state[2]).toBeGreaterThan(0);
+
+  for (let tick = 0; tick < 5 && sim.state[PHASE] === 4; tick += 1) {
+    sim.step(DT);
+  }
+  expect(sim.state[PHASE]).toBe(0);
+  expect(sim.state[2]).toBeCloseTo(3, 5);
+});
+
+test('ranked elimination awards N-1..0, ties share the higher rank, and match ends at (N-1)*3', () => {
+  // 7-player tie case: 2 players fall on same tick for 6th & 7th -> BOTH get 6th place (+1 pt)
+  const sim7 = createSumoSimulation();
+  sim7.startMatch([0, 1, 2, 3, 4, 5, 6]);
+  reachActive(sim7);
+  const keepCenter = (sim: ReturnType<typeof createSumoSimulation>, slots: readonly number[]): void => {
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i]!;
+      const base = slotBase(slot);
+      const angle = (i / Math.max(1, slots.length)) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * 60;
+      sim.state[base + 1] = Math.sin(angle) * 60;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+  };
+  const pushOut = (sim: ReturnType<typeof createSumoSimulation>, slots: readonly number[]): void => {
+    const out = (sim.state[ARENA_RADIUS] ?? 400) + 50;
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i]!;
+      const base = slotBase(slot);
+      const angle = (i / Math.max(1, slots.length)) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * out;
+      sim.state[base + 1] = Math.sin(angle) * out;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+  };
+
+  // Tick 1: slots 5 and 6 fall together -> tie for 6th & 7th -> BOTH get 6th place = 7 - 6 = 1 pt
+  keepCenter(sim7, [0, 1, 2, 3, 4]);
+  pushOut(sim7, [5, 6]);
+  sim7.step(DT);
+  expect(sim7.state[PHASE]).toBe(1);
+
+  // Tick 2: slot 4 falls -> 5th place = 2 pts
+  keepCenter(sim7, [0, 1, 2, 3]);
+  pushOut(sim7, [4]);
+  sim7.step(DT);
+
+  // Tick 3: slots 2 and 3 fall together -> tie for 3rd & 4th -> BOTH get 3rd place = 4 pts
+  keepCenter(sim7, [0, 1]);
+  pushOut(sim7, [2, 3]);
+  sim7.step(DT);
+
+  // Tick 4: slot 1 falls -> 2nd place = 5 pts; slot 0 survives -> 1st place = 6 pts
+  keepCenter(sim7, [0]);
+  pushOut(sim7, [1]);
+  sim7.step(DT);
+
+  expect(sim7.state[PHASE]).toBe(2);
+  expect(sim7.state[slotBase(0) + 9]).toBe(6);
+  expect(sim7.state[slotBase(1) + 9]).toBe(5);
+  expect(sim7.state[slotBase(2) + 9]).toBe(4);
+  expect(sim7.state[slotBase(3) + 9]).toBe(4);
+  expect(sim7.state[slotBase(4) + 9]).toBe(2);
+  expect(sim7.state[slotBase(5) + 9]).toBe(1);
+  expect(sim7.state[slotBase(6) + 9]).toBe(1);
+
+  // 4-player match ends at target = (4 - 1) * 3 = 9 (three 1st-place finishes of +3 each)
+  const sim4 = createSumoSimulation();
+  sim4.startMatch([0, 1, 2, 3]);
+  for (let round = 0; round < 3; round += 1) {
+    reachActive(sim4);
+    keepCenter(sim4, [0, 1, 2]);
+    pushOut(sim4, [3]);
+    sim4.step(DT);
+    keepCenter(sim4, [0, 1]);
+    pushOut(sim4, [2]);
+    sim4.step(DT);
+    keepCenter(sim4, [0]);
+    pushOut(sim4, [1]);
+    const beforeEnd = sim4.state.slice();
+    sim4.step(DT);
+    expect(sim4.state[PHASE]).toBe(2);
+    expect(sim4.state[slotBase(0) + 9]).toBe((round + 1) * 3);
+    expect(sim4.state[slotBase(1) + 9]).toBe((round + 1) * 2);
+    expect(sim4.state[slotBase(2) + 9]).toBe((round + 1) * 1);
+    expect(sim4.state[slotBase(3) + 9]).toBe(0);
+    const roundEndEvent = eventsFromHeaderDiff(beforeEnd, sim4.state).find(
+      (event) => event.type === 'sumo:round_end',
+    );
+    expect(roundEndEvent?.payload).toEqual({
+      winnerIndex: 0,
+      scores: [(round + 1) * 3, (round + 1) * 2, (round + 1) * 1, 0, 0, 0, 0, 0],
+      matchOver: round === 2,
+    });
+    // Advance past ROUND_END
+    let guard = 0;
+    while (sim4.state[PHASE] === 2 && guard < 200) {
+      sim4.step(DT);
+      guard += 1;
+    }
+    if (round < 2) {
+      expect(sim4.state[PHASE]).toBe(4);
+    } else {
+      expect(sim4.state[PHASE]).toBe(3);
+    }
+  }
 });
