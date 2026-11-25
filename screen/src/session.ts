@@ -1,7 +1,4 @@
 import { toCanvas } from 'qrcode';
-import { bannerCopy, matchWinnerTag } from '../../games/sumo-dash/src/banner.ts';
-import { SUMO_CONSTANTS } from '../../games/sumo-dash/src/constants.ts';
-import { scoreboardRows, type ScoreRow } from '../../games/sumo-dash/src/scoreboard.ts';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
 import type { GameManifest, PlayerSlot, ScreenViewTarget } from '../../shared/src/types/game.ts';
 import { standbyCopy } from '../../shared/src/view/policy.ts';
@@ -17,9 +14,15 @@ import {
 import { SNAPSHOT_BYTES, createHostLoop, type HostLoop } from './host-loop.ts';
 import { kickRequestFor } from './lobby-kick.ts';
 import { createPeerMap, type PeerMap } from './peer.ts';
+import {
+  createStartGuard,
+  screenGames,
+  type ArenaRenderer,
+  type ScoreRow,
+  type ScreenGameRuntime,
+} from './register-games.ts';
 import { createTabLock, type TabLockHandle } from './sim-lock.ts';
 import { createIngest, type TelemetryRead } from './telemetry/ingest.ts';
-import { screenGames, type ArenaRenderer, type ScreenGame } from './register-games.ts';
 
 export interface SessionHandlers {
   setRoomId: (value: string) => void;
@@ -35,6 +38,7 @@ export interface SessionHandlers {
   setNotice: (value: string) => void;
   setSelectedId: (value: string) => void;
   setBotLobby: (value: BotLobbyState) => void;
+  setStarting?: (value: boolean) => void;
 }
 
 export interface ScreenSession {
@@ -90,13 +94,15 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let renderer: ArenaRenderer | null = null;
   let players: PlayerSlot[] = [];
   let selectedId = '';
+  let activeRuntime: ScreenGameRuntime | null = null;
+  let loopGameId = '';
   let botLobby = createBotLobby();
   const bots = createBotFill((state, botIndex, axisX, axisY, buttons, level) => {
-    const writer = screenGames.get(selectedId)?.writeBotInput;
+    const writer = activeRuntime?.writeBotInput;
     if (writer === undefined) return;
     writer(state, botIndex, axisX, axisY, buttons, level);
   }, (mask) => {
-    const levels = screenGames.get(selectedId)?.botLevels;
+    const levels = activeRuntime?.botLevels;
     if (levels === undefined) return new Uint8Array(8);
     return levels(mask);
   });
@@ -120,6 +126,16 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let channel: BroadcastChannel | null = null;
   let simLock: TabLockHandle | null = null;
   let antiNapLock: TabLockHandle | null = null;
+
+  const startGuard = createStartGuard({
+    load: (id) => screenGames.load(id),
+    onLoadingChange: (loading) => {
+      handlers.setStarting?.(loading);
+    },
+    onError: () => {
+      handlers.setNotice('GAME // LOAD FAILED');
+    },
+  });
 
   const ingest = createIngest();
   const peers: PeerMap = createPeerMap({
@@ -184,11 +200,32 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
 
   function paintQr(): void {
     if (qrCanvas === null || qrUrl === '') return;
-    void toCanvas(qrCanvas, qrUrl, {
+    const canvas = qrCanvas;
+    void toCanvas(canvas, qrUrl, {
       margin: 1,
       width: 280,
       color: { dark: '#111111', light: '#F4F1EA' },
+    }).then(() => {
+      canvas.style.width = '';
+      canvas.style.height = '';
     });
+  }
+
+  function currentRuntime(): ScreenGameRuntime | null {
+    if (activeRuntime !== null) return activeRuntime;
+    return screenGames.getLoaded(selectedId) ?? null;
+  }
+
+  function preloadGame(id: string): void {
+    if (id === '' || screenGames.get(id) === undefined) return;
+    void screenGames.load(id).then(
+      (runtime) => {
+        if (stopped || selectedId !== id) return;
+        activeRuntime = runtime;
+        if (matchCanvas !== null) paintMatch();
+      },
+      () => undefined,
+    );
   }
 
   function destroyRenderer(): void {
@@ -198,10 +235,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
 
   function mountRenderer(): void {
     if (renderer !== null || matchCanvas === null || view !== 'holistic') return;
-    const game = screenGames.get(selectedId);
-    if (game?.createRenderer === undefined) return;
+    const runtime = currentRuntime();
+    if (runtime?.createRenderer === undefined) return;
     const canvas = matchCanvas;
-    renderer = game.createRenderer(canvas, () => {
+    renderer = runtime.createRenderer(canvas, () => {
       if (primary && loop !== null) return loop.state;
       return mirror;
     });
@@ -217,15 +254,16 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   }
 
   function publishScores(): void {
+    const runtime = currentRuntime();
+    if (runtime === null) return;
     const state = primary && loop !== null ? loop.state : mirror;
     const names = scoreNames();
-    const rows = scoreboardRows(state, names, SUMO_CONSTANTS.scoreToWin);
+    const rows = runtime.scoreboardRows?.(state, names) ?? [];
     if (!sameScoreRows(lastScoreRows, rows)) {
       lastScoreRows = rows;
       handlers.setScoreRows(rows);
     }
-    const winner = matchWinnerTag(state, names, SUMO_CONSTANTS.scoreToWin);
-    handlers.setBanner(bannerCopy(state[1] ?? 0, state[2] ?? 0, winner));
+    handlers.setBanner(runtime.bannerCopy?.(state, names) ?? '');
   }
 
   function clearMatch(): void {
@@ -292,7 +330,9 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const local = gameId === null ? undefined : screenGames.get(gameId);
     if (local !== undefined && gameId !== null) {
       selectedId = gameId;
+      activeRuntime = screenGames.getLoaded(gameId) ?? null;
       handlers.setSelectedId(gameId);
+      preloadGame(gameId);
     }
     if (view === 'holistic') return;
     const config = local?.manifest.viewConfig ?? manifest.viewConfig;
@@ -307,16 +347,17 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     return count;
   }
 
-  function openLoop(game: ScreenGame): void {
-    if (loop !== null) return;
+  function openLoop(gameId: string, runtime: ScreenGameRuntime): void {
+    if (loop !== null && loopGameId === gameId) return;
     loop = createHostLoop(
-      game.createSim(),
-      game.eventsFromHeaderDiff,
+      runtime.createSim(),
+      runtime.eventsFromHeaderDiff,
       (events) => {
         for (const event of events) send(event);
       },
       (slot, sim) => bots.fill(slot, sim),
     );
+    loopGameId = gameId;
   }
 
   function startFrames(): void {
@@ -342,46 +383,66 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     raf = 0;
   }
 
+  function rematchEventType(): string {
+    return currentRuntime()?.rematchEventType ?? 'sumo:rematch';
+  }
+
   return {
     view,
     selectGame(id: string): void {
       selectedId = id;
+      activeRuntime = screenGames.getLoaded(id) ?? null;
       handlers.setSelectedId(id);
-      const game = screenGames.get(id);
-      if (!primary || game === undefined) return;
+      const entry = screenGames.get(id);
+      if (entry === undefined) return;
+      preloadGame(id);
+      if (!primary) return;
       send({
         type: 'game:mount',
-        payload: { gameId: id, manifest: game.manifest, players },
+        payload: { gameId: id, manifest: entry.manifest, players },
       });
     },
     start(): void {
       resumeAudio();
       if (!primary || view !== 'holistic') return;
-      const game = screenGames.get(selectedId);
-      if (game === undefined) return;
-      const roster = rosterForStart(players, game.manifest, botLobby.botCount);
-      if (roster === null) return;
-      botLobby = lockBotCount(botLobby);
-      handlers.setBotLobby(botLobby);
-      openLoop(game);
-      if (loop === null) return;
-      bots.arm(roster.botMask);
-      loop.startMatch(roster.slots);
-      handlers.setMatch(true);
-      handlers.setMatchOver(false);
-      send({
-        type: 'game:mount',
-        payload: { gameId: selectedId, manifest: game.manifest, players },
-      });
-      send({ type: 'room:phase', payload: { phase: 'match' } });
-      publish();
-      startFrames();
+      const targetId = selectedId;
+      const entry = screenGames.get(targetId);
+      if (entry === undefined) return;
+      void startGuard.run(
+        targetId,
+        () =>
+          !stopped
+          && primary
+          && view === 'holistic'
+          && selectedId === targetId
+          && rosterForStart(players, entry.manifest, botLobby.botCount) !== null,
+        (runtime) => {
+          const roster = rosterForStart(players, entry.manifest, botLobby.botCount);
+          if (roster === null) return;
+          activeRuntime = runtime;
+          botLobby = lockBotCount(botLobby);
+          handlers.setBotLobby(botLobby);
+          openLoop(targetId, runtime);
+          if (loop === null) return;
+          bots.arm(roster.botMask);
+          loop.startMatch(roster.slots);
+          handlers.setMatch(true);
+          handlers.setMatchOver(false);
+          send({
+            type: 'game:mount',
+            payload: { gameId: targetId, manifest: entry.manifest, players },
+          });
+          send({ type: 'room:phase', payload: { phase: 'match' } });
+          publish();
+          startFrames();
+        },
+      );
     },
     playAgain(): void {
       if (!primary || loop === null) return;
-      const game = screenGames.get(selectedId);
-      if (game === undefined) return;
-      const roster = rosterForStart(players, game.manifest, botLobby.botCount);
+      const entry = screenGames.get(selectedId);
+      if (entry === undefined) return;
+      const roster = rosterForStart(players, entry.manifest, botLobby.botCount);
       if (roster === null) return;
       bots.arm(roster.botMask);
       loop.startMatch(roster.slots);
@@ -389,11 +450,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setMatchOver(false);
       send({
         type: 'game:mount',
-        payload: { gameId: selectedId, manifest: game.manifest, players },
+        payload: { gameId: selectedId, manifest: entry.manifest, players },
       });
       send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
-      send({ type: 'sumo:rematch', payload: { action: 'restart' } });
+      send({ type: rematchEventType(), payload: { action: 'restart' } });
     },
     returnToLobby(): void {
       if (!primary || loop === null) return;
@@ -408,7 +469,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setScoreRows([]);
       handlers.setBanner('');
       send({ type: 'room:phase', payload: { phase: 'lobby' } });
-      send({ type: 'sumo:rematch', payload: { action: 'lobby' } });
+      send({ type: rematchEventType(), payload: { action: 'lobby' } });
     },
     kickPlayer(index: number): void {
       const request = kickRequestFor(players, index, primary, loop?.inMatch === true);
@@ -421,13 +482,13 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       return ingest.read(slot);
     },
     setBotCount(requested: number): void {
-      const game = screenGames.get(selectedId);
+      const entry = screenGames.get(selectedId);
       botLobby = nextBotCount(
         botLobby,
         requested,
         connectedHumans(),
-        game?.manifest.maxPlayers ?? 8,
-        game?.manifest.supportsBots === true,
+        entry?.manifest.maxPlayers ?? 8,
+        entry?.manifest.supportsBots === true,
       );
       handlers.setBotLobby(botLobby);
     },
@@ -541,7 +602,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         peers.handleText(message.type, message.payload);
         return;
       }
-      if (message.type === 'sumo:rematch' && !primary) {
+      if (message.type === rematchEventType() && !primary) {
         const action = readAction(message.payload);
         if (action === 'lobby' && view === 'holistic') {
           destroyRenderer();

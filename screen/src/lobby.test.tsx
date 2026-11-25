@@ -61,18 +61,37 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   expect(primaryHtml).toContain('data-selected="true"');
   expect(primaryHtml).toContain('class="hint"');
   expect(primaryHtml).toContain('ROTATION LOCK');
+  expect(primaryHtml).toContain('class="lobby-col lobby-room"');
+  expect(primaryHtml).toContain('class="lobby-col lobby-setup"');
+  expect(primaryHtml).toContain('class="lobby-col lobby-players"');
+  expect(primaryHtml.indexOf('lobby-room')).toBeLessThan(primaryHtml.indexOf('lobby-setup'));
+  expect(primaryHtml.indexOf('lobby-setup')).toBeLessThan(primaryHtml.indexOf('lobby-players'));
 
-  const styles = fs.readFileSync(path.resolve(import.meta.dirname, 'styles.css'), 'utf8');
-  const kickBlock = styles.match(/\.player-kick\s*\{[^}]*background:[^}]*\}/)?.[0] ?? '';
-  const kickHoverBlock = styles.match(/\.player-kick:hover\s*\{[^}]*\}/)?.[0] ?? '';
-  const gameSelectedBlock = styles.match(/\.game-key\[data-selected="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
-  const startBlock = styles.match(/\.start\s*\{[^}]*\}/)?.[0] ?? '';
+  const loadingHtml = renderToString(() => <Lobby {...baseProps} canKick={true} starting={true} />);
+  expect(loadingHtml).toContain('LOADING...');
+  expect(loadingHtml).toContain('disabled');
+
+  const layoutCss = fs.readFileSync(path.resolve(import.meta.dirname, '../../shared/src/ui/layout.css'), 'utf8');
+  for (const token of ['--lobby-max-w', '--page-pad', '--grid-gap', '--panel-pad', '--qr-size', '--arena-size']) {
+    expect(layoutCss).toContain(`${token}:`);
+  }
+  expect(layoutCss).toContain('min(1360px, 100%)');
+
+  const lobbyCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/lobby.css'), 'utf8');
+  const kickBlock = lobbyCss.match(/\.player-kick\s*\{[^}]*background:[^}]*\}/)?.[0] ?? '';
+  const kickHoverBlock = lobbyCss.match(/\.player-kick:hover\s*\{[^}]*\}/)?.[0] ?? '';
+  const gameSelectedBlock = lobbyCss.match(/\.game-key\[data-selected="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
+  const startBlock = lobbyCss.match(/\.start\s*\{[^}]*\}/)?.[0] ?? '';
   expect(kickBlock).toContain('var(--player-color');
   expect(kickBlock).toContain('var(--player-ink');
   expect(kickHoverBlock).toContain('var(--player-color');
   expect(kickHoverBlock).not.toContain('--theme-yellow');
   expect(gameSelectedBlock).toContain('background: var(--theme-yellow)');
   expect(startBlock).toContain('background: var(--theme-yellow)');
+  expect(lobbyCss).toContain('max-width: var(--lobby-max-w)');
+  expect(lobbyCss).toContain('repeat(3, minmax(0, 1fr))');
+  expect(lobbyCss).toContain('repeat(2, minmax(0, 1fr))');
+  expect(lobbyCss).toContain('overflow-wrap: anywhere');
 
   const secondaryHtml = renderToString(() => <Lobby {...baseProps} canKick={false} />);
   expect(secondaryHtml).not.toContain('class="player-kick"');

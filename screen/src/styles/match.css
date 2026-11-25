@@ -1,0 +1,126 @@
+.match {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: clamp(16px, 2dvh, 24px) var(--page-pad);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(64px, auto);
+  align-items: center;
+  align-content: center;
+  column-gap: var(--grid-gap);
+  row-gap: 16px;
+}
+
+.hud {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  margin: 0;
+  min-width: 7ch;
+  min-height: 64px;
+  font-size: 64px;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.match canvas {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: center;
+  display: block;
+  box-sizing: border-box;
+  width: var(--arena-size);
+  height: var(--arena-size);
+  border: 2.5px solid #111111;
+  background: #eae6df;
+}
+
+.match .scoreboard {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: start;
+}
+
+.podium {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.match .podium {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  justify-self: center;
+  justify-content: center;
+  align-items: center;
+  margin-top: 0;
+}
+
+@media (hover: hover) {
+  .podium .key:hover:not(:disabled) {
+    background: var(--theme-yellow, #f5c518);
+    color: var(--ink, #111111);
+  }
+}
+
+.scoreboard {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 32px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.score-dot {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2.5px solid #111111;
+}
+
+@media (max-width: 720px) {
+  .match {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    column-gap: 0;
+  }
+
+  .hud,
+  .match canvas,
+  .match .scoreboard,
+  .match .podium {
+    grid-column: 1;
+    justify-self: center;
+  }
+
+  .match canvas {
+    width: min(800px, max(200px, calc(100dvw - 64px)), max(200px, calc(100dvh - 300px)));
+    height: min(800px, max(200px, calc(100dvw - 64px)), max(200px, calc(100dvh - 300px)));
+  }
+
+  .match .scoreboard {
+    grid-row: 3;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 20px;
+    font-size: 24px;
+  }
+
+  .match .podium {
+    grid-row: 4;
+  }
+}

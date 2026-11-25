@@ -1,0 +1,211 @@
+.lobby {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--lobby-max-w);
+  min-height: 100dvh;
+  margin-inline: auto;
+  padding: var(--lobby-pad-top) var(--page-pad) var(--page-pad);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--grid-gap);
+  align-items: start;
+  align-content: start;
+}
+
+.lobby-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-pad);
+}
+
+.lobby-room {
+  gap: 0;
+}
+
+.code {
+  margin: 8px 0 20px;
+  font-family: "JetBrains Mono";
+  font-size: clamp(48px, 5.5dvw, 88px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.qr {
+  display: block;
+  box-sizing: border-box;
+  width: var(--qr-size);
+  height: var(--qr-size);
+  max-width: 100%;
+  aspect-ratio: 1;
+  border: 2.5px solid #111111;
+  background: #f4f1ea;
+}
+
+.url {
+  margin: 12px 0 8px;
+  font-size: clamp(14px, 1.15dvw, 17px);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hint {
+  margin: 0;
+  font-family: "JetBrains Mono";
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.panel {
+  min-width: 0;
+  margin: 0;
+}
+
+.panel .notice {
+  margin: 12px 0 0;
+}
+
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 2.5px solid #111111;
+  background: #ffffff;
+}
+
+.player-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swatch {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2.5px solid var(--ink, #111111);
+  background: var(--player-color, var(--accent));
+}
+
+.player-kick {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2.5px solid var(--ink, #111111);
+  background: var(--player-color, var(--accent));
+  color: var(--player-ink, var(--ink, #111111));
+  box-shadow: 0px 2px 0px #111111, inset 0px 1.5px 0px rgba(255, 255, 255, 0.25);
+  font-family: "JetBrains Mono";
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.player-kick:hover {
+  background: var(--player-color, var(--accent));
+  color: var(--player-ink, var(--ink, #111111));
+  transform: translate3d(0, -1px, 0);
+  box-shadow: 0px 3px 0px #111111, inset 0px 1.5px 0px rgba(255, 255, 255, 0.35);
+}
+
+.player-kick:active {
+  background: var(--player-color, var(--accent));
+  color: var(--player-ink, var(--ink, #111111));
+  transform: translate3d(0, 2px, 0);
+  box-shadow: 0px 0px 0px #111111;
+  transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.carousel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.bot-stepper {
+  align-items: center;
+}
+
+.bot-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2ch;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.game-key[data-selected="true"] {
+  background: var(--theme-yellow);
+  color: var(--ink, #111111);
+}
+
+.start {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: var(--theme-yellow);
+  color: var(--ink, #111111);
+  font-size: 28px;
+}
+
+@media (min-width: 720px) {
+  .lobby {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lobby-players {
+    grid-column: 1 / -1;
+  }
+
+  .players {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .lobby {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lobby-players {
+    grid-column: auto;
+  }
+
+  .players {
+    display: flex;
+    flex-direction: column;
+  }
+}

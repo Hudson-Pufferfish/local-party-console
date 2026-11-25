@@ -65,6 +65,12 @@ Do not commit `.cursor/mcp.json` or secrets.
 - Respect the Industrial Neo-Brutalism ban list and the six `/shared/ui` primitives in `SPEC.md` Part 4.
 - Zero heap allocations on the gameplay hot path (`pointermove` send + `simulation.step`).
 
+## Screen bundle and shared CSS rules
+
+- Keep only `GameManifest` eager in `screen/src/register-games.ts`. Load each game runtime and its game-specific CSS with Vite dynamic `import()` on game selection and `START`. This keeps new games out of the initial lobby bundle.
+- Put reusable colors and typography tokens in `shared/src/ui/theme.css`.
+- Put reusable spacing, sizing, and multi-desktop scaling tokens in `shared/src/ui/layout.css`. Cap the lobby width with `--lobby-max-w` so ultrawide monitors stay centered and balanced.
+
 ## Controller versioning (`CONTROLLER_REV`)
 
 - `CONTROLLER_REV` in `shared/src/sdp/qr-target.ts` uses semver (`X.Y.Z`) and busts the phone QR cache (`?rev=...`).

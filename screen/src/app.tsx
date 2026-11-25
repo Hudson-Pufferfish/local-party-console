@@ -1,5 +1,4 @@
 import { createEffect, createMemo, createSignal, For, Show, type VoidComponent } from 'solid-js';
-import type { ScoreRow } from '../../games/sumo-dash/src/scoreboard.ts';
 import type { PlayerSlot } from '../../shared/src/types/game.ts';
 import { Badge } from './badge.tsx';
 import {
@@ -11,7 +10,7 @@ import {
 } from './bot-fill.ts';
 import { Lobby } from './lobby.tsx';
 import { installPointerGuard } from './pointer-guard.ts';
-import { listScreenManifests, screenGames } from './register-games.ts';
+import { listScreenManifests, screenGames, type ScoreRow } from './register-games.ts';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
 import { TabHud } from './telemetry/tab-hud.tsx';
@@ -30,6 +29,7 @@ export const App: VoidComponent = () => {
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
   const [botLobby, setBotLobby] = createSignal<BotLobbyState>(createBotLobby());
+  const [starting, setStarting] = createSignal(false);
   const games = listScreenManifests();
   const view = readScreenView(new URLSearchParams(location.search).get('view'));
   const themeKeys: string[] = [];
@@ -56,6 +56,7 @@ export const App: VoidComponent = () => {
         setNotice,
         setSelectedId,
         setBotLobby,
+        setStarting,
       });
       if (canvases.qr !== null) session.attachQr(canvases.qr);
       if (canvases.match !== null) session.attachMatch(canvases.match);
@@ -94,7 +95,7 @@ export const App: VoidComponent = () => {
 
   const startEnabled = createMemo(() => {
     const game = selectedGame();
-    if (game === undefined || !primary()) return false;
+    if (game === undefined || !primary() || starting()) return false;
     return rosterForStart(players(), game, botLobby().botCount) !== null;
   });
 
@@ -133,6 +134,7 @@ export const App: VoidComponent = () => {
                 games={games}
                 selectedId={selectedId()}
                 startEnabled={startEnabled()}
+                starting={starting()}
                 botCount={botLobby().botCount}
                 botControlEnabled={selectedGame()?.supportsBots === true && connectedHumans() > 0}
                 botNotice={botNotice()}
@@ -148,7 +150,7 @@ export const App: VoidComponent = () => {
               />
             }
           >
-            <section class="match">
+            <section class="match" data-game={selectedId()}>
               <p class="hud">{banner()}</p>
               <canvas
                 ref={(canvas) => {

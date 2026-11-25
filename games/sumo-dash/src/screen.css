@@ -1,0 +1,3 @@
+.match[data-game="sumo-dash"] canvas {
+  background: var(--bg-surface, #eae6df);
+}

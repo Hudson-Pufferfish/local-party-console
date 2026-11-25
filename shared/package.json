@@ -14,7 +14,9 @@
     "./sdp/qr-target": "./src/sdp/qr-target.ts",
     "./ui": {
       "browser": "./src/ui/index.tsx"
-    }
+    },
+    "./ui/theme.css": "./src/ui/theme.css",
+    "./ui/layout.css": "./src/ui/layout.css"
   },
   "scripts": {
     "test": "vitest run"
