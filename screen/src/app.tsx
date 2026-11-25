@@ -9,6 +9,7 @@ import {
   type BotLobbyState,
 } from './bot-fill.ts';
 import { Lobby } from './lobby.tsx';
+import { MatchExitControl } from './match-exit.tsx';
 import { installPointerGuard } from './pointer-guard.ts';
 import {
   listScreenManifests,
@@ -163,6 +164,12 @@ export const App: VoidComponent = () => {
             }
           >
             <section class="match" data-game={selectedId()}>
+              <MatchExitControl
+                primary={primary()}
+                match={match()}
+                manifest={selectedGame()}
+                onConfirm={() => session?.returnToLobby()}
+              />
               <p class="hud">{banner()}</p>
               <Show when={scoreRules()}>
                 {(rules) => <ScoreRulesPanel rules={rules()} />}
