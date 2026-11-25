@@ -8,40 +8,39 @@ import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import type { ControllerOrientation, GameManifest } from '../../shared/src/types/game.ts';
 
+export interface ControllerControl {
+  type: string;
+  payload: unknown;
+}
+
 export interface ControllerViewProps {
-  playerIndex: () => number;
-  playerColor: () => string;
-  connected: () => boolean;
-  sendFastInput: (buffer: ArrayBufferView) => void;
-  sendReliable: (payload: unknown) => void;
-  onControlMessage?: (handler: (payload: unknown) => void) => () => void;
-  requestFullscreen?: () => Promise<void>;
-  orientation?: () => ControllerOrientation;
-  manifest?: () => GameManifest;
+  color: string;
+  name: string;
+  slot: number;
+  control: ControllerControl | null;
+  onAxes: (x: number, y: number, timeStamp: number) => void;
+  onButton: (down: boolean, timeStamp: number) => void;
 }
 
-export interface ControllerGameEntry {
-  readonly manifest: GameManifest;
-  readonly View: VoidComponent<ControllerViewProps>;
-  readonly extraChrome?: VoidComponent<ControllerViewProps>;
+export interface ControllerGame {
+  manifest: GameManifest;
+  View: VoidComponent<ControllerViewProps>;
 }
 
-export const controllerGames = new Map<string, ControllerGameEntry>();
+export const controllerGames = new Map<string, ControllerGame>();
 
-export function registerControllerGame(entry: ControllerGameEntry): void {
-  controllerGames.set(entry.manifest.id, entry);
-}
+export type ThemeVars = JSX.CSSProperties;
 
-export function listControllerManifests(): GameManifest[] {
-  return Array.from(controllerGames.values()).map((entry) => entry.manifest);
-}
-
-export function lookupControllerEntry(id: string): ControllerGameEntry | undefined {
-  return controllerGames.get(id);
-}
-
-export function clearControllerGames(): void {
-  controllerGames.clear();
+export function localTheme(gameId: string): ThemeVars {
+  const game = controllerGames.get(gameId);
+  if (game === undefined) return {};
+  const theme: ThemeVars = {};
+  const tokens = game.manifest.themeTokens;
+  for (const [key, value] of Object.entries(tokens)) {
+    if (!key.startsWith('--') || typeof value !== 'string') continue;
+    theme[key as `-${string}`] = value;
+  }
+  return theme;
 }
 
 controllerGames.set(SUMO_DASH_MANIFEST.id, {
@@ -60,16 +59,11 @@ controllerGames.set(COLOR_CLASH_MANIFEST.id, {
 });
 
 export function controllerView(gameId: string): VoidComponent<ControllerViewProps> | null {
-  const entry = controllerGames.get(gameId);
-  return entry?.View ?? null;
+  return controllerGames.get(gameId)?.View ?? null;
 }
 
-export function renderControllerView(
+export function controllerSupportedOrientations(
   gameId: string,
-  props: ControllerViewProps,
-): JSX.Element {
-  const entry = controllerGames.get(gameId);
-  if (entry === undefined) return null;
-  const Component = entry.View;
-  return <Component {...props} />;
+): readonly ControllerOrientation[] | undefined {
+  return controllerGames.get(gameId)?.manifest.supportedOrientations;
 }
