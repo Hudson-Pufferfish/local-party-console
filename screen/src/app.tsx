@@ -8,8 +8,8 @@ import {
   startNotice,
   type BotLobbyState,
 } from './bot-fill.ts';
+import { HolisticMatchShell } from './components/holistic/holistic-match-shell.tsx';
 import { Lobby } from './lobby.tsx';
-import { MatchExitControl } from './match-exit.tsx';
 import { installPointerGuard } from './pointer-guard.ts';
 import {
   listScreenManifests,
@@ -17,7 +17,6 @@ import {
   type ScoreRow,
   type ScoreRules,
 } from './register-games.ts';
-import { MatchRejoinQr, ScoreboardPanel, ScoreRulesPanel } from './score-rules.tsx';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
 import { TabHud } from './telemetry/tab-hud.tsx';
@@ -163,43 +162,27 @@ export const App: VoidComponent = () => {
               />
             }
           >
-            <section class="match" data-game={selectedId()}>
-              <MatchRejoinQr
-                onQr={(canvas) => {
-                  canvases.qr = canvas;
-                  session?.attachQr(canvas);
-                }}
-              />
-              <MatchExitControl
-                primary={primary()}
-                match={match()}
-                manifest={selectedGame()}
-                onConfirm={() => session?.resetLobby()}
-              />
-              <p class="hud">{banner()}</p>
-              <Show when={scoreRules()}>
-                {(rules) => <ScoreRulesPanel rules={rules()} />}
-              </Show>
-              <canvas
-                ref={(canvas) => {
-                  canvases.match = canvas;
-                  session?.attachMatch(canvas);
-                }}
-                width={800}
-                height={800}
-              />
-              <ScoreboardPanel header={scoreHeader()} rows={scoreRows()} />
-              <Show when={primary() && matchOver()}>
-                <div class="podium">
-                  <button type="button" class="key" onClick={() => session?.playAgain()}>
-                    PLAY AGAIN
-                  </button>
-                  <button type="button" class="key" onClick={() => session?.resetLobby()}>
-                    RETURN TO LOBBY
-                  </button>
-                </div>
-              </Show>
-            </section>
+            <HolisticMatchShell
+              gameId={selectedId()}
+              primary={primary()}
+              match={match()}
+              matchOver={matchOver()}
+              manifest={selectedGame()}
+              banner={banner()}
+              scoreHeader={scoreHeader()}
+              scoreRows={scoreRows()}
+              scoreRules={scoreRules()}
+              onQr={(canvas) => {
+                canvases.qr = canvas;
+                session?.attachQr(canvas);
+              }}
+              onMatchCanvas={(canvas) => {
+                canvases.match = canvas;
+                session?.attachMatch(canvas);
+              }}
+              onPlayAgain={() => session?.playAgain()}
+              onExit={() => session?.resetLobby()}
+            />
           </Show>
         }
       >

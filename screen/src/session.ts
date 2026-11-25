@@ -409,8 +409,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     raf = 0;
   }
 
-  function rematchEventType(): string {
-    return currentRuntime()?.rematchEventType ?? 'sumo:rematch';
+  function rematchEventType(): string | null {
+    return currentRuntime()?.rematchEventType ?? null;
   }
 
   function clearMatchAndLobbyState(): void {
@@ -506,7 +506,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       });
       send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
-      send({ type: rematchEventType(), payload: { action: 'restart' } });
+      const rematchType = rematchEventType();
+      if (rematchType !== null) {
+        send({ type: rematchType, payload: { action: 'restart' } });
+      }
     },
     // Single common exit seam for both single-screen ('holistic') and future
     // multi-screen ('team-exclusive') game exits. Every match exit path calls
@@ -668,7 +671,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         peers.handleText(message.type, message.payload);
         return;
       }
-      if (message.type === rematchEventType() && !primary) {
+      const rematchType = rematchEventType();
+      if (rematchType !== null && message.type === rematchType && !primary) {
         const action = readAction(message.payload);
         if (action === 'lobby' && view === 'holistic') {
           clearMatchAndLobbyState();
