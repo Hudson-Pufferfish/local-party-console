@@ -1,6 +1,7 @@
 .match {
   box-sizing: border-box;
   min-height: 100dvh;
+  background: var(--bg-surface, var(--bg-canvas, var(--paper, #f4f1ea)));
   padding: clamp(16px, 2dvh, 24px) var(--page-pad);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

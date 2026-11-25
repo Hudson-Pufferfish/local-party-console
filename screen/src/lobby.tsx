@@ -20,6 +20,7 @@ export const Lobby: VoidComponent<{
   botControlEnabled: boolean;
   botNotice: string;
   canKick?: boolean;
+  allowedBots?: ReadonlySet<string>;
   onBotStep: (delta: -1 | 1) => void;
   onBotDifficulty?: (difficulty: BotDifficulty) => void;
   onQr: (canvas: HTMLCanvasElement) => void;
@@ -28,6 +29,20 @@ export const Lobby: VoidComponent<{
   onKick?: (index: number) => void;
 }> = (props) => {
   const [pressed, setPressed] = createSignal(false);
+  const botsAllowed = () => {
+    if (props.allowedBots !== undefined) {
+      return props.allowedBots.has(props.selectedId);
+    }
+    const selectedGame = props.games.find((game) => game.id === props.selectedId);
+    return selectedGame?.supportsBots === true;
+  };
+
+  const stepperEnabled = () => botsAllowed() && props.botControlEnabled;
+  const difficultyEnabled = () =>
+    botsAllowed() &&
+    props.botControlEnabled &&
+    props.botCount > 0 &&
+    props.canKick !== false;
 
   return (
     <main class="lobby">
@@ -79,44 +94,50 @@ export const Lobby: VoidComponent<{
           </Show>
         </section>
 
-        <Show when={props.games.find((game) => game.id === props.selectedId)?.supportsBots === true}>
-          <section class="panel">
+        <section class="panel">
+          <Show
+            when={botsAllowed()}
+            fallback={<h2>BOTS NOT AVAILABLE FOR THIS GAME</h2>}
+          >
             <h2>BOTS</h2>
-            <div class="carousel bot-stepper">
-              <button
-                type="button"
-                class="key"
-                disabled={!props.botControlEnabled}
-                onClick={() => {
-                  if (!props.botControlEnabled) return;
-                  props.onBotStep(-1);
-                }}
-              >
-                -
-              </button>
-              <span class="mono bot-count">{props.botCount}</span>
-              <button
-                type="button"
-                class="key"
-                disabled={!props.botControlEnabled}
-                onClick={() => {
-                  if (!props.botControlEnabled) return;
-                  props.onBotStep(1);
-                }}
-              >
-                +
-              </button>
-            </div>
-            <BotDifficultySelector
-              value={props.botDifficulty ?? DEFAULT_BOT_DIFFICULTY}
-              disabled={!props.botControlEnabled || props.botCount <= 0 || props.canKick === false}
-              onChange={(difficulty) => props.onBotDifficulty?.(difficulty)}
-            />
-            <Show when={props.botNotice !== ''}>
-              <p class="notice">{props.botNotice}</p>
-            </Show>
-          </section>
-        </Show>
+          </Show>
+          <div class="carousel bot-stepper">
+            <button
+              type="button"
+              class="key"
+              disabled={!stepperEnabled()}
+              onClick={() => {
+                if (!stepperEnabled()) return;
+                props.onBotStep(-1);
+              }}
+            >
+              -
+            </button>
+            <span class="mono bot-count">{props.botCount}</span>
+            <button
+              type="button"
+              class="key"
+              disabled={!stepperEnabled()}
+              onClick={() => {
+                if (!stepperEnabled()) return;
+                props.onBotStep(1);
+              }}
+            >
+              +
+            </button>
+          </div>
+          <BotDifficultySelector
+            value={props.botDifficulty ?? DEFAULT_BOT_DIFFICULTY}
+            disabled={!difficultyEnabled()}
+            onChange={(difficulty) => props.onBotDifficulty?.(difficulty)}
+          />
+          <p
+            class="notice bot-notice"
+            style={{ visibility: props.botNotice !== '' ? 'visible' : 'hidden' }}
+          >
+            {props.botNotice || '\u00A0'}
+          </p>
+        </section>
 
         <button
           type="button"

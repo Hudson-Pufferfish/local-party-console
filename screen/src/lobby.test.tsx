@@ -186,7 +186,14 @@ test('lobby renders BotDifficultySelector under BOTS when supportsBots is true, 
   expect(secondaryHtml).toContain('data-disabled="true"');
 
   const noBotsGameHtml = renderToString(() => <Lobby {...baseProps} selectedId="human-only" />);
-  expect(noBotsGameHtml).not.toContain('aria-label="Bot difficulty"');
+  expect(noBotsGameHtml).toContain('BOTS NOT AVAILABLE FOR THIS GAME');
+  expect(noBotsGameHtml).toContain('data-disabled="true"');
+
+  const customAllowedSetHtml = renderToString(() => (
+    <Lobby {...baseProps} selectedId="sumo-dash" allowedBots={new Set(['other-game'])} />
+  ));
+  expect(customAllowedSetHtml).toContain('BOTS NOT AVAILABLE FOR THIS GAME');
+  expect(customAllowedSetHtml).toContain('data-disabled="true"');
 
   const primitivesCss = fs.readFileSync(
     path.resolve(import.meta.dirname, '../../shared/src/ui/primitives.css'),

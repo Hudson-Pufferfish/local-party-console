@@ -100,6 +100,10 @@
   margin: 12px 0 0;
 }
 
+.bot-notice {
+  min-height: 1.2em;
+}
+
 .players {
   display: flex;
   flex-direction: column;

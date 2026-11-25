@@ -227,7 +227,7 @@
   border: 2.5px solid var(--ink, #111111);
   background: #ffffff;
   color: var(--ink, #111111);
-  box-shadow: 0px 4px 0px #111111, inset 0px 2px 0px rgba(255, 255, 255, 0.35);
+  box-shadow: 0px 2px 0px #111111, inset 0px 1.5px 0px rgba(255, 255, 255, 0.35);
   font-family: "JetBrains Mono";
   font-size: 13px;
   font-weight: 700;
@@ -247,13 +247,13 @@
 .bot-difficulty-btn[data-active='true'] {
   background: var(--theme-yellow, #f5c518);
   color: var(--ink, #111111);
-  transform: translate3d(0, 4px, 0);
+  transform: translate3d(0, 2px, 0);
   box-shadow: 0px 0px 0px #111111;
   transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .bot-difficulty-btn:active:not(:disabled) {
-  transform: translate3d(0, 4px, 0);
+  transform: translate3d(0, 2px, 0);
   box-shadow: 0px 0px 0px #111111;
   transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
 }
