@@ -1,4 +1,4 @@
-import { nextJitter, oneWayMs, percentile } from '../../../shared/src/stretch1/metrics.ts';
+import { nextJitter, oneWayMs, percentile } from '../../../shared/src/sync/metrics.ts';
 
 const SLOTS = 8;
 const RING = 300;

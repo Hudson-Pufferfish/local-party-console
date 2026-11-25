@@ -3,7 +3,7 @@ import {
   transformAxesInto,
   type StageRotationDeg,
 } from '../controller/orientation.ts';
-import { pickPointerSample, type PointerSample } from '../stretch1/samples';
+import { pickPointerSample, type PointerSample } from '../sync/samples';
 import { useControllerOrientation } from './orientation-context.tsx';
 
 const EMPTY_SAMPLES: PointerSample[] = [];

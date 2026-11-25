@@ -1,6 +1,6 @@
-import { ntpOffset } from '../../shared/src/stretch1/clock.ts';
-import { HEARTBEAT_MS } from '../../shared/src/stretch1/heartbeat.ts';
-import { WINDOW_MS, nextDelayMs } from '../../shared/src/stretch1/tdma.ts';
+import { ntpOffset } from '../../shared/src/sync/clock.ts';
+import { HEARTBEAT_MS } from '../../shared/src/sync/heartbeat.ts';
+import { WINDOW_MS, nextDelayMs } from '../../shared/src/sync/tdma.ts';
 import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
 import type { RoomPhase } from '../../shared/src/types/envelope.ts';
 import {

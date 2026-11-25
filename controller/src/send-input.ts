@@ -1,8 +1,8 @@
 import { encodeInto, type InputPacket } from '../../shared/src/codec/input-packet.ts';
 import { quantizeAxis } from '../../shared/src/controller/quantize.ts';
-import { HEARTBEAT_MS, encodeHeartbeat } from '../../shared/src/stretch1/heartbeat.ts';
-import { nextDelayMs } from '../../shared/src/stretch1/tdma.ts';
-import { sendIntervalMs } from '../../shared/src/stretch1/tier.ts';
+import { HEARTBEAT_MS, encodeHeartbeat } from '../../shared/src/sync/heartbeat.ts';
+import { nextDelayMs } from '../../shared/src/sync/tdma.ts';
+import { sendIntervalMs } from '../../shared/src/sync/tier.ts';
 import { inputDeliveries, routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
 
 const scratch = new ArrayBuffer(8);

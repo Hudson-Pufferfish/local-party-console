@@ -2,7 +2,7 @@ import { createEffect, createSignal, Show, type VoidComponent } from 'solid-js';
 import type { OrientationPreference } from '../../shared/src/controller/orientation.ts';
 import { classifyPower, rfc3550Jitter } from '../../shared/src/controller/preflight.ts';
 import { CONTROLLER_REV } from '../../shared/src/sdp/qr-target.ts';
-import { tierFor } from '../../shared/src/stretch1/tier.ts';
+import { tierFor } from '../../shared/src/sync/tier.ts';
 import { playerStyleVars } from '../../shared/src/theme.ts';
 import {
   ArcadeButton,

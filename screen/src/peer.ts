@@ -1,6 +1,6 @@
 import { decode } from '../../shared/src/codec/input-packet.ts';
 import { mungeLanSdp } from '../../shared/src/sdp/munge-lan.ts';
-import { heartbeatSlot } from '../../shared/src/stretch1/heartbeat.ts';
+import { heartbeatSlot } from '../../shared/src/sync/heartbeat.ts';
 import { replyClock } from './telemetry/clock-reply.ts';
 
 const SLOT_COUNT = 8;
