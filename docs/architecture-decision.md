@@ -36,12 +36,12 @@ Instead of relying on cloud STUN servers or asking users for microphone permissi
 sequenceDiagram
     autonumber
     actor Player as 📱 Player Phone
-    participant Server as ⚡ Fastify Server (:3000)
+    participant Server as ⚡ Fastify Server (:8443)
     participant Host as 💻 Screen Tab (Chrome)
 
     Note over Player,Host: Step 1: Scan & Fetch Config
     Player->>Server: 1. Scan QR Code -> GET /api/host
-    Server-->>Player: Return { lanIp: "192.168.1.150", port: 3000 }
+    Server-->>Player: Return { lanIp: "192.168.1.150", port: 8443 }
     
     Note over Player,Host: Step 2: Establish Fastify Signaling Channel
     Player->>Server: Connect WebSocket (Signaling & Fallback Input)
@@ -84,6 +84,23 @@ If a restrictive router blocks UDP peer-to-peer traffic altogether:
 | **Typical Latency** | 2ms – 6ms | 8ms – 16ms |
 | **Failure Mode** | Network drops UDP packets | Buffers behind TCP head-of-line blocking |
 | **When Used** | Normal gameplay on standard Wi-Fi | Guest Wi-Fi / client-isolation enabled |
+
+### References
+
+- [shared/src/sdp/](../shared/src/sdp/)
+- [shared/src/sdp/README.md](../shared/src/sdp/README.md)
+- [shared/src/sdp/munge-lan.ts](../shared/src/sdp/munge-lan.ts)
+- [shared/src/sdp/qr-target.ts](../shared/src/sdp/qr-target.ts)
+- [shared/src/transport/policy.ts](../shared/src/transport/policy.ts)
+- [server/src/index.ts](../server/src/index.ts)
+- [server/src/relay.ts](../server/src/relay.ts)
+- [screen/src/peer.ts](../screen/src/peer.ts)
+- [screen/src/session.ts](../screen/src/session.ts)
+- [screen/src/lobby.tsx](../screen/src/lobby.tsx)
+- [controller/src/peer.ts](../controller/src/peer.ts)
+- [controller/src/send-input.ts](../controller/src/send-input.ts)
+- [specifications/SPEC.md](../specifications/SPEC.md)
+- [AGENTS.md](../AGENTS.md)
 
 ---
 
