@@ -6,10 +6,15 @@
   gap: 8px;
 }
 
+[data-orientation='landscape'] .sumo-board {
+  gap: 6px;
+}
+
 .sumo-bar {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
   min-height: 36px;
 }
 
@@ -21,6 +26,8 @@
 
 .sumo-readout {
   margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
   font-family: "JetBrains Mono", monospace;
   font-size: 14px;
   font-weight: 500;
@@ -42,6 +49,7 @@
 
 .dash-dock .arcade-button {
   height: 100%;
+  padding: 16px;
 }
 
 .dash-meter {

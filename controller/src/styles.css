@@ -16,6 +16,7 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  overflow: hidden;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -324,8 +325,8 @@ input {
   grid-template-rows: minmax(0, 1.1fr) minmax(136px, 0.9fr);
 }
 
-.lobby-hands .joystick,
-.lobby-hands .swipe-zone {
+.controller-hands .joystick,
+.controller-hands .swipe-zone {
   padding: 16px;
 }
 
@@ -430,18 +431,18 @@ input {
   gap: 8px;
 }
 
-.stage[data-orientation='landscape'] .lobby-status .player-badge {
+.stage[data-orientation='landscape'] .player-badge {
   padding: 7px 10px;
   gap: 8px;
   min-height: 36px;
 }
 
-.stage[data-orientation='landscape'] .lobby-status .swatch {
+.stage[data-orientation='landscape'] .player-badge .swatch {
   width: 18px;
   height: 18px;
 }
 
-.stage[data-orientation='landscape'] .lobby-status .badge-name {
+.stage[data-orientation='landscape'] .player-badge .badge-name {
   font-size: 16px;
 }
 
@@ -457,7 +458,7 @@ input {
 
 .stage[data-orientation='landscape'] .name-field {
   padding: 6px 10px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .stage[data-orientation='landscape'] .join-row .arcade-button {

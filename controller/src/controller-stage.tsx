@@ -73,10 +73,14 @@ export const ControllerStage: ParentComponent<{
         syncViewport();
       };
       syncViewport();
+      const observer =
+        typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onChange) : null;
+      if (shellEl !== undefined) observer?.observe(shellEl);
       media?.addEventListener('change', onChange);
       window.addEventListener('resize', onChange);
       window.visualViewport?.addEventListener('resize', onChange);
       return () => {
+        observer?.disconnect();
         media?.removeEventListener('change', onChange);
         window.removeEventListener('resize', onChange);
         window.visualViewport?.removeEventListener('resize', onChange);
