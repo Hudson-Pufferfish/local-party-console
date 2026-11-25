@@ -140,4 +140,3 @@ test('createHostLoop copies optional auxState into auxSnapshot each tick and ret
   expect(Array.from(auxLoop.auxSnapshot ?? [])).toEqual(Array.from(auxState));
   expect(auxLoop.auxSnapshot).not.toBe(auxState);
 });
-});
