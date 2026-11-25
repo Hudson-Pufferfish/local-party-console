@@ -65,6 +65,15 @@ Do not commit `.cursor/mcp.json` or secrets.
 - Respect the Industrial Neo-Brutalism ban list and the six `/shared/ui` primitives in `SPEC.md` Part 4.
 - Zero heap allocations on the gameplay hot path (`pointermove` send + `simulation.step`).
 
+## Controller versioning (`CONTROLLER_REV`)
+
+- `CONTROLLER_REV` in `shared/src/sdp/qr-target.ts` uses semver (`X.Y.Z`) and busts the phone QR cache (`?rev=...`).
+- Bump `CONTROLLER_REV` on every change that affects the phone controller.
+- Do not bump `CONTROLLER_REV` for screen-only or server-only changes.
+- Use **PATCH** (`x.y.Z`) for bug, CSS, or copy fixes.
+- Use **MINOR** (`x.Y.0`) for backwards-compatible controller features.
+- Use **MAJOR** (`X.0.0`) for breaking phone-to-server protocol or input changes.
+
 ## Project context (local-party-console)
 
 - Local party game console: M4 Mac host in Chrome drives the TVs. Up to 8 phones join via QR in Safari or Chrome (no native app).
