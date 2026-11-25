@@ -41,12 +41,21 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   expect(isSuddenDeath(state)).toBe(true);
   expect(hasUniqueWinner(state)).toBe(false);
   expect(scoreboardHeader(state)).toBe('SUDDEN DEATH');
+  expect(scoreRules(state)).toEqual({ rows: [{ label: '1ST', value: '+1' }] });
   expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 9  DA 2  AD 9  P4 0');
 
   state[17] = 10;
   expect(isSuddenDeath(state)).toBe(false);
   expect(hasUniqueWinner(state)).toBe(true);
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
+  expect(scoreRules(state)).toEqual({
+    rows: [
+      { label: '1ST', value: '+3' },
+      { label: '2ND', value: '+2' },
+      { label: '3RD', value: '+1' },
+      { label: '4TH', value: '+0' },
+    ],
+  });
 });
 
 test('scoreboard rows carry puck colors and scoreRules formats rank payouts for the left HUD', () => {

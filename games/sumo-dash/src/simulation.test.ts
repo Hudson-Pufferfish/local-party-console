@@ -2,7 +2,14 @@ import { expect, test } from 'vitest';
 import { bannerCopy, matchWinnerTag } from './banner';
 import { SUMO_CONSTANTS } from './constants';
 import { eventsFromHeaderDiff } from './events';
-import { isSuddenDeath, scoreboardHeader, scoreboardLine, scoreboardRows } from './scoreboard';
+import {
+  activePlayerCount,
+  hasUniqueWinner,
+  isSuddenDeath,
+  scoreboardHeader,
+  scoreboardLine,
+  scoreboardRows,
+} from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
 declare const Buffer: {
@@ -389,6 +396,7 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
       const buttons = (rand() * 256) | 0;
       sim.applyInput(slot, buttons, axisX, axisY);
     }
+    const wasSuddenDeath = isSuddenDeath(state);
     sim.step(DT);
     expect(sim.state).toBe(state);
 
@@ -440,6 +448,8 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
       const gained = nextScore - score;
       if (countAlive(sim) === 0) {
         expect(gained).toBe(0);
+      } else if (wasSuddenDeath) {
+        expect(gained).toBe(1);
       } else {
         // 8 players: min sum without ties = 8*7/2 = 28, max with all losers tied 2nd = 7*7 = 49
         expect(gained).toBeGreaterThanOrEqual(28);
@@ -788,39 +798,46 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
   });
 
   // Match must NOT transition to MATCH_OVER; returns to PRACTICE then COUNTDOWN with SUDDEN DEATH
+  // Only tied leaders (Hudson & Ada) are revived; Max (2 pts, even though he won the previous round) stays eliminated off-screen
   let guard = 0;
   while (sim.state[PHASE] === 2 && guard < 200) {
     sim.step(DT);
     guard += 1;
   }
   expect(sim.state[PHASE]).toBe(4);
+  expect(countAlive(sim)).toBe(2);
+  expect(sim.state[slotBase(0) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(1) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(2) + 8] & 1).toBe(0);
+  expect(Math.hypot(sim.state[slotBase(2)] ?? 0, sim.state[slotBase(2) + 1] ?? 0)).toBeGreaterThan(R0);
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
     'SUDDEN DEATH 20',
   );
 
   reachCountdown(sim);
+  expect(countAlive(sim)).toBe(2);
+  expect(sim.state[slotBase(0) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(1) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(2) + 8] & 1).toBe(0);
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
     'SUDDEN DEATH 3',
   );
 
-  // Next round: all players battle; Hudson outlasts Ada to reach 7 pts as sole leader
+  // Next round: contender-only duel; Hudson knocks out Ada for an immediate +1 match victory
   reachActive(sim);
-  expect(countAlive(sim)).toBe(3);
-  keepCenter([0, 2]);
+  expect(countAlive(sim)).toBe(2);
+  expect(sim.state[slotBase(2) + 8] & 1).toBe(0);
+  keepCenter([0]);
   pushOut([1]);
-  sim.step(DT);
-  expect(sim.state[PHASE]).toBe(1);
-
-  keepCenter([2]);
-  pushOut([0]);
   const beforeWinEnd = sim.state.slice();
   sim.step(DT);
 
   expect(sim.state[PHASE]).toBe(2);
   expect(sim.state[slotBase(0) + 9]).toBe(7);
   expect(sim.state[slotBase(1) + 9]).toBe(6);
-  expect(sim.state[slotBase(2) + 9]).toBe(4);
+  expect(sim.state[slotBase(2) + 9]).toBe(2);
   expect(isSuddenDeath(sim.state)).toBe(false);
+  expect(hasUniqueWinner(sim.state)).toBe(true);
   expect(matchWinnerTag(sim.state, names)).toBe('HU');
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
     'HU WINS',
@@ -830,8 +847,8 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
     (event) => event.type === 'sumo:round_end',
   );
   expect(winEndEvent?.payload).toEqual({
-    winnerIndex: 2,
-    scores: [7, 6, 4, 0, 0, 0, 0, 0],
+    winnerIndex: 0,
+    scores: [7, 6, 2, 0, 0, 0, 0, 0],
     matchOver: true,
   });
 
@@ -911,32 +928,44 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
     matchOver: false,
   });
 
-  // Must enter PRACTICE -> COUNTDOWN -> ROUND_ACTIVE with all 4 players alive
+  // Must enter PRACTICE -> COUNTDOWN -> ROUND_ACTIVE with only the 3 tied contenders alive; Zoe (0 pts) stays out & on scoreboard
   let guard = 0;
   while (sim.state[PHASE] === 2 && guard < 200) {
     sim.step(DT);
     guard += 1;
   }
   expect(sim.state[PHASE]).toBe(4);
-  reachActive(sim);
-  expect(countAlive(sim)).toBe(4);
+  expect(countAlive(sim)).toBe(3);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+  expect(activePlayerCount(sim.state)).toBe(4);
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 9', 'AD 9', 'MA 9', 'ZO 0']);
 
-  // Overtime round: Max wins (+3 -> 12), Ada 2nd (+2 -> 11), Hudson 3rd (+1 -> 10), Zoe 4th (+0 -> 0)
-  keepCenter([0, 1, 2]);
-  pushOut([3]);
-  sim.step(DT);
+  reachCountdown(sim);
+  expect(countAlive(sim)).toBe(3);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+  expect(activePlayerCount(sim.state)).toBe(4);
+
+  reachActive(sim);
+  expect(countAlive(sim)).toBe(3);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+
+  // Overtime round: only the 3 contenders fight; Max survives -> +1 pt (10), others unchanged
   keepCenter([1, 2]);
   pushOut([0]);
   sim.step(DT);
+  expect(sim.state[PHASE]).toBe(1);
+
   keepCenter([2]);
   pushOut([1]);
   sim.step(DT);
 
   expect(sim.state[PHASE]).toBe(2);
-  expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([10, 11, 12, 0]);
+  expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([9, 9, 10, 0]);
   expect(isSuddenDeath(sim.state)).toBe(false);
+  expect(hasUniqueWinner(sim.state)).toBe(true);
   expect(matchWinnerTag(sim.state, names)).toBe('MA');
   expect(scoreboardHeader(sim.state)).toBe('THRESHOLD: 9');
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 9', 'AD 9', 'MA 10', 'ZO 0']);
 
   guard = 0;
   while (sim.state[PHASE] === 2 && guard < 200) {
@@ -946,5 +975,111 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
   expect(sim.state[PHASE]).toBe(3);
   expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
     'MA WINS',
+  );
+});
+
+test('sudden death excludes trailing players, repeats on simultaneous wipe, and ends decisively on sole survivor', () => {
+  const names = ['Hudson', 'Ada', 'Max', 'Zoe'];
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1, 2, 3]); // target = 9
+  reachActive(sim);
+
+  // Tie P1 and P2 at 12 pts while P3=8 and P4=4 trail far behind
+  sim.state[slotBase(0) + 9] = 12;
+  sim.state[slotBase(1) + 9] = 12;
+  sim.state[slotBase(2) + 9] = 8;
+  sim.state[slotBase(3) + 9] = 4;
+
+  // Force a zero-survivor round end while tied to trigger sudden death break directly
+  sim.state[slotBase(0) + 8] = 0;
+  sim.state[slotBase(1) + 8] = 0;
+  sim.state[slotBase(2) + 8] = 0;
+  sim.state[slotBase(3) + 8] = 0;
+  sim.step(DT);
+  expect(sim.state[PHASE]).toBe(2);
+
+  // Advance past ROUND_END into Sudden Death PRACTICE
+  let guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(4);
+  expect(countAlive(sim)).toBe(2);
+  expect(sim.state[slotBase(0) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(1) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(2) + 8] & 1).toBe(0);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+  expect(Math.hypot(sim.state[slotBase(2)] ?? 0, sim.state[slotBase(2) + 1] ?? 0)).toBeGreaterThan(R0);
+  expect(Math.hypot(sim.state[slotBase(3)] ?? 0, sim.state[slotBase(3) + 1] ?? 0)).toBeGreaterThan(R0);
+
+  // Trailing player inputs during PRACTICE and COUNTDOWN must not revive or move them
+  const p4X = sim.state[slotBase(3)] ?? 0;
+  sim.applyInput(3, 1, 127, 0);
+  sim.step(DT);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+  expect(sim.state[slotBase(3)]).toBe(p4X);
+
+  reachCountdown(sim);
+  expect(countAlive(sim)).toBe(2);
+  expect(sim.state[slotBase(2) + 8] & 1).toBe(0);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+  const p4CountdownAngle = sim.state[slotBase(3) + 4] ?? 0;
+  sim.applyInput(3, 1, 127, 64);
+  sim.step(DT);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+  expect(sim.state[slotBase(3) + 4]).toBe(p4CountdownAngle);
+
+  // Enter Sudden Death ROUND_ACTIVE: only P1 & P2 participate
+  reachActive(sim);
+  expect(countAlive(sim)).toBe(2);
+  expect(sim.state[slotBase(0) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(1) + 8] & 1).toBe(1);
+  expect(sim.state[slotBase(2) + 8] & 1).toBe(0);
+  expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
+
+  // Simultaneous ring-out of both contenders above rMin keeps them tied and active without awarding points
+  const radius = sim.state[ARENA_RADIUS] ?? R0;
+  sim.state[slotBase(0)] = radius + 40;
+  sim.state[slotBase(0) + 1] = 0;
+  sim.state[slotBase(1)] = -(radius + 40);
+  sim.state[slotBase(1) + 1] = 0;
+  sim.step(DT);
+  expect(sim.state[PHASE]).toBe(1);
+  expect(countAlive(sim)).toBe(2);
+  expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([12, 12, 8, 4]);
+
+  // Decisive elimination: P2 rings out while P1 survives -> P1 gets +1 (13) and wins immediately
+  sim.state[slotBase(0)] = 0;
+  sim.state[slotBase(0) + 1] = 0;
+  sim.state[slotBase(0) + 2] = 0;
+  sim.state[slotBase(0) + 3] = 0;
+  sim.state[slotBase(1)] = radius + 50;
+  sim.state[slotBase(1) + 1] = 0;
+  const beforeDecisive = sim.state.slice();
+  sim.step(DT);
+
+  expect(sim.state[PHASE]).toBe(2);
+  expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([13, 12, 8, 4]);
+  expect(hasUniqueWinner(sim.state)).toBe(true);
+  expect(isSuddenDeath(sim.state)).toBe(false);
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 13', 'AD 12', 'MA 8', 'ZO 4']);
+  expect(
+    eventsFromHeaderDiff(beforeDecisive, sim.state).find((event) => event.type === 'sumo:round_end')?.payload,
+  ).toEqual({
+    winnerIndex: 0,
+    scores: [13, 12, 8, 4, 0, 0, 0, 0],
+    matchOver: true,
+  });
+
+  guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(3);
+  expect(matchWinnerTag(sim.state, names)).toBe('HU');
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'HU WINS',
   );
 });

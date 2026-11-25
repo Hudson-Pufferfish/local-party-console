@@ -89,6 +89,10 @@ export function scoreboardHeader(state: Float32Array): string {
 export function scoreRules(state: Float32Array): ScoreRules | null {
   const count = activePlayerCount(state);
   if (count < 2) return null;
+  const target = targetScoreForCount(count);
+  if (isSuddenDeath(state, target)) {
+    return { rows: [{ label: ORDINALS[0], value: '+1' }] };
+  }
   const rows: ScoreRuleRow[] = [];
   for (let rank = 1; rank <= count; rank += 1) {
     rows.push({
