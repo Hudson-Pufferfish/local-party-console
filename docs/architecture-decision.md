@@ -88,7 +88,6 @@ If a restrictive router blocks UDP peer-to-peer traffic altogether:
 ### References
 
 - [shared/src/sdp/](../shared/src/sdp/)
-- [shared/src/sdp/README.md](../shared/src/sdp/README.md)
 - [shared/src/sdp/munge-lan.ts](../shared/src/sdp/munge-lan.ts)
 - [shared/src/sdp/qr-target.ts](../shared/src/sdp/qr-target.ts)
 - [shared/src/transport/policy.ts](../shared/src/transport/policy.ts)
