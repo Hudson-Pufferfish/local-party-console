@@ -32,6 +32,7 @@ export interface JoinedSlot {
   sessionToken: string;
   name: string;
   color: string;
+  phase: RoomPhase;
 }
 
 export type SendResult = 'open' | 'queued' | 'closed';
@@ -45,6 +46,7 @@ export function joinNotice(result: SendResult | 'missing'): string {
 
 export interface PhoneLink {
   sendText: (message: { type: string; payload: unknown }) => SendResult;
+  leave: () => void;
   reconnect: () => void;
   close: () => void;
 }
@@ -450,6 +452,12 @@ export function connectPhone(
 
   return {
     sendText,
+    leave(): void {
+      if (slot >= 0 && socket !== null && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'room:leave', payload: {} }));
+      }
+      clearSession();
+    },
     reconnect(): void {
       if (stopped) return;
       if (
@@ -515,7 +523,8 @@ function readJoined(payload: unknown): JoinedSlot | null {
       if (typeof player.color === 'string') color = player.color;
     }
   }
-  return { index: row.index, sessionToken: row.sessionToken, name, color };
+  const phase = readPhase(row) ?? 'lobby';
+  return { index: row.index, sessionToken: row.sessionToken, name, color, phase };
 }
 
 function readRoomId(payload: unknown): string | null {

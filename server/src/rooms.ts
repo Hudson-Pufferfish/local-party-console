@@ -39,6 +39,10 @@ export type KickResult =
   | { kind: 'kicked'; index: number; players: PlayerSlot[] }
   | { kind: 'ignored' };
 
+export type LeaveResult =
+  | { kind: 'left'; index: number; players: PlayerSlot[] }
+  | { kind: 'ignored' };
+
 export interface RoomStore {
   rooms: Map<string, Room>;
 }
@@ -120,6 +124,16 @@ export function kickSlot(room: Room, index: number): KickResult {
   room.revokedTokens.add(slot.sessionToken);
   room.slots[index] = null;
   return { kind: 'kicked', index, players: publicPlayers(room) };
+}
+
+export function leaveSlot(room: Room, index: number): LeaveResult {
+  if (room.phase !== 'lobby') return { kind: 'ignored' };
+  if (!Number.isInteger(index) || index < 0 || index >= MAX_SLOTS) return { kind: 'ignored' };
+  const slot = room.slots[index];
+  if (slot === undefined || slot === null) return { kind: 'ignored' };
+  room.tokens.delete(slot.sessionToken);
+  room.slots[index] = null;
+  return { kind: 'left', index, players: publicPlayers(room) };
 }
 
 export function markSlotDisconnected(room: Room, index: number): void {

@@ -630,3 +630,79 @@ test('primary re-claim over an open old screen or after a mid-match disconnect r
     await relay.close();
   }
 });
+
+test('room:leave frees the slot in lobby, broadcasts room:players, allows instant rejoin, and is ignored during match', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const ada = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const bea = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, ada, bea);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+
+    const adaJoined = waitForText(ada, 'room:joined');
+    const adaRoster = waitForText(screen, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const [adaFrame] = await Promise.all([adaJoined, adaRoster]);
+    expect(adaFrame.payload?.index).toBe(0);
+    expect((adaFrame.payload as { phase?: string } | undefined)?.phase).toBe('lobby');
+
+    const beaJoined = waitForText(bea, 'room:joined');
+    const beaRoster = waitForText(screen, 'room:players');
+    bea.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    await Promise.all([beaJoined, beaRoster]);
+
+    // Ada leaves pre-start: slot 0 is freed, screen and Bea receive updated roster, Ada stays connected
+    const screenAfterLeave = waitForText(screen, 'room:players');
+    const beaAfterLeave = waitForText(bea, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:leave', payload: {} }));
+    const [screenLeaveFrame, beaLeaveFrame] = await Promise.all([screenAfterLeave, beaAfterLeave]);
+    expect(screenLeaveFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+    ]);
+    expect(beaLeaveFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+    ]);
+
+    // Ada rejoins on the same open socket and gets slot 0 back cleanly
+    const adaRejoined = waitForText(ada, 'room:joined');
+    const screenAfterRejoin = waitForText(screen, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const [rejoinFrame, rejoinRoster] = await Promise.all([adaRejoined, screenAfterRejoin]);
+    expect(rejoinFrame.payload?.index).toBe(0);
+    expect((rejoinFrame.payload as { phase?: string } | undefined)?.phase).toBe('lobby');
+    expect(rejoinRoster.payload?.players).toHaveLength(2);
+
+    // Once host starts the match, room:leave is refused and does not modify the roster
+    const matchPhase = waitForText(ada, 'room:phase');
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
+    await matchPhase;
+
+    const midMatchUpdates: unknown[] = [];
+    screen.on('message', (data, isBinary) => {
+      if (isBinary) return;
+      const frame = JSON.parse(data.toString()) as { type: string; payload?: unknown };
+      if (frame.type === 'room:players') midMatchUpdates.push(frame.payload);
+    });
+    ada.send(JSON.stringify({ type: 'room:leave', payload: {} }));
+    await settle();
+    expect(midMatchUpdates).toEqual([]);
+
+    // A controller joining mid-match receives phase: 'match' in room:joined
+    const cy = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(cy);
+    const cyJoined = waitForText(cy, 'room:joined');
+    cy.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
+    const cyFrame = await cyJoined;
+    expect((cyFrame.payload as { phase?: string } | undefined)?.phase).toBe('match');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});

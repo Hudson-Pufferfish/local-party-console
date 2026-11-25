@@ -4,6 +4,7 @@ import { classifyPower, rfc3550Jitter } from '../../shared/src/controller/prefli
 import { CONTROLLER_REV } from '../../shared/src/sdp/qr-target.ts';
 import { tierFor } from '../../shared/src/sync/tier.ts';
 import { playerStyleVars } from '../../shared/src/theme.ts';
+import type { RoomPhase } from '../../shared/src/types/envelope.ts';
 import {
   ArcadeButton,
   GameCard,
@@ -27,6 +28,7 @@ import {
   type PhoneLink,
 } from './peer.ts';
 import { PreflightStrip } from './preflight-strip.tsx';
+import { QuitButton, canQuitController, isOrientationLocked } from './quit-button.tsx';
 import {
   controllerSupportedOrientations,
   controllerView,
@@ -56,9 +58,11 @@ export const App: VoidComponent = () => {
   const [jitterMs, setJitterMs] = createSignal<number | null>(null);
   const [modal, setModal] = createSignal(false);
   const [gameId, setGameId] = createSignal('');
+  const [phase, setPhase] = createSignal<RoomPhase>('lobby');
   const [theme, setTheme] = createSignal<ThemeVars>({});
   const [control, setControl] = createSignal<ControllerControl | null>(null);
   let link: PhoneLink | undefined;
+  let knownSlot = -1;
   let joinPending = false;
   let joinTimer = 0;
 
@@ -70,7 +74,6 @@ export const App: VoidComponent = () => {
         return;
       }
       let raf = 0;
-      let knownSlot = -1;
       let knownPower: 'ok' | 'low-power' = 'ok';
       let knownCores = 0;
       let probeDone = false;
@@ -135,6 +138,7 @@ export const App: VoidComponent = () => {
           joinPending = false;
           window.clearTimeout(joinTimer);
           setJoined(true);
+          setPhase(next.phase);
           knownSlot = next.index;
           setSlot(next.index);
           setColor(next.color);
@@ -155,17 +159,20 @@ export const App: VoidComponent = () => {
           setSlot(-1);
           setColor('var(--theme-yellow)');
           setGameId('');
+          setPhase('lobby');
           setTheme({});
           setControl(null);
           setNotice('TYPE YOUR NAME AND TAP JOIN');
         },
         onMount: (id) => {
+          if (!joined()) return;
           setTheme(localTheme(id));
           setGameId(id);
           window.scrollTo(0, 0);
         },
-        onPhase: (phase) => {
-          if (phase !== 'lobby') return;
+        onPhase: (nextPhase) => {
+          setPhase(nextPhase);
+          if (nextPhase !== 'lobby') return;
           setGameId('');
           setTheme({});
           setControl(null);
@@ -215,20 +222,41 @@ export const App: VoidComponent = () => {
   );
 
   const view = (): VoidComponent<ControllerViewProps> | null => {
+    if (!joined()) return null;
     const id = gameId();
     if (id === '') return null;
     return controllerView(id);
   };
 
   const supportedOrientations = () => {
+    if (!joined()) return undefined;
     const id = gameId();
     return id === '' ? undefined : controllerSupportedOrientations(id);
   };
 
+  const orientationLocked = () => isOrientationLocked(joined(), view() !== null);
+
   function onOrientationChange(next: OrientationPreference): void {
-    if (view() !== null) return;
+    if (orientationLocked()) return;
     setLayoutPref(next);
     writeStoredOrientationPref(next);
+  }
+
+  function onQuit(): void {
+    if (!canQuitController(joined(), phase())) return;
+    joinPending = false;
+    window.clearTimeout(joinTimer);
+    knownSlot = -1;
+    link?.leave();
+    setJoined(false);
+    setSlot(-1);
+    setColor('var(--theme-yellow)');
+    setGameId('');
+    setPhase('lobby');
+    setTheme({});
+    setControl(null);
+    setNotice('');
+    window.scrollTo(0, 0);
   }
 
   function onJoin(pressed: boolean): void {
@@ -270,10 +298,14 @@ export const App: VoidComponent = () => {
             {room === '' ? '----' : room}
             <span class="rev">REV {CONTROLLER_REV}</span>
           </p>
+          <QuitButton
+            visible={canQuitController(joined(), phase())}
+            onQuit={onQuit}
+          />
         </header>
         <OrientationToggle
           value={layoutPref()}
-          disabled={view() !== null}
+          disabled={orientationLocked()}
           onChange={onOrientationChange}
         />
         <PreflightStrip

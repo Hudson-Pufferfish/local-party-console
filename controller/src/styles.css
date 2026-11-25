@@ -117,7 +117,7 @@ input {
 
 .mast {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
@@ -137,12 +137,53 @@ input {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 8px;
   font-size: 24px;
   line-height: 1;
   letter-spacing: 0.08em;
   white-space: nowrap;
+}
+
+.quit-btn {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 8px;
+  border: 2.5px solid var(--ink, #111111);
+  background: #ffffff;
+  color: var(--ink, #111111);
+  box-shadow: 0px 3px 0px #111111;
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.quit-btn:active:not(:disabled) {
+  transform: translate3d(0, 3px, 0);
+  box-shadow: 0px 0px 0px #111111;
+  transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.quit-btn:disabled {
+  cursor: default;
+  box-shadow: 0px 0px 0px #111111;
+  opacity: 0.55;
+}
+
+.quit-btn:focus-visible {
+  outline: 2.5px solid #111111;
+  outline-offset: 2px;
 }
 
 .rev {
@@ -371,10 +412,16 @@ input {
 
 .stage[data-orientation='landscape'] .room-code {
   width: auto;
+  flex: 0 0 auto;
   justify-content: flex-start;
   gap: 5px;
   font-size: 16px;
   line-height: 1;
+}
+
+.stage[data-orientation='landscape'] .quit-btn {
+  padding: 5px 7px;
+  font-size: 9.5px;
 }
 
 .stage[data-orientation='landscape'] .rev {

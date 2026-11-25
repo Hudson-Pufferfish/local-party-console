@@ -10,6 +10,7 @@ import {
   hostTokenMatches,
   joinRoom,
   kickSlot,
+  leaveSlot,
   markSlotDisconnected,
   publicPlayers,
   setRoomPhase,
@@ -171,6 +172,10 @@ function handleText(
     handleJoin(clients, mounts, room, client, message.payload);
     return;
   }
+  if (type === 'room:leave') {
+    handleLeave(clients, room, client);
+    return;
+  }
   if (type === 'room:phase') {
     if (primaries.get(room) !== client) return;
     const phase = readPhase(message.payload);
@@ -230,6 +235,7 @@ function handleJoin(
       index: result.index,
       sessionToken: result.sessionToken,
       players: result.players,
+      phase: room.phase,
     },
   }));
   fanOut(clients, room, client, JSON.stringify({
@@ -238,6 +244,17 @@ function handleJoin(
   }));
   const mounted = mounts.get(room);
   if (mounted !== undefined) client.ws.send(mounted);
+}
+
+function handleLeave(clients: Map<Room, Set<Client>>, room: Room, client: Client): void {
+  if (client.role !== 'controller' || client.slotIndex === null) return;
+  const result = leaveSlot(room, client.slotIndex);
+  if (result.kind !== 'left') return;
+  client.slotIndex = null;
+  fanOut(clients, room, client, JSON.stringify({
+    type: 'room:players',
+    payload: { players: result.players },
+  }));
 }
 
 function handleKick(clients: Map<Room, Set<Client>>, room: Room, payload: unknown): void {

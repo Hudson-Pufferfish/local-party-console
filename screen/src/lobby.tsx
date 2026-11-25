@@ -51,8 +51,8 @@ export const Lobby: VoidComponent<{
         <div class="hint">
           <p class="hint-title">REMINDER:</p>
           <ul class="hint-list">
-            <li>Keep phone rotation locked ON</li>
-            <li>Pick Vertical or Horizontal on phone before Start</li>
+            <li>Pick Vertical or Horizontal control layout on phone before pressing JOIN</li>
+            <li>To change layout later, press QUIT on phone before the host starts the match</li>
           </ul>
         </div>
       </section>

@@ -28,7 +28,7 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   ];
   const baseProps = {
     roomId: 'ABCD',
-    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.3&room=ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.4&room=ABCD',
     notice: '',
     sdpWarning: false,
     players,
@@ -65,8 +65,8 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   expect(primaryHtml.indexOf('SCAN QR TO JOIN THE GAME')).toBeLessThan(primaryHtml.indexOf('class="qr"'));
   expect(primaryHtml).toContain('class="hint"');
   expect(primaryHtml).toContain('REMINDER:');
-  expect(primaryHtml).toContain('Keep phone rotation locked ON');
-  expect(primaryHtml).toContain('Pick Vertical or Horizontal on phone before Start');
+  expect(primaryHtml).toContain('Pick Vertical or Horizontal control layout on phone before pressing JOIN');
+  expect(primaryHtml).toContain('To change layout later, press QUIT on phone before the host starts the match');
   expect(primaryHtml).toContain('class="lobby-col lobby-room"');
   expect(primaryHtml).toContain('class="lobby-col lobby-setup"');
   expect(primaryHtml).toContain('class="lobby-col lobby-players"');
