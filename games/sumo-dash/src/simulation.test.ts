@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
+import { bannerCopy, matchWinnerTag } from './banner';
 import { SUMO_CONSTANTS } from './constants';
 import { eventsFromHeaderDiff } from './events';
-import { scoreboardHeader, scoreboardLine } from './scoreboard';
+import { isSuddenDeath, scoreboardHeader, scoreboardLine, scoreboardRows } from './scoreboard';
 import { createSumoSimulation } from './simulation';
 
 declare const Buffer: {
@@ -676,4 +677,125 @@ test('ranked elimination awards N-1..0, ties share the higher rank, and match en
       expect(sim4.state[PHASE]).toBe(3);
     }
   }
+});
+
+test('tied leaders at threshold trigger sudden death overtime until a sole leader emerges', () => {
+  const names = ['Hudson', 'Ada', 'Max'];
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1, 2]);
+  reachActive(sim);
+
+  const keepCenter = (slots: readonly number[]): void => {
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i]!;
+      const base = slotBase(slot);
+      const angle = (i / Math.max(1, slots.length)) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * 60;
+      sim.state[base + 1] = Math.sin(angle) * 60;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+  };
+  const pushOut = (slots: readonly number[]): void => {
+    const out = (sim.state[ARENA_RADIUS] ?? 400) + 50;
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i]!;
+      const base = slotBase(slot);
+      const angle = (i / Math.max(1, slots.length)) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * out;
+      sim.state[base + 1] = Math.sin(angle) * out;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+  };
+
+  // Target for 3 players is 6; set Hudson and Ada to target - 1 (5 pts)
+  sim.state[slotBase(0) + 9] = 5;
+  sim.state[slotBase(1) + 9] = 5;
+  sim.state[slotBase(2) + 9] = 0;
+
+  // Eliminate Hudson and Ada on the same tick while Max survives -> both tie 2nd (+1 pt) and reach 6 pts
+  keepCenter([2]);
+  pushOut([0, 1]);
+  const beforeTieEnd = sim.state.slice();
+  sim.step(DT);
+
+  expect(sim.state[PHASE]).toBe(2);
+  expect(sim.state[slotBase(0) + 9]).toBe(6);
+  expect(sim.state[slotBase(1) + 9]).toBe(6);
+  expect(sim.state[slotBase(2) + 9]).toBe(2);
+  expect(isSuddenDeath(sim.state)).toBe(true);
+  expect(matchWinnerTag(sim.state, names)).toBeUndefined();
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'SUDDEN DEATH',
+  );
+  expect(scoreboardHeader(sim.state)).toBe('SUDDEN DEATH');
+  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HU 6', 'AD 6', 'MA 2']);
+
+  const tieEndEvent = eventsFromHeaderDiff(beforeTieEnd, sim.state).find(
+    (event) => event.type === 'sumo:round_end',
+  );
+  expect(tieEndEvent?.payload).toEqual({
+    winnerIndex: 2,
+    scores: [6, 6, 2, 0, 0, 0, 0, 0],
+    matchOver: false,
+  });
+
+  // Match must NOT transition to MATCH_OVER; returns to PRACTICE then COUNTDOWN with SUDDEN DEATH
+  let guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(4);
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'SUDDEN DEATH 20',
+  );
+
+  reachCountdown(sim);
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'SUDDEN DEATH 3',
+  );
+
+  // Next round: all players battle; Hudson outlasts Ada to reach 7 pts as sole leader
+  reachActive(sim);
+  expect(countAlive(sim)).toBe(3);
+  keepCenter([0, 2]);
+  pushOut([1]);
+  sim.step(DT);
+  expect(sim.state[PHASE]).toBe(1);
+
+  keepCenter([2]);
+  pushOut([0]);
+  const beforeWinEnd = sim.state.slice();
+  sim.step(DT);
+
+  expect(sim.state[PHASE]).toBe(2);
+  expect(sim.state[slotBase(0) + 9]).toBe(7);
+  expect(sim.state[slotBase(1) + 9]).toBe(6);
+  expect(sim.state[slotBase(2) + 9]).toBe(4);
+  expect(isSuddenDeath(sim.state)).toBe(false);
+  expect(matchWinnerTag(sim.state, names)).toBe('HU');
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'HU WINS',
+  );
+
+  const winEndEvent = eventsFromHeaderDiff(beforeWinEnd, sim.state).find(
+    (event) => event.type === 'sumo:round_end',
+  );
+  expect(winEndEvent?.payload).toEqual({
+    winnerIndex: 2,
+    scores: [7, 6, 4, 0, 0, 0, 0, 0],
+    matchOver: true,
+  });
+
+  guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(3);
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'HU WINS',
+  );
 });

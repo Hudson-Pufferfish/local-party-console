@@ -45,10 +45,45 @@ export function targetScoreForState(state: Float32Array): number {
   return targetScoreForCount(activePlayerCount(state));
 }
 
+export function maxScoreForState(state: Float32Array): number {
+  let max = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    const score = state[PLAYER + index * STRIDE + 9] ?? 0;
+    if (score > max) max = score;
+  }
+  return max;
+}
+
+export function leaderCountForState(state: Float32Array, maxScore: number): number {
+  if (maxScore <= 0) return 0;
+  let leaders = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    const score = state[PLAYER + index * STRIDE + 9] ?? 0;
+    if (score === maxScore) leaders += 1;
+  }
+  return leaders;
+}
+
+export function isSuddenDeath(state: Float32Array, win?: number): boolean {
+  const target = win ?? targetScoreForState(state);
+  if (target <= 0) return false;
+  const max = maxScoreForState(state);
+  return max >= target && leaderCountForState(state, max) > 1;
+}
+
+export function hasUniqueWinner(state: Float32Array, win?: number): boolean {
+  const target = win ?? targetScoreForState(state);
+  if (target <= 0) return false;
+  const max = maxScoreForState(state);
+  return max >= target && leaderCountForState(state, max) === 1;
+}
+
 export function scoreboardHeader(state: Float32Array): string {
   const count = activePlayerCount(state);
   if (count < 2) return '';
-  return `THRESHOLD: ${targetScoreForCount(count)}`;
+  const target = targetScoreForCount(count);
+  if (isSuddenDeath(state, target)) return 'SUDDEN DEATH';
+  return `THRESHOLD: ${target}`;
 }
 
 export function scoreRules(state: Float32Array): ScoreRules | null {

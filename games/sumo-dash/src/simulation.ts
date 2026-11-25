@@ -1,5 +1,5 @@
 import { SUMO_CONSTANTS as C } from './constants';
-import { targetScoreForCount } from './scoreboard';
+import { hasUniqueWinner, targetScoreForCount } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -333,14 +333,7 @@ export function createSumoSimulation(): SumoSimulation {
     if (phase === ROUND_END) {
       state[TIMER] -= dt;
       if (state[TIMER] <= 0) {
-        let maxScore = 0;
-        for (let i = 0; i < C.maxPlayers; i += 1) {
-          const score = state[PLAYER + i * STRIDE + 9];
-          if (score > maxScore) {
-            maxScore = score;
-          }
-        }
-        if (maxScore >= matchTarget) {
+        if (hasUniqueWinner(state, matchTarget)) {
           state[PHASE] = MATCH_OVER;
           state[TIMER] = 0;
         } else {

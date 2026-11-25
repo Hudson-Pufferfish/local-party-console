@@ -38,4 +38,15 @@ test('match-winning round suppresses POINT, picks the top scorer, and holds thro
   expect(bannerCopy(2, 0.5, topScorer)).toBe('P2 WINS');
   expect(bannerCopy(3, 0, topScorer)).toBe('P2 WINS');
   expect(bannerCopy(3, 0)).toBe('MATCH OVER');
+
+  // Tied leaders at or above target have no winner yet and display SUDDEN DEATH
+  state[17] = 6;
+  state[16] = 1;
+  state[27] = 6;
+  state[26] = 0;
+  expect(matchWinnerTag(state, ['Hudson', 'Ada'], 6)).toBeUndefined();
+  expect(bannerCopy(2, 0.5, undefined, true)).toBe('SUDDEN DEATH');
+  expect(bannerCopy(4, 19.2, undefined, true)).toBe('SUDDEN DEATH 20');
+  expect(bannerCopy(0, 2.2, undefined, true)).toBe('SUDDEN DEATH 3');
+  expect(bannerCopy(1, 5, undefined, true)).toBe('');
 });

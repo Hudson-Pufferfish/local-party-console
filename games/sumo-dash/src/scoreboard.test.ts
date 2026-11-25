@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { PLAYER_COLORS } from '../../../shared/src/registry';
 import {
+  hasUniqueWinner,
+  isSuddenDeath,
   scoreboardHeader,
   scoreboardLine,
   scoreboardRows,
@@ -32,6 +34,19 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   state[47] = 0;
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
   expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 3  DA 2  AD 4  P4 0');
+
+  // Tied leaders >= threshold switch header to SUDDEN DEATH while keeping all rows visible
+  state[17] = 9;
+  state[37] = 9;
+  expect(isSuddenDeath(state)).toBe(true);
+  expect(hasUniqueWinner(state)).toBe(false);
+  expect(scoreboardHeader(state)).toBe('SUDDEN DEATH');
+  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 9  DA 2  AD 9  P4 0');
+
+  state[17] = 10;
+  expect(isSuddenDeath(state)).toBe(false);
+  expect(hasUniqueWinner(state)).toBe(true);
+  expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
 });
 
 test('scoreboard rows carry puck colors and scoreRules formats rank payouts for the left HUD', () => {

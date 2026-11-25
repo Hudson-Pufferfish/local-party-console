@@ -1,5 +1,5 @@
 import type { Envelope } from '../../../shared/src/types/envelope.ts';
-import { targetScoreForState } from './scoreboard';
+import { hasUniqueWinner } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -39,7 +39,7 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
     events.push(envelope('sumo:round_end', {
       winnerIndex: roundWinner(prev, next),
       scores: scoreList(next),
-      matchOver: maxScore(next) >= targetScoreForState(next),
+      matchOver: hasUniqueWinner(next),
     }));
   }
 
@@ -101,15 +101,6 @@ function roundWinner(prev: Float32Array, next: Float32Array): number | null {
     }
   }
   return bestSlot;
-}
-
-function maxScore(state: Float32Array): number {
-  let max = 0;
-  for (let index = 0; index < SLOTS; index += 1) {
-    const score = state[PLAYER + index * STRIDE + SCORE] ?? 0;
-    if (score > max) max = score;
-  }
-  return max;
 }
 
 function scoreSum(state: Float32Array): number {

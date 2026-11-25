@@ -29,6 +29,7 @@ import {
   storeSeq,
   storedToken,
   type PhoneLink,
+  type SendResult,
 } from './peer.ts';
 import { PreflightStrip } from './preflight-strip.tsx';
 import { QuitButton, canQuitController, isOrientationLocked } from './quit-button.tsx';
@@ -42,7 +43,57 @@ import {
 } from './register-games.ts';
 import { lastSentSeq, readSendClock, sendAxes, sendButton, setSendClock } from './send-input.ts';
 
-const room = new URLSearchParams(location.search).get('room') ?? '';
+const room = typeof location === 'undefined' ? '' : (new URLSearchParams(location.search).get('room') ?? '');
+
+export interface JoinAttemptOptions {
+  readonly rawName: string;
+  readonly joined: boolean;
+  readonly link: PhoneLink | undefined;
+  readonly token: string | null;
+  readonly activeIsInput: boolean;
+  readonly blurActive: () => void;
+  readonly resetScroll: () => void;
+  readonly setName: (next: string) => void;
+  readonly setNotice: (next: string) => void;
+  readonly setPending: (next: boolean) => void;
+  readonly scheduleTimeout: (fn: () => void, ms: number) => void;
+  readonly isJoined: () => boolean;
+}
+
+export function submitJoinAttempt(options: JoinAttemptOptions): SendResult | 'missing' | 'invalid' {
+  if (options.joined) return 'invalid';
+  const prepared = prepareJoinName(options.rawName);
+  if (!prepared.ok) {
+    options.setNotice(prepared.notice);
+    return 'invalid';
+  }
+  options.setName(prepared.name);
+  if (options.activeIsInput) {
+    options.blurActive();
+  } else {
+    options.blurActive();
+    options.resetScroll();
+  }
+  const current = options.link;
+  current?.reconnect();
+  const payload: { name: string; sessionToken?: string } = {
+    name: prepared.name,
+  };
+  if (options.token !== null) payload.sessionToken = options.token;
+  const result = current === undefined ? 'missing' : current.sendText({ type: 'room:join', payload });
+  options.setPending(true);
+  options.setNotice(joinNotice(result));
+  options.scheduleTimeout(() => {
+    if (!options.isJoined()) options.setNotice(LINK_DOWN_NOTICE);
+  }, 2000);
+  return result;
+}
+
+function resetViewportScroll(): void {
+  if (window.scrollX !== 0 || window.scrollY !== 0) {
+    window.scrollTo(0, 0);
+  }
+}
 
 export const App: VoidComponent = () => {
   const [name, setName] = createSignal('');
@@ -274,28 +325,29 @@ export const App: VoidComponent = () => {
 
   function onJoin(pressed: boolean): void {
     if (!pressed || joined()) return;
-    const prepared = prepareJoinName(name());
-    if (!prepared.ok) {
-      setNotice(prepared.notice);
-      return;
-    }
-    setName(prepared.name);
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    window.scrollTo(0, 0);
-    const current = link;
-    current?.reconnect();
-    const token = storedToken(room);
-    const payload: { name: string; sessionToken?: string } = {
-      name: prepared.name,
-    };
-    if (token !== null) payload.sessionToken = token;
-    const result = current === undefined ? 'missing' : current.sendText({ type: 'room:join', payload });
-    joinPending = true;
-    setNotice(joinNotice(result));
-    window.clearTimeout(joinTimer);
-    joinTimer = window.setTimeout(() => {
-      if (!joined()) setNotice(LINK_DOWN_NOTICE);
-    }, 2000);
+    const active = document.activeElement;
+    const activeIsInput = active instanceof HTMLInputElement;
+    submitJoinAttempt({
+      rawName: name(),
+      joined: joined(),
+      link,
+      token: storedToken(room),
+      activeIsInput,
+      blurActive: () => {
+        if (active instanceof HTMLElement && active !== document.body) active.blur();
+      },
+      resetScroll: resetViewportScroll,
+      setName,
+      setNotice,
+      setPending: (next) => {
+        joinPending = next;
+      },
+      scheduleTimeout: (fn, ms) => {
+        window.clearTimeout(joinTimer);
+        joinTimer = window.setTimeout(fn, ms);
+      },
+      isJoined: joined,
+    });
   }
 
   const shellStyle = (): ThemeVars => {
@@ -361,7 +413,7 @@ export const App: VoidComponent = () => {
                     const upper = event.currentTarget.value.toUpperCase().slice(0, MAX_PLAYER_NAME_LENGTH);
                     setName(upper);
                   }}
-                  onBlur={() => window.scrollTo(0, 0)}
+                  onBlur={resetViewportScroll}
                 />
                 <ArcadeButton
                   label="JOIN"

@@ -47,7 +47,8 @@ export const EMPTY_NAME_NOTICE = 'ENTER AT LEAST 1 CHARACTER';
 export const DUPLICATE_NAME_NOTICE = 'NAME ALREADY TAKEN — CHOOSE ANOTHER';
 
 export function joinNotice(result: SendResult | 'missing'): string {
-  if (result === 'open' || result === 'queued') return 'JOINING ROOM...';
+  if (result === 'open') return '';
+  if (result === 'queued') return 'JOINING ROOM...';
   return LINK_DOWN_NOTICE;
 }
 
