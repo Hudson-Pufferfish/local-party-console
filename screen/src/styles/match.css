@@ -179,6 +179,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  display: grid;
+  row-gap: 4px;
   font-size: 32px;
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
@@ -186,9 +188,10 @@
 }
 
 .score-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px minmax(80px, 1fr) auto 64px;
   align-items: center;
-  gap: 12px;
+  column-gap: 16px;
   white-space: nowrap;
 }
 
@@ -197,13 +200,25 @@
   box-sizing: border-box;
   width: 20px;
   height: 20px;
-  flex-shrink: 0;
+  justify-self: center;
   border-radius: 50%;
   border: 2.5px solid #111111;
 }
 
+.score-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.score-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .score-status {
   display: inline-block;
+  justify-self: start;
   padding: 3px 6px;
   border: 2px solid var(--ink, #111111);
   background: var(--paper, #f4f1ea);
@@ -254,6 +269,11 @@
     justify-content: center;
     gap: 8px 20px;
     font-size: 24px;
+  }
+
+  .match .score-row {
+    grid-template-columns: 20px auto auto auto;
+    column-gap: 10px;
   }
 
   .match .score-rules {

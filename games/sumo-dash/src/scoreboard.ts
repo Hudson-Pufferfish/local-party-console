@@ -10,7 +10,8 @@ const ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH', '7TH', '8TH'] as con
 export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
-  readonly text: string;
+  readonly name: string;
+  readonly score: number;
   readonly status?: 'LIVE' | 'AWAY';
 }
 
@@ -143,13 +144,15 @@ export function scoreboardRows(
       rows.push({
         slot: index,
         color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
-        text: `${tag} ${score}`,
+        name: tag,
+        score,
       });
     } else {
       rows.push({
         slot: index,
         color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
-        text: `${tag} ${score}`,
+        name: tag,
+        score,
         status: player.connected ? 'LIVE' : 'AWAY',
       });
     }
@@ -161,5 +164,5 @@ export function scoreboardLine(
   state: Float32Array,
   names: readonly string[],
 ): string {
-  return scoreboardRows(state, names).map((row) => row.text).join('  ');
+  return scoreboardRows(state, names).map((row) => `${row.name} ${row.score}`).join('  ');
 }

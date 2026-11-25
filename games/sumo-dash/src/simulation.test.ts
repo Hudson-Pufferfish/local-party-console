@@ -786,7 +786,7 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
     'SUDDEN DEATH',
   );
   expect(scoreboardHeader(sim.state)).toBe('SUDDEN DEATH');
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 6', 'ADA 6', 'MAX 2']);
+  expect(scoreboardRows(sim.state, names).map((row) => `${row.name} ${row.score}`)).toEqual(['HUDSON 6', 'ADA 6', 'MAX 2']);
 
   const tieEndEvent = eventsFromHeaderDiff(beforeTieEnd, sim.state).find(
     (event) => event.type === 'sumo:round_end',
@@ -938,7 +938,7 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
   expect(countAlive(sim)).toBe(3);
   expect(sim.state[slotBase(3) + 8] & 1).toBe(0);
   expect(activePlayerCount(sim.state)).toBe(4);
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 9', 'ADA 9', 'MAX 9', 'ZOE 0']);
+  expect(scoreboardRows(sim.state, names).map((row) => `${row.name} ${row.score}`)).toEqual(['HUDSON 9', 'ADA 9', 'MAX 9', 'ZOE 0']);
 
   reachCountdown(sim);
   expect(countAlive(sim)).toBe(3);
@@ -965,7 +965,7 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
   expect(hasUniqueWinner(sim.state)).toBe(true);
   expect(matchWinnerTag(sim.state, names)).toBe('MAX');
   expect(scoreboardHeader(sim.state)).toBe('THRESHOLD: 9');
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 9', 'ADA 9', 'MAX 10', 'ZOE 0']);
+  expect(scoreboardRows(sim.state, names).map((row) => `${row.name} ${row.score}`)).toEqual(['HUDSON 9', 'ADA 9', 'MAX 10', 'ZOE 0']);
 
   guard = 0;
   while (sim.state[PHASE] === 2 && guard < 200) {
@@ -1063,7 +1063,7 @@ test('sudden death excludes trailing players, repeats on simultaneous wipe, and 
   expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([13, 12, 8, 4]);
   expect(hasUniqueWinner(sim.state)).toBe(true);
   expect(isSuddenDeath(sim.state)).toBe(false);
-  expect(scoreboardRows(sim.state, names).map((row) => row.text)).toEqual(['HUDSON 13', 'ADA 12', 'MAX 8', 'ZOE 4']);
+  expect(scoreboardRows(sim.state, names).map((row) => `${row.name} ${row.score}`)).toEqual(['HUDSON 13', 'ADA 12', 'MAX 8', 'ZOE 4']);
   expect(
     eventsFromHeaderDiff(beforeDecisive, sim.state).find((event) => event.type === 'sumo:round_end')?.payload,
   ).toEqual({

@@ -297,7 +297,7 @@ test('session.resetLobby() unselects game, resets bots/match/scores, tears down 
       destroy: rendererDestroy,
     }),
     scoreboardHeader: () => 'FIRST TO 3',
-    scoreboardRows: () => [{ slot: 0, color: '#FF4D00', text: 'ADA 1' }],
+    scoreboardRows: () => [{ slot: 0, color: '#FF4D00', name: 'ADA', score: 1 }],
     scoreRules: () => ({ rows: [{ label: '1ST', value: '+3' }] }),
     bannerCopy: () => 'FIGHT',
     rematchEventType: 'sumo:rematch',

@@ -866,7 +866,8 @@ function sameScoreRows(a: readonly ScoreRow[], b: readonly ScoreRow[]): boolean 
     if (
       left.slot !== right.slot
       || left.color !== right.color
-      || left.text !== right.text
+      || left.name !== right.name
+      || left.score !== right.score
       || left.status !== right.status
     ) {
       return false;

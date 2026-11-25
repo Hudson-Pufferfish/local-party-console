@@ -32,9 +32,9 @@ test('ScoreRulesPanel renders PTS payouts on the left and ScoreboardPanel render
     <ScoreboardPanel
       header="THRESHOLD: 9"
       rows={[
-        { slot: 0, color: '#FF4D00', text: 'HU 4', status: 'LIVE' },
-        { slot: 1, color: '#00C853', text: 'DA 2', status: 'AWAY' },
-        { slot: 2, color: '#2979FF', text: 'P3 1' },
+        { slot: 0, color: '#FF4D00', name: 'HUDSON', score: 4, status: 'LIVE' },
+        { slot: 1, color: '#00C853', name: 'DASH', score: 2, status: 'AWAY' },
+        { slot: 2, color: '#2979FF', name: 'P3', score: 1 },
       ]}
     />
   ));
@@ -42,21 +42,34 @@ test('ScoreRulesPanel renders PTS payouts on the left and ScoreboardPanel render
   expect(rightHtml).toContain('class="scoreboard-panel"');
   expect(rightHtml).toContain('class="scoreboard-threshold"');
   expect(rightHtml).toContain('THRESHOLD: 9');
-  expect(rightHtml).toContain('HU 4');
-  expect(rightHtml).toContain('DA 2');
+  expect(rightHtml).toContain('class="score-dot"');
+  expect(rightHtml).toContain('class="score-name">HUDSON<');
+  expect(rightHtml).toContain('class="score-value">4<');
+  expect(rightHtml).toContain('class="score-name">DASH<');
+  expect(rightHtml).toContain('class="score-value">2<');
+  expect(rightHtml).toContain('class="score-name">P3<');
+  expect(rightHtml).toContain('class="score-value">1<');
   expect(rightHtml).toContain('>LIVE<');
   expect(rightHtml).toContain('>AWAY<');
-  expect(rightHtml.indexOf('THRESHOLD: 9')).toBeLessThan(rightHtml.indexOf('HU 4'));
+  expect(rightHtml.indexOf('THRESHOLD: 9')).toBeLessThan(rightHtml.indexOf('HUDSON'));
 
   const matchCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/match.css'), 'utf8');
   const leftBlock = matchCss.match(/\.match\s+\.score-rules\s*\{[^}]*\}/)?.[0] ?? '';
   const rightBlock = matchCss.match(/\.match\s+\.scoreboard-panel\s*\{[^}]*\}/)?.[0] ?? '';
+  const rowBlock = matchCss.match(/\.score-row\s*\{[^}]*\}/)?.[0] ?? '';
+  const nameBlock = matchCss.match(/\.score-name\s*\{[^}]*\}/)?.[0] ?? '';
+  const valueBlock = matchCss.match(/\.score-value\s*\{[^}]*\}/)?.[0] ?? '';
   expect(leftBlock).toContain('grid-column: 1');
   expect(leftBlock).toContain('grid-row: 2');
   expect(leftBlock).toContain('justify-self: end');
   expect(rightBlock).toContain('grid-column: 3');
   expect(rightBlock).toContain('grid-row: 2');
   expect(rightBlock).toContain('justify-self: start');
+  expect(rowBlock).toContain('display: grid');
+  expect(rowBlock).toContain('grid-template-columns:');
+  expect(rowBlock).toContain('column-gap:');
+  expect(nameBlock).toContain('text-overflow: ellipsis');
+  expect(valueBlock).toContain('text-align: right');
 });
 
 test('MatchRejoinQr renders compact top-left rejoin QR panel labeled SCAN TO REJOIN without clobbering arena canvas', () => {

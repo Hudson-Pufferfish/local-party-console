@@ -75,9 +75,9 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 21');
 
   const rows = scoreboardRows(state, ['Hudson', '', '', '', '', '', '', 'Ada']);
-  expect(rows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HUDSON 0' });
-  expect(rows[2]).toEqual({ slot: 2, color: PLAYER_COLORS[2], text: 'P3 2' });
-  expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'ADA 7' });
+  expect(rows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], name: 'HUDSON', score: 0 });
+  expect(rows[2]).toEqual({ slot: 2, color: PLAYER_COLORS[2], name: 'P3', score: 2 });
+  expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], name: 'ADA', score: 7 });
 
   const statusRows = scoreboardRows(
     state,
@@ -87,9 +87,9 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
       { index: 7, connected: false },
     ],
   );
-  expect(statusRows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HUDSON 0', status: 'LIVE' });
-  expect(statusRows[1]).toEqual({ slot: 1, color: PLAYER_COLORS[1], text: 'P2 1' });
-  expect(statusRows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'ADA 7', status: 'AWAY' });
+  expect(statusRows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], name: 'HUDSON', score: 0, status: 'LIVE' });
+  expect(statusRows[1]).toEqual({ slot: 1, color: PLAYER_COLORS[1], name: 'P2', score: 1 });
+  expect(statusRows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], name: 'ADA', score: 7, status: 'AWAY' });
 
   const rules = scoreRules(state);
   expect(rules).toEqual({

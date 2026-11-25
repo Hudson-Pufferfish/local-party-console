@@ -52,7 +52,8 @@ export const ScoreboardPanel: VoidComponent<{
                 aria-hidden="true"
                 style={{ 'background-color': row().color }}
               />
-              <span>{row().text}</span>
+              <span class="score-name">{row().name}</span>
+              <span class="score-value">{row().score}</span>
               <Show when={row().status !== undefined}>
                 <span class="score-status" data-status={row().status?.toLowerCase()}>
                   {row().status}

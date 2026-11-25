@@ -13,7 +13,8 @@ export interface ArenaRenderer {
 export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
-  readonly text: string;
+  readonly name: string;
+  readonly score: number | string;
   readonly status?: 'LIVE' | 'AWAY';
 }
 
