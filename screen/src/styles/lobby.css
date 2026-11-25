@@ -46,7 +46,7 @@
 }
 
 .url {
-  margin: 12px 0 8px;
+  margin: 12px 0 0;
   font-size: clamp(14px, 1.15dvw, 17px);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -54,13 +54,29 @@
 }
 
 .hint {
-  margin: 0;
+  margin: 20px 0 0;
   font-family: "JetBrains Mono";
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
+  line-height: 1.45;
+}
+
+.hint-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.hint-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .panel {

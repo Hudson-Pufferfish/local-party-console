@@ -43,7 +43,13 @@ export const Lobby: VoidComponent<{
           height={280}
         />
         <p class="url">{props.qrUrl}</p>
-        <p class="hint">PHONE // TURN ON ROTATION LOCK FOR LANDSCAPE</p>
+        <div class="hint">
+          <p class="hint-title">REMINDER:</p>
+          <ul class="hint-list">
+            <li>Keep phone rotation locked ON</li>
+            <li>Pick Vertical or Horizontal on phone before Start</li>
+          </ul>
+        </div>
       </section>
 
       <section class="lobby-col lobby-setup">

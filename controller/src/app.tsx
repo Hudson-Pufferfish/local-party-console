@@ -138,7 +138,7 @@ export const App: VoidComponent = () => {
         onFull: () => {
           joinPending = false;
           window.clearTimeout(joinTimer);
-          setNotice('ROOM // FULL');
+          setNotice('CANNOT JOIN, ROOM IS ALREADY FULL (8 PLAYERS)');
         },
         onKicked: () => {
           joinPending = false;
@@ -150,7 +150,7 @@ export const App: VoidComponent = () => {
           setGameId('');
           setTheme({});
           setControl(null);
-          setNotice('REMOVED // TAP JOIN');
+          setNotice('TYPE YOUR NAME AND TAP JOIN');
         },
         onMount: (id) => {
           setTheme(localTheme(id));

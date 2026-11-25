@@ -212,10 +212,12 @@ input {
   padding: 8px 12px;
   background: #111111;
   color: var(--warn, var(--theme-yellow));
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  line-height: 1;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 
 .strip {
@@ -414,6 +416,7 @@ input {
 .stage[data-orientation='landscape'] .notice {
   padding: 6px 10px;
   font-size: 14px;
+  line-height: 1.2;
 }
 
 .stage[data-orientation='landscape'] .lobby-board {
