@@ -38,7 +38,7 @@ export const Lobby: VoidComponent<{
           <p class="notice">{props.notice}</p>
         </Show>
         <Show when={props.sdpWarning}>
-          <p class="notice">SDP // NO LAN CANDIDATE</p>
+          <p class="notice">LOCAL NETWORK BLOCKED — CHECK WI-FI OR BROWSER PERMISSIONS</p>
         </Show>
         <p class="qr-prompt">SCAN QR TO JOIN THE GAME</p>
         <canvas
@@ -60,7 +60,7 @@ export const Lobby: VoidComponent<{
       <section class="lobby-col lobby-setup">
         <section class="panel">
           <h2>GAMES</h2>
-          <Show when={props.games.length > 0} fallback={<p class="mono">GAMES // NONE</p>}>
+          <Show when={props.games.length > 0} fallback={<p class="mono">NO GAMES AVAILABLE</p>}>
             <div class="carousel">
               <For each={props.games}>
                 {(game) => (

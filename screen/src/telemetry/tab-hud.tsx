@@ -101,9 +101,9 @@ export const TabHud: VoidComponent<{
   return (
     <Show when={open()}>
       <aside class="tab-hud">
-        <p>VIEWPORTS // THIS: {fps()}fps | OTHERS: —</p>
-        <p>VIEWPORT SYNC // TICK DELTA: — | CLOCK SKEW: — | DISPLAYLINK COMP: +0ms | FLIGHT REC: —</p>
-        <Show when={props.primary} fallback={<p>PHONE ROWS // PRIMARY TAB</p>}>
+        <p>VIEWPORTS: THIS {fps()}fps | OTHERS —</p>
+        <p>VIEWPORT SYNC: TICK DELTA — | CLOCK SKEW — | DISPLAYLINK COMP +0ms | FLIGHT REC —</p>
+        <Show when={props.primary} fallback={<p>PHONE TELEMETRY AVAILABLE ON PRIMARY TAB ONLY</p>}>
           <For each={rows()}>{(row) => <p>{line(row)}</p>}</For>
         </Show>
       </aside>

@@ -8,6 +8,6 @@ const holistic: GameViewConfig = {
 };
 
 test('holistic games stand by on a team view', () => {
-  expect(standbyCopy('team-1', holistic)).toBe('STANDBY // THIS GAME USES HOLISTIC VIEW');
+  expect(standbyCopy('team-1', holistic)).toBe('STANDBY — THIS GAME USES HOLISTIC VIEW');
   expect(standbyCopy('holistic', holistic)).toBeNull();
 });

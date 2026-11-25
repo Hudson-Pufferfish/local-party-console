@@ -18,7 +18,14 @@ import {
   readStoredOrientationPref,
   writeStoredOrientationPref,
 } from './orientation-toggle.tsx';
-import { connectPhone, joinNotice, storeSeq, storedToken, type PhoneLink } from './peer.ts';
+import {
+  connectPhone,
+  joinNotice,
+  LINK_DOWN_NOTICE,
+  storeSeq,
+  storedToken,
+  type PhoneLink,
+} from './peer.ts';
 import { PreflightStrip } from './preflight-strip.tsx';
 import {
   controllerSupportedOrientations,
@@ -59,7 +66,7 @@ export const App: VoidComponent = () => {
     () => undefined,
     () => {
       if (room === '') {
-        setNotice('ROOM // MISSING');
+        setNotice('NO ROOM CODE — SCAN QR CODE TO JOIN');
         return;
       }
       let raf = 0;
@@ -189,9 +196,9 @@ export const App: VoidComponent = () => {
           samples = 2;
         },
         onLink: (up) => {
-          if (!up) setNotice('LINK // DOWN');
+          if (!up) setNotice(LINK_DOWN_NOTICE);
           else if (!joinPending) {
-            setNotice((current) => (current === 'LINK // DOWN' ? '' : current));
+            setNotice((current) => (current === LINK_DOWN_NOTICE ? '' : current));
           }
         },
       });
@@ -237,7 +244,7 @@ export const App: VoidComponent = () => {
     setNotice(joinNotice(result));
     window.clearTimeout(joinTimer);
     joinTimer = window.setTimeout(() => {
-      if (!joined()) setNotice('LINK // DOWN');
+      if (!joined()) setNotice(LINK_DOWN_NOTICE);
     }, 2000);
   }
 
@@ -349,5 +356,5 @@ function modalBody(cores: number, ready: boolean, power: 'ok' | 'low-power'): st
   const powerText = !ready ? 'POWER --' : power === 'low-power' ? 'LOW POWER' : 'POWER OK';
   const tier = tierFor({ power: ready && power === 'low-power' ? 'low-power' : 'ok', cores });
   const send = tier === '30' ? 'SEND 30HZ' : 'SEND 60HZ';
-  return `CORES ${coreText} // ${powerText}. ${send}.`;
+  return `CORES: ${coreText} — ${powerText}. ${send}.`;
 }

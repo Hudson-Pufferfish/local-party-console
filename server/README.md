@@ -46,7 +46,7 @@ LAN=$(ipconfig getifaddr en0 || ipconfig getifaddr en1); echo "Phone: http://${L
 
 The terminal prints that address. Open it on the phone. The phone and the Mac must be on the same Wi-Fi. Press Ctrl+C in that terminal when the download has finished.
 
-Open the host screen in a normal Chrome window. Incognito has no saved host token, so `/screen/` shows `HOST // TOKEN MISSING` and the QR stays empty.
+Open the host screen in a normal Chrome window. Incognito has no saved host token, so `/screen/` shows `HOST ACCESS MISSING — OPEN IN THE ORIGINAL BROWSER WINDOW` and the QR stays empty.
 
 ### iPhone
 

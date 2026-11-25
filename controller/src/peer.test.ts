@@ -50,10 +50,10 @@ test('a socket that never opens reports the link down', () => {
 });
 
 test('a join while the socket is still connecting is queued and marked sent', () => {
-  expect(joinNotice('queued')).toBe('JOIN // SENT');
-  expect(joinNotice('closed')).toBe('LINK // DOWN');
-  expect(joinNotice('missing')).toBe('LINK // DOWN');
-  expect(joinNotice('open')).toBe('JOIN // SENT');
+  expect(joinNotice('queued')).toBe('JOINING ROOM...');
+  expect(joinNotice('closed')).toBe('DISCONNECTED FROM HOST — CHECK WI-FI OR RELOAD');
+  expect(joinNotice('missing')).toBe('DISCONNECTED FROM HOST — CHECK WI-FI OR RELOAD');
+  expect(joinNotice('open')).toBe('JOINING ROOM...');
   globalThis.window = globalThis as unknown as Window & typeof globalThis;
   vi.stubGlobal('location', { host: '10.0.0.72:8443' });
   const previous = globalThis.WebSocket;
