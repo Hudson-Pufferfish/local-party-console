@@ -524,3 +524,109 @@ test('room:phase lobby fans out to controllers and clears cached game:mount for 
     await relay.close();
   }
 });
+
+test('primary re-claim over an open old screen or after a mid-match disconnect resets phase to lobby and permits kicking LIVE and AWAY players', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen1 = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const ada = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const bea = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen1, ada, bea);
+
+    screen1.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+
+    const adaJoined = waitForText(ada, 'room:joined');
+    const adaRoster = waitForText(screen1, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    await Promise.all([adaJoined, adaRoster]);
+
+    const beaJoined = waitForText(bea, 'room:joined');
+    const beaRoster = waitForText(screen1, 'room:players');
+    bea.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    await Promise.all([beaJoined, beaRoster]);
+
+    // Enter match phase, then Bea disconnects (AWAY)
+    const matchPhase = waitForText(ada, 'room:phase');
+    screen1.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
+    await matchPhase;
+
+    const beaAway = waitForText(screen1, 'room:players');
+    bea.close();
+    await beaAway;
+
+    // Overlap race (HMR / fast reload / new primary tab): screen2 claims BEFORE screen1 closes
+    const screen2 = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    sockets.push(screen2);
+    const adaReturnedLobby = waitForText(ada, 'room:phase');
+    screen2.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const resetFrame = await adaReturnedLobby;
+    expect((resetFrame.payload as { phase?: string } | undefined)?.phase).toBe('lobby');
+
+    // Old screen closes after screen2 already claimed; screen2 must stay primary
+    const screen1Closed = new Promise<void>((resolve) => {
+      screen1.once('close', () => resolve());
+    });
+    screen1.close();
+    await screen1Closed;
+    await settle();
+
+    // screen2 kicks AWAY Bea (slot 1)
+    const afterAwayKick = waitForText(screen2, 'room:players');
+    screen2.send(JSON.stringify({ type: 'room:kick', payload: { index: 1 } }));
+    const awayKickFrame = await afterAwayKick;
+    expect(awayKickFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'Ada', connected: true }),
+    ]);
+
+    // screen2 kicks LIVE Ada (slot 0)
+    const adaKicked = waitForText(ada, 'room:kicked');
+    const afterLiveKick = waitForText(screen2, 'room:players');
+    screen2.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
+    const [, liveKickFrame] = await Promise.all([adaKicked, afterLiveKick]);
+    expect(liveKickFrame.payload?.players).toEqual([]);
+
+    // Disconnect-first mid-match reload: screen2 starts a match and closes before screen3 connects
+    const cy = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(cy);
+    const cyJoined = waitForText(cy, 'room:joined');
+    cy.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
+    await cyJoined;
+
+    const cyMatch = waitForText(cy, 'room:phase');
+    screen2.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
+    await cyMatch;
+
+    const cyLobby = waitForText(cy, 'room:phase');
+    screen2.close();
+    const cyLobbyFrame = await cyLobby;
+    expect((cyLobbyFrame.payload as { phase?: string } | undefined)?.phase).toBe('lobby');
+
+    const cyClosed = new Promise<void>((resolve) => {
+      cy.once('close', () => resolve());
+    });
+    cy.close();
+    await cyClosed;
+
+    const screen3 = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    sockets.push(screen3);
+    screen3.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const afterReconnectKick = waitForText(screen3, 'room:players');
+    screen3.send(JSON.stringify({ type: 'room:kick', payload: { index: 0 } }));
+    const reconnectKickFrame = await afterReconnectKick;
+    expect(reconnectKickFrame.payload?.players).toEqual([]);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
