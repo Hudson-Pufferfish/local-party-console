@@ -799,3 +799,106 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
     'HU WINS',
   );
 });
+
+test('3-way tie at threshold enters sudden death and ends only when one leader stands alone', () => {
+  const names = ['Hudson', 'Ada', 'Max', 'Zoe'];
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1, 2, 3]); // target = (4 - 1) * 3 = 9
+  reachActive(sim);
+
+  const keepCenter = (slots: readonly number[]): void => {
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i]!;
+      const base = slotBase(slot);
+      const angle = (i / Math.max(1, slots.length)) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * 60;
+      sim.state[base + 1] = Math.sin(angle) * 60;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+  };
+  const pushOut = (slots: readonly number[]): void => {
+    const out = (sim.state[ARENA_RADIUS] ?? 400) + 50;
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i]!;
+      const base = slotBase(slot);
+      const angle = (i / Math.max(1, slots.length)) * Math.PI * 2;
+      sim.state[base] = Math.cos(angle) * out;
+      sim.state[base + 1] = Math.sin(angle) * out;
+      sim.state[base + 2] = 0;
+      sim.state[base + 3] = 0;
+    }
+  };
+
+  // Setup: Hudson=6, Ada=7, Max=8, Zoe=0; round awards +3, +2, +1, +0 -> 3-way tie at 9 pts!
+  sim.state[slotBase(0) + 9] = 6;
+  sim.state[slotBase(1) + 9] = 7;
+  sim.state[slotBase(2) + 9] = 8;
+  sim.state[slotBase(3) + 9] = 0;
+
+  keepCenter([0, 1, 2]);
+  pushOut([3]); // Zoe 4th (+0)
+  sim.step(DT);
+
+  keepCenter([0, 1]);
+  pushOut([2]); // Max 3rd (+1 -> 9)
+  sim.step(DT);
+
+  keepCenter([0]);
+  pushOut([1]); // Ada 2nd (+2 -> 9), Hudson 1st (+3 -> 9)
+  const beforeThreeWay = sim.state.slice();
+  sim.step(DT);
+
+  expect(sim.state[PHASE]).toBe(2);
+  expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([9, 9, 9, 0]);
+  expect(isSuddenDeath(sim.state)).toBe(true);
+  expect(matchWinnerTag(sim.state, names)).toBeUndefined();
+  expect(scoreboardHeader(sim.state)).toBe('SUDDEN DEATH');
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'SUDDEN DEATH',
+  );
+  expect(
+    eventsFromHeaderDiff(beforeThreeWay, sim.state).find((event) => event.type === 'sumo:round_end')?.payload,
+  ).toEqual({
+    winnerIndex: 0,
+    scores: [9, 9, 9, 0, 0, 0, 0, 0],
+    matchOver: false,
+  });
+
+  // Must enter PRACTICE -> COUNTDOWN -> ROUND_ACTIVE with all 4 players alive
+  let guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(4);
+  reachActive(sim);
+  expect(countAlive(sim)).toBe(4);
+
+  // Overtime round: Max wins (+3 -> 12), Ada 2nd (+2 -> 11), Hudson 3rd (+1 -> 10), Zoe 4th (+0 -> 0)
+  keepCenter([0, 1, 2]);
+  pushOut([3]);
+  sim.step(DT);
+  keepCenter([1, 2]);
+  pushOut([0]);
+  sim.step(DT);
+  keepCenter([2]);
+  pushOut([1]);
+  sim.step(DT);
+
+  expect(sim.state[PHASE]).toBe(2);
+  expect([0, 1, 2, 3].map((slot) => sim.state[slotBase(slot) + 9])).toEqual([10, 11, 12, 0]);
+  expect(isSuddenDeath(sim.state)).toBe(false);
+  expect(matchWinnerTag(sim.state, names)).toBe('MA');
+  expect(scoreboardHeader(sim.state)).toBe('THRESHOLD: 9');
+
+  guard = 0;
+  while (sim.state[PHASE] === 2 && guard < 200) {
+    sim.step(DT);
+    guard += 1;
+  }
+  expect(sim.state[PHASE]).toBe(3);
+  expect(bannerCopy(sim.state[PHASE], sim.state[2], matchWinnerTag(sim.state, names), isSuddenDeath(sim.state))).toBe(
+    'MA WINS',
+  );
+});
