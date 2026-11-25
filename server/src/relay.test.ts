@@ -483,3 +483,44 @@ test('a kicked phone token is rejected with room:kicked instead of silently rejo
     await relay.close();
   }
 });
+
+test('room:phase lobby fans out to controllers and clears cached game:mount for later joiners', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const mounted = waitForText(phone, 'game:mount');
+    screen.send(JSON.stringify({ type: 'game:mount', payload: { gameId: 'sumo-dash' } }));
+    await mounted;
+
+    const returned = waitForText(phone, 'room:phase');
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'lobby' } }));
+    const phaseFrame = await returned;
+    expect((phaseFrame.payload as { phase?: string } | undefined)?.phase).toBe('lobby');
+
+    const late = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(late);
+    const lateMounts: string[] = [];
+    late.on('message', (data, isBinary) => {
+      if (isBinary) return;
+      const frame = JSON.parse(data.toString()) as { type?: string };
+      if (frame.type === 'game:mount') lateMounts.push(frame.type);
+    });
+    const lateJoined = waitForText(late, 'room:joined');
+    late.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    await lateJoined;
+    await settle();
+    expect(lateMounts).toEqual([]);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});

@@ -6,6 +6,7 @@ export type {
   RoomPhasePayload,
 } from './envelope.ts';
 export type {
+  ControllerOrientation,
   GameDefinition,
   GameManifest,
   GameViewConfig,

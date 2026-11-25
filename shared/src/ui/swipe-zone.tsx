@@ -1,48 +1,76 @@
 import { onCleanup, type VoidComponent } from 'solid-js';
+import {
+  transformAxesInto,
+  type StageRotationDeg,
+} from '../controller/orientation.ts';
+import { useControllerOrientation } from './orientation-context.tsx';
 
-export const SwipeZone: VoidComponent<{
-  label: string;
-  onSwipe?: (x: number, y: number, timeStamp: number) => void;
-}> = (props) => {
-  let root: HTMLDivElement | undefined;
+export interface SwipeZoneElementLike extends EventTarget {
+  draggable: boolean;
+  getBoundingClientRect(): { left: number; top: number; width: number; height: number };
+  setPointerCapture?(pointerId: number): void;
+  setAttribute(name: string, value: string): void;
+}
+
+export function bindSwipeZone(
+  root: SwipeZoneElementLike,
+  options: {
+    onSwipe?: (x: number, y: number, timeStamp: number) => void;
+    readRotation: () => StageRotationDeg;
+  },
+): () => void {
   let startX = 0;
   let startY = 0;
-  let width = 1;
+  let span = 1;
+  const localDelta = { x: 0, y: 0 };
 
   function blockNativeDrag(event: Event): void {
     if (event.cancelable) event.preventDefault();
   }
 
-  function onDown(event: PointerEvent): void {
-    const el = event.currentTarget;
-    if (!(el instanceof HTMLDivElement)) return;
-    if (event.cancelable) event.preventDefault();
+  function onDown(event: Event): void {
+    const pointer = event as PointerEvent;
+    if (pointer.cancelable) pointer.preventDefault();
     try {
-      el.setPointerCapture(event.pointerId);
+      root.setPointerCapture?.(pointer.pointerId);
     } catch {
       // A cancelled pointer does not block the swipe.
     }
-    el.setAttribute('data-pressed', 'true');
-    const rect = el.getBoundingClientRect();
-    startX = event.clientX;
-    startY = event.clientY;
-    width = Math.max(1, rect.width);
+    root.setAttribute('data-pressed', 'true');
+    const rect = root.getBoundingClientRect();
+    startX = pointer.clientX;
+    startY = pointer.clientY;
+    span = Math.max(1, Math.min(rect.width, rect.height));
   }
 
-  function onUp(event: PointerEvent): void {
-    let x = (event.clientX - startX) / width;
-    let y = (event.clientY - startY) / width;
+  function onUp(event: Event): void {
+    const pointer = event as PointerEvent;
+    transformAxesInto(
+      pointer.clientX - startX,
+      pointer.clientY - startY,
+      options.readRotation(),
+      localDelta,
+    );
+    let x = localDelta.x / span;
+    let y = localDelta.y / span;
     if (x > 1) x = 1;
     else if (x < -1) x = -1;
     if (y > 1) y = 1;
     else if (y < -1) y = -1;
-    props.onSwipe?.(x, y, event.timeStamp);
-    const el = event.currentTarget;
-    if (el instanceof HTMLDivElement) el.setAttribute('data-pressed', 'false');
+    options.onSwipe?.(x, y, pointer.timeStamp);
+    root.setAttribute('data-pressed', 'false');
   }
 
-  onCleanup(() => {
-    if (root === undefined) return;
+  root.draggable = false;
+  root.addEventListener('pointerdown', onDown);
+  root.addEventListener('touchstart', blockNativeDrag, { passive: false });
+  root.addEventListener('touchmove', blockNativeDrag, { passive: false });
+  root.addEventListener('selectstart', blockNativeDrag);
+  root.addEventListener('dragstart', blockNativeDrag);
+  root.addEventListener('pointerup', onUp);
+  root.addEventListener('pointercancel', onUp);
+
+  return () => {
     root.removeEventListener('pointerdown', onDown);
     root.removeEventListener('touchstart', blockNativeDrag);
     root.removeEventListener('touchmove', blockNativeDrag);
@@ -50,21 +78,31 @@ export const SwipeZone: VoidComponent<{
     root.removeEventListener('dragstart', blockNativeDrag);
     root.removeEventListener('pointerup', onUp);
     root.removeEventListener('pointercancel', onUp);
+  };
+}
+
+export const SwipeZone: VoidComponent<{
+  label: string;
+  onSwipe?: (x: number, y: number, timeStamp: number) => void;
+  rotationDeg?: StageRotationDeg;
+}> = (props) => {
+  const orientationCtx = useControllerOrientation();
+  let unbind: (() => void) | undefined;
+
+  onCleanup(() => {
+    unbind?.();
+    unbind = undefined;
   });
 
   return (
     <div
       class="swipe-zone"
       ref={(el) => {
-        root = el;
-        el.draggable = false;
-        el.addEventListener('pointerdown', onDown);
-        el.addEventListener('touchstart', blockNativeDrag, { passive: false });
-        el.addEventListener('touchmove', blockNativeDrag, { passive: false });
-        el.addEventListener('selectstart', blockNativeDrag);
-        el.addEventListener('dragstart', blockNativeDrag);
-        el.addEventListener('pointerup', onUp);
-        el.addEventListener('pointercancel', onUp);
+        unbind?.();
+        unbind = bindSwipeZone(el, {
+          onSwipe: (x, y, timeStamp) => props.onSwipe?.(x, y, timeStamp),
+          readRotation: () => props.rotationDeg ?? orientationCtx.rotationDeg(),
+        });
       }}
     >
       <span class="swipe-label">{props.label}</span>

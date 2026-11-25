@@ -1,71 +1,110 @@
 import { onCleanup, type VoidComponent } from 'solid-js';
+import {
+  transformAxesInto,
+  type StageRotationDeg,
+} from '../controller/orientation.ts';
 import { pickPointerSample, type PointerSample } from '../stretch1/samples';
+import { useControllerOrientation } from './orientation-context.tsx';
 
 const EMPTY_SAMPLES: PointerSample[] = [];
 
-export const VirtualJoystick: VoidComponent<{
-  label: string;
-  onAxes: (x: number, y: number, timeStamp: number) => void;
-}> = (props) => {
-  let root: HTMLDivElement | undefined;
-  let cap: HTMLDivElement | undefined;
+export interface JoystickElementLike extends EventTarget {
+  draggable: boolean;
+  getBoundingClientRect(): { left: number; top: number; width: number; height: number };
+  setPointerCapture?(pointerId: number): void;
+}
+
+export interface JoystickCapLike {
+  style: { transform: string };
+}
+
+export function bindVirtualJoystick(
+  root: JoystickElementLike,
+  getCap: JoystickCapLike | (() => JoystickCapLike | undefined),
+  options: {
+    onAxes: (x: number, y: number, timeStamp: number) => void;
+    readRotation: () => StageRotationDeg;
+  },
+): () => void {
   let originX = 0;
   let originY = 0;
   let radius = 1;
   let tracking = false;
+  const localDelta = { x: 0, y: 0 };
+
+  function resolveCap(): JoystickCapLike | undefined {
+    return typeof getCap === 'function' ? getCap() : getCap;
+  }
 
   function blockNativeDrag(event: Event): void {
     if (event.cancelable) event.preventDefault();
   }
 
-  function onDown(event: PointerEvent): void {
-    const el = event.currentTarget;
-    if (!(el instanceof HTMLDivElement)) return;
-    if (event.cancelable) event.preventDefault();
+  function onDown(event: Event): void {
+    const pointer = event as PointerEvent;
+    if (pointer.cancelable) pointer.preventDefault();
     tracking = true;
     try {
-      el.setPointerCapture(event.pointerId);
+      root.setPointerCapture?.(pointer.pointerId);
     } catch {
       // A cancelled pointer does not block the send.
     }
-    const rect = el.getBoundingClientRect();
+    const rect = root.getBoundingClientRect();
     originX = rect.left + rect.width * 0.5;
     originY = rect.top + rect.height * 0.5;
-    radius = Math.max(1, rect.width * 0.5);
+    radius = Math.max(1, Math.min(rect.width, rect.height) * 0.5);
   }
 
-  function onMove(event: PointerEvent): void {
-    if (event.cancelable) event.preventDefault();
-    if (!tracking) return;
+  function onMove(event: Event): void {
     const pointer = event as PointerEvent & {
       getCoalescedEvents?: () => PointerSample[];
       getPredictedEvents?: () => PointerSample[];
     };
+    if (pointer.cancelable) pointer.preventDefault();
+    if (!tracking) return;
     const sample = pickPointerSample(
-      event,
+      pointer,
       pointer.getCoalescedEvents?.() ?? EMPTY_SAMPLES,
       pointer.getPredictedEvents?.() ?? EMPTY_SAMPLES,
     );
-    let x = (sample.clientX - originX) / radius;
-    let y = (sample.clientY - originY) / radius;
+    transformAxesInto(
+      sample.clientX - originX,
+      sample.clientY - originY,
+      options.readRotation(),
+      localDelta,
+    );
+    let x = localDelta.x / radius;
+    let y = localDelta.y / radius;
     if (x > 1) x = 1;
     else if (x < -1) x = -1;
     if (y > 1) y = 1;
     else if (y < -1) y = -1;
-    props.onAxes(x, y, sample.timeStamp);
+    options.onAxes(x, y, sample.timeStamp);
+    const cap = resolveCap();
     if (cap === undefined) return;
     cap.style.transform = `translate3d(${Math.round(x * 28)}px, ${Math.round(y * 28)}px, 0)`;
   }
 
-  function onUp(event: PointerEvent): void {
+  function onUp(event: Event): void {
+    const pointer = event as PointerEvent;
     if (!tracking) return;
     tracking = false;
-    props.onAxes(0, 0, event.timeStamp);
+    options.onAxes(0, 0, pointer.timeStamp);
+    const cap = resolveCap();
     if (cap !== undefined) cap.style.transform = 'translate3d(0px, 0px, 0)';
   }
 
-  onCleanup(() => {
-    if (root === undefined) return;
+  root.draggable = false;
+  root.addEventListener('pointerdown', onDown);
+  root.addEventListener('pointermove', onMove);
+  root.addEventListener('touchstart', blockNativeDrag, { passive: false });
+  root.addEventListener('touchmove', blockNativeDrag, { passive: false });
+  root.addEventListener('selectstart', blockNativeDrag);
+  root.addEventListener('dragstart', blockNativeDrag);
+  root.addEventListener('pointerup', onUp);
+  root.addEventListener('pointercancel', onUp);
+
+  return () => {
     root.removeEventListener('pointerdown', onDown);
     root.removeEventListener('pointermove', onMove);
     root.removeEventListener('touchstart', blockNativeDrag);
@@ -74,22 +113,32 @@ export const VirtualJoystick: VoidComponent<{
     root.removeEventListener('dragstart', blockNativeDrag);
     root.removeEventListener('pointerup', onUp);
     root.removeEventListener('pointercancel', onUp);
+  };
+}
+
+export const VirtualJoystick: VoidComponent<{
+  label: string;
+  onAxes: (x: number, y: number, timeStamp: number) => void;
+  rotationDeg?: StageRotationDeg;
+}> = (props) => {
+  const orientationCtx = useControllerOrientation();
+  let cap: HTMLDivElement | undefined;
+  let unbind: (() => void) | undefined;
+
+  onCleanup(() => {
+    unbind?.();
+    unbind = undefined;
   });
 
   return (
     <div
       class="joystick"
       ref={(el) => {
-        root = el;
-        el.draggable = false;
-        el.addEventListener('pointerdown', onDown);
-        el.addEventListener('pointermove', onMove);
-        el.addEventListener('touchstart', blockNativeDrag, { passive: false });
-        el.addEventListener('touchmove', blockNativeDrag, { passive: false });
-        el.addEventListener('selectstart', blockNativeDrag);
-        el.addEventListener('dragstart', blockNativeDrag);
-        el.addEventListener('pointerup', onUp);
-        el.addEventListener('pointercancel', onUp);
+        unbind?.();
+        unbind = bindVirtualJoystick(el, () => cap, {
+          onAxes: (x, y, timeStamp) => props.onAxes(x, y, timeStamp),
+          readRotation: () => props.rotationDeg ?? orientationCtx.rotationDeg(),
+        });
       }}
     >
       <div

@@ -170,7 +170,11 @@ function handleText(
   if (type === 'room:phase') {
     if (primaries.get(room) !== client) return;
     const phase = readPhase(message.payload);
-    if (phase !== null) setRoomPhase(room, phase);
+    if (phase !== null) {
+      setRoomPhase(room, phase);
+      if (phase === 'lobby') mounts.delete(room);
+      fanOut(clients, room, client, raw);
+    }
     return;
   }
   if (type === 'room:kick') {

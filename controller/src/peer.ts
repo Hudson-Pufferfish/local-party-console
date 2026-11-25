@@ -2,6 +2,7 @@ import { ntpOffset } from '../../shared/src/stretch1/clock.ts';
 import { HEARTBEAT_MS } from '../../shared/src/stretch1/heartbeat.ts';
 import { WINDOW_MS, nextDelayMs } from '../../shared/src/stretch1/tdma.ts';
 import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
+import type { RoomPhase } from '../../shared/src/types/envelope.ts';
 import {
   bindTransport,
   flushHeartbeat,
@@ -83,6 +84,7 @@ export function connectPhone(
     onFull: () => void;
     onKicked?: () => void;
     onMount: (gameId: string) => void;
+    onPhase?: (phase: RoomPhase) => void;
     onPong: (sentAt: number, receivedAt: number) => void;
     onLink: (up: boolean) => void;
     onControl?: (type: string, payload: unknown) => void;
@@ -254,6 +256,11 @@ export function connectPhone(
       const gameId = readGameId(payload);
       if (gameId === null) return;
       hooks.onMount(gameId);
+      return;
+    }
+    if (type === 'room:phase') {
+      const phase = readPhase(payload);
+      if (phase !== null) hooks.onPhase?.(phase);
       return;
     }
     if (type.startsWith('sumo:')) {
@@ -519,6 +526,12 @@ function readGameId(payload: unknown): string | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const gameId = (payload as { gameId?: unknown }).gameId;
   return typeof gameId === 'string' && gameId !== '' ? gameId : null;
+}
+
+function readPhase(payload: unknown): RoomPhase | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const phase = (payload as { phase?: unknown }).phase;
+  return phase === 'lobby' || phase === 'match' ? phase : null;
 }
 
 function readClockSample(payload: unknown): { slot: number; t1: number; t2: number; t3: number } | null {

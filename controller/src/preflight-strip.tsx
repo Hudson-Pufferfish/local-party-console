@@ -6,7 +6,7 @@ export const PreflightStrip: VoidComponent<{
   cores: number;
   rttMs: number | null;
   jitterMs: number | null;
-  portrait: boolean;
+  orientationOk: boolean;
 }> = (props) => {
   const powerWarn = (): boolean => props.powerReady && props.power === 'low-power';
   return (
@@ -19,9 +19,9 @@ export const PreflightStrip: VoidComponent<{
         <span>WI-FI</span>
         <span>{wifiLabel(props.rttMs, props.jitterMs)}</span>
       </p>
-      <p class="pill" data-warn={props.portrait ? 'true' : 'false'}>
+      <p class="pill" data-warn={props.orientationOk ? 'false' : 'true'}>
         <span>ORIENTATION</span>
-        <span>{props.portrait ? 'TURN' : 'OK'}</span>
+        <span>{props.orientationOk ? 'OK' : 'TURN'}</span>
       </p>
     </div>
   );

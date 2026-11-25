@@ -1,7 +1,8 @@
 import { createEffect, createSignal, Show, type VoidComponent } from 'solid-js';
+import type { OrientationPreference } from '../../shared/src/controller/orientation.ts';
 import { classifyPower, rfc3550Jitter } from '../../shared/src/controller/preflight.ts';
-import { tierFor } from '../../shared/src/stretch1/tier.ts';
 import { CONTROLLER_REV } from '../../shared/src/sdp/qr-target.ts';
+import { tierFor } from '../../shared/src/stretch1/tier.ts';
 import { playerStyleVars } from '../../shared/src/theme.ts';
 import {
   ArcadeButton,
@@ -11,9 +12,16 @@ import {
   SwipeZone,
   VirtualJoystick,
 } from '../../shared/src/ui/index.tsx';
+import { ControllerStage } from './controller-stage.tsx';
+import {
+  OrientationToggle,
+  readStoredOrientationPref,
+  writeStoredOrientationPref,
+} from './orientation-toggle.tsx';
 import { connectPhone, joinNotice, storeSeq, storedToken, type PhoneLink } from './peer.ts';
 import { PreflightStrip } from './preflight-strip.tsx';
 import {
+  controllerSupportedOrientations,
   controllerView,
   localTheme,
   type ControllerControl,
@@ -25,7 +33,6 @@ import { lastSentSeq, readSendClock, sendAxes, sendButton, setSendClock } from '
 const room = new URLSearchParams(location.search).get('room') ?? '';
 
 export const App: VoidComponent = () => {
-  const media = window.matchMedia('(orientation: portrait)');
   const [name, setName] = createSignal('');
   const [joined, setJoined] = createSignal(false);
   const [slot, setSlot] = createSignal(-1);
@@ -34,7 +41,10 @@ export const App: VoidComponent = () => {
   const [power, setPower] = createSignal<'ok' | 'low-power'>('ok');
   const [powerReady, setPowerReady] = createSignal(false);
   const [cores, setCores] = createSignal(-1);
-  const [portrait, setPortrait] = createSignal(media.matches);
+  const [layoutPref, setLayoutPref] = createSignal<OrientationPreference>(
+    readStoredOrientationPref(),
+  );
+  const [orientationOk, setOrientationOk] = createSignal(true);
   const [rttMs, setRttMs] = createSignal<number | null>(null);
   const [jitterMs, setJitterMs] = createSignal<number | null>(null);
   const [modal, setModal] = createSignal(false);
@@ -101,10 +111,6 @@ export const App: VoidComponent = () => {
         raf = window.requestAnimationFrame(frame);
       };
       raf = window.requestAnimationFrame(frame);
-      const onOrientation = (): void => {
-        setPortrait(media.matches);
-      };
-      media.addEventListener('change', onOrientation);
       const persist = (): void => {
         if (document.visibilityState !== 'hidden') return;
         const seq = lastSentSeq();
@@ -150,6 +156,12 @@ export const App: VoidComponent = () => {
           setTheme(localTheme(id));
           setGameId(id);
         },
+        onPhase: (phase) => {
+          if (phase !== 'lobby') return;
+          setGameId('');
+          setTheme({});
+          setControl(null);
+        },
         onControl: (type, payload) => {
           setControl({ type, payload });
         },
@@ -186,7 +198,6 @@ export const App: VoidComponent = () => {
       return () => {
         window.clearTimeout(joinTimer);
         window.cancelAnimationFrame(raf);
-        media.removeEventListener('change', onOrientation);
         document.removeEventListener('visibilitychange', persist);
         const seq = lastSentSeq();
         if (seq >= 0) storeSeq(room, seq);
@@ -200,6 +211,17 @@ export const App: VoidComponent = () => {
     if (id === '') return null;
     return controllerView(id);
   };
+
+  const supportedOrientations = () => {
+    const id = gameId();
+    return id === '' ? undefined : controllerSupportedOrientations(id);
+  };
+
+  function onOrientationChange(next: OrientationPreference): void {
+    if (view() !== null) return;
+    setLayoutPref(next);
+    writeStoredOrientationPref(next);
+  }
 
   function onJoin(pressed: boolean): void {
     if (!pressed || joined()) return;
@@ -225,57 +247,77 @@ export const App: VoidComponent = () => {
   };
 
   return (
-    <main class="shell" data-joined={joined() ? 'true' : 'false'} style={shellStyle()}>
-      <header class="mast">
-        <p class="room-code">{room === '' ? '----' : room}<span class="rev">REV {CONTROLLER_REV}</span></p>
-        <Show when={view() === null}>
-          <PlayerBadge
-            name={name().trim() === '' ? 'OPEN' : name().trim()}
-            label={slot() < 0 ? 'P-' : `P${slot() + 1}`}
-          />
-        </Show>
-      </header>
-      <PreflightStrip
-        power={power()}
-        powerReady={powerReady()}
-        cores={cores()}
-        rttMs={rttMs()}
-        jitterMs={jitterMs()}
-        portrait={portrait()}
-      />
+    <ControllerStage
+      pref={layoutPref()}
+      supportedOrientations={supportedOrientations()}
+      joined={joined()}
+      style={shellStyle()}
+      onResolved={(resolved) => setOrientationOk(resolved.supported)}
+    >
+      <div class="top-bar">
+        <header class="mast">
+          <p class="room-code">
+            {room === '' ? '----' : room}
+            <span class="rev">REV {CONTROLLER_REV}</span>
+          </p>
+          <Show when={view() === null}>
+            <PlayerBadge
+              name={name().trim() === '' ? 'OPEN' : name().trim()}
+              label={slot() < 0 ? 'P-' : `P${slot() + 1}`}
+            />
+          </Show>
+        </header>
+        <OrientationToggle
+          value={layoutPref()}
+          disabled={view() !== null}
+          onChange={onOrientationChange}
+        />
+        <PreflightStrip
+          power={power()}
+          powerReady={powerReady()}
+          cores={cores()}
+          rttMs={rttMs()}
+          jitterMs={jitterMs()}
+          orientationOk={orientationOk()}
+        />
+      </div>
       <Show when={notice() !== ''}>
         <p class="notice">{notice()}</p>
       </Show>
-      <Show when={!joined() && room !== ''}>
-        <div class="join-row">
-          <input
-            class="name-field"
-            placeholder="NAME"
-            maxlength={16}
-            autocomplete="off"
-            value={name()}
-            onInput={(event) => setName(event.currentTarget.value)}
-          />
-          <ArcadeButton
-            label="JOIN"
-            onPressedChange={onJoin}
-          />
-        </div>
-      </Show>
       <Show when={view() === null}>
-        <GameCard title="NO GAME" detail="WAITING" />
-        <div class="pad">
-          <VirtualJoystick label="MOVE" onAxes={sendAxes} />
-          <SwipeZone label="SWIPE" />
-        </div>
-        <div class="actions">
-          <ArcadeButton label="BUTTON" onPressedChange={sendButton} />
-          <ArcadeButton
-            label="STATUS"
-            onPressedChange={(pressed) => {
-              if (!pressed) setModal(true);
-            }}
-          />
+        <div class="lobby-body">
+          <div class="lobby-meta">
+            <Show when={!joined() && room !== ''}>
+              <div class="join-row">
+                <input
+                  class="name-field"
+                  placeholder="NAME"
+                  maxlength={16}
+                  autocomplete="off"
+                  value={name()}
+                  onInput={(event) => setName(event.currentTarget.value)}
+                />
+                <ArcadeButton
+                  label="JOIN"
+                  onPressedChange={onJoin}
+                />
+              </div>
+            </Show>
+            <GameCard title="NO GAME" detail="WAITING" />
+            <div class="actions">
+              <ArcadeButton label="BUTTON" onPressedChange={sendButton} />
+              <ArcadeButton
+                label="STATUS"
+                onPressedChange={(pressed) => {
+                  if (!pressed) setModal(true);
+                }}
+              />
+            </div>
+          </div>
+          <div class="pad">
+            <VirtualJoystick label="MOVE" onAxes={sendAxes} />
+            <SwipeZone label="SWIPE" />
+          </div>
         </div>
       </Show>
       <Show when={view()} keyed>
@@ -296,7 +338,7 @@ export const App: VoidComponent = () => {
         body={modalBody(cores(), powerReady(), power())}
         onClose={() => setModal(false)}
       />
-    </main>
+    </ControllerStage>
   );
 };
 

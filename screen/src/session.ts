@@ -369,6 +369,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
+      send({
+        type: 'game:mount',
+        payload: { gameId: selectedId, manifest: game.manifest, players },
+      });
       send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
       startFrames();
@@ -383,6 +387,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
+      send({
+        type: 'game:mount',
+        payload: { gameId: selectedId, manifest: game.manifest, players },
+      });
       send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
       send({ type: 'sumo:rematch', payload: { action: 'restart' } });
