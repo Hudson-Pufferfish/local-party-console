@@ -38,7 +38,7 @@
   display: flex;
 }
 
-/* Preset 1: stick-1 (single dock button) */
+/* Preset 1: stick-single (single dock button) */
 .dock-preset-single {
   position: relative;
   display: grid;

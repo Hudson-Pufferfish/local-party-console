@@ -5,7 +5,7 @@ import { ControllerShell } from '../../shared/src/ui/index.tsx';
 
 describe('ControllerShell', () => {
   const singleLayout: ControllerLayout = {
-    preset: 'stick-1',
+    preset: 'stick-single',
     buttons: [
       {
         bit: 0,
@@ -27,7 +27,7 @@ describe('ControllerShell', () => {
     ],
   };
 
-  test('renders stick-1 preset with joystick, dock button, and custom HUD', () => {
+  test('renders stick-single preset with joystick, dock button, and custom HUD', () => {
     const html = renderToString(() => (
       <ControllerShell
         color="#FF4D00"

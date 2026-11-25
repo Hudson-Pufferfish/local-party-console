@@ -105,7 +105,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
         <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
 
         <div class="controller-shell-actions">
-          <Show when={props.layout.preset === 'stick-1'}>
+          <Show when={props.layout.preset === 'stick-single'}>
             {(() => {
               const spec = props.layout.buttons[0];
               const bit = spec.bit;

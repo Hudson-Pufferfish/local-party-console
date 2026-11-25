@@ -16,7 +16,7 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
   },
   supportedOrientations: ['portrait', 'landscape'],
   controllerLayout: {
-    preset: 'stick-1',
+    preset: 'stick-single',
     buttons: [
       {
         bit: 0,

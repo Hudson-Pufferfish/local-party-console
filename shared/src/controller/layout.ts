@@ -15,7 +15,7 @@ export interface ButtonSpec {
 
 export type ControllerLayout =
   | {
-      readonly preset: 'stick-1';
+      readonly preset: 'stick-single';
       readonly buttons: readonly [ButtonSpec];
     }
   | {
