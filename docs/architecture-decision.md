@@ -16,19 +16,42 @@ This document records durable architectural decisions for `local-party-console`.
 - **Status:** Accepted
 - **Date:** 2026-11-24
 
-### 1. The Human Problem: "Why can't my phone connect to my laptop?"
+### 1. How Normal WebRTC Works (and Why It Fails in a Living Room)
 
-When 8 friends sit in a living room to play a party game on a TV or laptop screen, they scan a QR code with their phones. We want zero-latency touch controls without installing an App Store app.
+Standard WebRTC was engineered for video calls (like Google Meet or Discord) between two users across the open internet behind different home routers (NATs):
 
-Standard WebRTC is designed for video calls across the internet. When used inside a private living room on local Wi-Fi, it runs into three frustrating problems:
+```
+Standard Internet WebRTC Connection Flow:
+┌──────────────┐         1. "What is my public IP?"        ┌──────────────┐
+│  Browser A   │ ────────────────────────────────────────> │ STUN Server  │ (Cloud)
+│              │ <──────────────────────────────────────── │ (Google/etc) │
+└──────┬───────┘         2. "Your public IP is 74.12.x.x"  └──────────────┘
+       │
+       │ 3. Exchange public IPs via cloud signaling server
+       ▼
+┌──────────────┐
+│  Browser B   │ <==== 4. Establish direct P2P link across the internet ====> Browser A
+└──────────────┘      (Or fallback to a paid cloud TURN relay server if blocked)
+```
 
-1. **The mDNS Privacy Wall:** Modern browsers (Safari on iOS, Chrome on Android/Mac) mask private IP addresses (`192.168.x.x`) with random privacy names like `7f2d39a1-4b1e-4c3a-8b9a.local` unless you grant camera or microphone permissions. Home Wi-Fi routers frequently block or fail to resolve these `.local` names between devices, causing connection timeouts.
-2. **The "Multi-Homed Laptop" Problem:** A developer's MacBook or docked PC often has 5+ active network interfaces: Wi-Fi, Ethernet, Docker bridges, VPNs, and IPv6. WebRTC gathers candidates for all of them. The phone attempts ICE handshakes on dead adapters, adding seconds of lag or picking the wrong network path.
-3. **No Internet Access:** Party games should work in cabins, hotel rooms, or offline routers. Traditional WebRTC relies on external STUN/TURN servers to discover IP addresses. Without internet, STUN requests fail.
+To make that work, standard WebRTC relies on three external building blocks:
+1. **STUN Servers in the Cloud:** Devices send a UDP ping to an external server (`stun.l.google.com`) just to ask: *"What is my public router IP and NAT port?"*
+2. **TURN Relay Servers:** If the router firewall blocks direct peer-to-peer traffic, all audio/video is relayed through a heavy cloud server.
+3. **mDNS Anonymization:** To prevent malicious websites on the internet from discovering your private home IP address (`192.168.1.x`), browsers conceal private LAN IPs behind random `.local` privacy names (e.g. `a7b3...local`) unless the user explicitly grants camera or microphone permissions.
 
 ---
 
-### 2. High-Level Connection Architecture
+### 2. The Living Room Breakdown: Why Standard WebRTC Fails Offline
+
+When 8 friends sit in a living room to play a party game on a TV or laptop screen, standard WebRTC completely falls apart:
+
+1. **No Internet Access:** If you are in a cabin, an offline router, or an airplane, STUN lookups fail immediately. Standard WebRTC refuses to connect.
+2. **The mDNS Privacy Wall:** Because players are playing a web game (not a video call), we do not prompt for camera/mic permissions. Mobile browsers (Safari/Chrome) therefore hide the host's IP behind a `.local` UUID. Most consumer home Wi-Fi routers do not resolve mDNS between wireless clients, causing connection timeouts.
+3. **The "Multi-Homed Laptop" Noise:** A developer's MacBook on a dock gathers 5+ network interfaces (Wi-Fi, Ethernet, Docker, VPN, IPv6). Standard WebRTC attempts ICE handshakes on dead interfaces, adding 5–10 seconds of connection lag.
+
+---
+
+### 3. High-Level Connection Architecture: Zero-Config LAN WebRTC
 
 Instead of relying on cloud STUN servers or asking users for microphone permissions, the local Fastify server tells devices the real LAN IP address, and rewrites the WebRTC handshake (SDP) on the fly:
 
@@ -60,7 +83,7 @@ sequenceDiagram
 
 ---
 
-### 3. Detailed Decision & How It Works
+### 4. Detailed Decision & How It Works
 
 #### A. Direct Host-Tab WebRTC with Zero ICE Servers
 - The primary `/screen` browser tab owns 8 independent `RTCPeerConnection` instances (slots `0..7`).
