@@ -6,8 +6,8 @@ This document records durable architectural decisions for `local-party-console`.
 
 | ID | Title | Status | Date |
 | :--- | :--- | :--- | :--- |
-| [ADR-001](#adr-001-local-only-lan-webrtc--sdp-filtering) | Local-Only LAN WebRTC & SDP Filtering | Accepted | 2026-11-24 |
-| [ADR-002](#adr-002-multi-button-input-loss-protection--toggle-bits) | Multi-Button Input Loss Protection: Toggle Bits vs Rolling Window | Accepted | 2026-11-25 |
+| [ADR-001](#adr-001-local-only-lan-webrtc-sdp-filtering) | Local-Only LAN WebRTC & SDP Filtering | Accepted | 2026-11-24 |
+| [ADR-002](#adr-002-multi-button-input-loss-protection-toggle-bits-vs-rolling-window) | Multi-Button Input Loss Protection: Toggle Bits vs Rolling Window | Accepted | 2026-11-25 |
 
 ---
 

@@ -2,7 +2,7 @@
 
 `shared/src/sdp/` contains the LAN WebRTC SDP filter and the phone QR URL builder for `local-party-console`. The module lets phones on the same Wi-Fi connect directly to the host Chrome tab without STUN, TURN, or internet access.
 
-For the architectural rationale and trade-offs, see [ADR-001 in `docs/architecture-decision.md`](../../../docs/architecture-decision.md#adr-001-local-only-lan-webrtc--sdp-filtering) and [specifications/SPEC.md](../../../specifications/SPEC.md).
+For the architectural rationale and trade-offs, see [ADR-001 in `docs/architecture-decision.md`](../../../docs/architecture-decision.md#adr-001-local-only-lan-webrtc-sdp-filtering) and [specifications/SPEC.md](../../../specifications/SPEC.md).
 
 ## Module Inventory
 
