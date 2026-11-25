@@ -34,6 +34,18 @@
   text-transform: uppercase;
 }
 
+.qr-prompt {
+  margin: 0 0 10px;
+  max-width: 100%;
+  font-family: "Space Grotesk";
+  font-size: clamp(16px, 1.3dvw, 18px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ink, #111111);
+}
+
 .qr {
   display: block;
   box-sizing: border-box;

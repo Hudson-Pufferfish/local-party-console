@@ -59,6 +59,10 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   expect(primaryHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
   expect(primaryHtml).toContain('class="key game-key"');
   expect(primaryHtml).toContain('data-selected="true"');
+  expect(primaryHtml).toContain('class="qr-prompt"');
+  expect(primaryHtml).toContain('SCAN QR TO JOIN THE GAME');
+  expect(primaryHtml.indexOf('class="code"')).toBeLessThan(primaryHtml.indexOf('SCAN QR TO JOIN THE GAME'));
+  expect(primaryHtml.indexOf('SCAN QR TO JOIN THE GAME')).toBeLessThan(primaryHtml.indexOf('class="qr"'));
   expect(primaryHtml).toContain('class="hint"');
   expect(primaryHtml).toContain('REMINDER:');
   expect(primaryHtml).toContain('Keep phone rotation locked ON');
@@ -84,12 +88,14 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   const kickHoverBlock = lobbyCss.match(/\.player-kick:hover\s*\{[^}]*\}/)?.[0] ?? '';
   const gameSelectedBlock = lobbyCss.match(/\.game-key\[data-selected="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
   const startBlock = lobbyCss.match(/\.start\s*\{[^}]*\}/)?.[0] ?? '';
+  const qrPromptBlock = lobbyCss.match(/\.qr-prompt\s*\{[^}]*\}/)?.[0] ?? '';
   expect(kickBlock).toContain('var(--player-color');
   expect(kickBlock).toContain('var(--player-ink');
   expect(kickHoverBlock).toContain('var(--player-color');
   expect(kickHoverBlock).not.toContain('--theme-yellow');
   expect(gameSelectedBlock).toContain('background: var(--theme-yellow)');
   expect(startBlock).toContain('background: var(--theme-yellow)');
+  expect(qrPromptBlock).toContain('text-transform: uppercase');
   expect(lobbyCss).toContain('max-width: var(--lobby-max-w)');
   expect(lobbyCss).toContain('repeat(3, minmax(0, 1fr))');
   expect(lobbyCss).toContain('repeat(2, minmax(0, 1fr))');

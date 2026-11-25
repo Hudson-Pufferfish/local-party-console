@@ -36,6 +36,7 @@ export const Lobby: VoidComponent<{
         <Show when={props.sdpWarning}>
           <p class="notice">SDP // NO LAN CANDIDATE</p>
         </Show>
+        <p class="qr-prompt">SCAN QR TO JOIN THE GAME</p>
         <canvas
           ref={(el) => props.onQr(el)}
           class="qr"
