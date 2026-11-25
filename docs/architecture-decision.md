@@ -328,7 +328,8 @@ Time 50ms:   Player is idling.
    - Byte 5 is packed as: `(toggleBits << 4) | (heldBits & 0x0F)`.
 2. **Host (`screen/src/host-loop.ts`):**
    - Store `lastToggles: u8` per player slot.
-   - On each arriving packet accepted by `seqAccepted()`:
+   - **First-Packet Baseline Rule:** On a slot's very first accepted packet (`saw[slot] === 0` or after `clearSeq`), adopt the incoming toggles directly as the initial baseline without computing an edge diff. This prevents phantom presses on match restarts (when the host resets but the phone retained toggles from the previous match) and on phone rejoins.
+   - On subsequent packets accepted by `seqAccepted()`:
      - Detect new taps: `taps = (packet.buttons >> 4) ^ lastToggles`.
      - Latch taps and held buttons into the 120Hz physics simulation tick.
      - Update `lastToggles = packet.buttons >> 4`.

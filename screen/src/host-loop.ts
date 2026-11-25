@@ -125,11 +125,27 @@ export function createHostLoop(
     if (!seqAccepted(stored < 0 ? null : stored, seq)) return false;
     const incomingHeld = buttons & 0x0f;
     const incomingToggles = (buttons >> 4) & 0x0f;
-    const priorHeld = saw[slot] === 1 ? (lastButtons[slot] ?? 0) : 0;
-    const priorToggles = saw[slot] === 1 ? (lastToggles[slot] ?? 0) : 0;
+
+    if (saw[slot] === 0) {
+      // First packet baseline: adopt incoming toggles without counting as edge flips
+      // to prevent phantom presses across match restarts or phone rejoins.
+      lastButtons[slot] = incomingHeld;
+      lastToggles[slot] = incomingToggles;
+      latch[slot] = incomingHeld;
+      maskHold[slot] = 0;
+      lastAxisX[slot] = axisX;
+      lastAxisY[slot] = axisY;
+      lastAt[slot] = now;
+      lastSeq[slot] = seq;
+      saw[slot] = 1;
+      return true;
+    }
+
+    const priorHeld = lastButtons[slot] ?? 0;
+    const priorToggles = lastToggles[slot] ?? 0;
 
     // Detect new presses via toggle bit changes:
-    const toggleFlips = saw[slot] === 1 ? (incomingToggles ^ priorToggles) : incomingToggles;
+    const toggleFlips = incomingToggles ^ priorToggles;
     // Also detect direct 0->1 rising edges on held state:
     const directRising = incomingHeld & ~priorHeld;
     const newEdges = toggleFlips | directRising;
@@ -146,13 +162,13 @@ export function createHostLoop(
     lastAxisY[slot] = axisY;
     lastAt[slot] = now;
     lastSeq[slot] = seq;
-    saw[slot] = 1;
     return true;
   }
 
   function clearSeq(slot: number): void {
     if (slot < 0 || slot > 7) return;
     lastSeq[slot] = -1;
+    saw[slot] = 0;
   }
 
   function setConnectedMask(mask: number): void {
