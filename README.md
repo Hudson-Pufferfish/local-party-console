@@ -4,6 +4,10 @@ Local party shell for this Mac. The host is an Apple Silicon M5 Pro MacBook, 16 
 
 Screen and controller are SolidJS. The relay is Fastify on port 8443.
 
+## Architecture Decisions
+
+Durable platform choices, network protocols, and trade-offs are documented in [docs/architecture-decision.md](docs/architecture-decision.md).
+
 ## Quick Start / Setup
 
 From the repo root. Node 22 (`/.nvmrc`). Use corepack's pnpm.
