@@ -48,7 +48,7 @@ test('HolisticMatchShell renders holistic match frame and gates exit, score rule
   expect(activePrimaryHtml).toContain('<section class="match" data-game="sumo-dash">');
   expect(activePrimaryHtml).toContain('class="match-rejoin"');
   expect(activePrimaryHtml).toContain('class="match-exit"');
-  expect(activePrimaryHtml).toContain('<p class="hud">ROUND 1</p>');
+  expect(activePrimaryHtml).toContain('<p class="match-banner">ROUND 1</p>');
   expect(activePrimaryHtml).toContain('class="score-rules"');
   expect(activePrimaryHtml).toContain('<canvas width="800" height="800"></canvas>');
   expect(activePrimaryHtml).toContain('class="scoreboard-panel"');

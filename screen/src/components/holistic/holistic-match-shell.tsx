@@ -33,7 +33,7 @@ export const HolisticMatchShell: VoidComponent<HolisticMatchShellProps> = (props
         manifest={props.manifest}
         onConfirm={() => props.onExit()}
       />
-      <p class="hud">{props.banner}</p>
+      <p class="match-banner">{props.banner}</p>
       <Show when={props.scoreRules}>
         {(rules) => <ScoreRulesPanel rules={rules()} />}
       </Show>

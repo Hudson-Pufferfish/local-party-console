@@ -11,7 +11,7 @@
   row-gap: 16px;
 }
 
-.hud {
+.match-banner {
   grid-column: 1 / -1;
   grid-row: 1;
   justify-self: center;
@@ -280,7 +280,7 @@
     column-gap: 0;
   }
 
-  .hud,
+  .match-banner,
   .match .score-rules,
   .match > canvas,
   .match .scoreboard-panel,
