@@ -107,3 +107,37 @@ test('HostLoop forwards setConnectedMask to ScreenSim when implemented and is a 
   const sumoLoop = createHostLoop(createSumoSimulation(), undefined, () => {});
   expect(() => sumoLoop.setConnectedMask(0b0000_0011)).not.toThrow();
 });
+
+test('createHostLoop copies optional auxState into auxSnapshot each tick and returns null when absent', () => {
+  const plainSim = createSumoSimulation();
+  const plainLoop = createHostLoop(plainSim, undefined, () => {});
+  expect(plainLoop.auxSnapshot).toBeNull();
+
+  const auxState = new Uint8Array(16);
+  const state = new Float32Array(88);
+  let steps = 0;
+  const auxSim: ScreenSim = {
+    state,
+    auxState,
+    applyInput() {},
+    startMatch() {
+      auxState.fill(0);
+      auxState[0] = 3;
+    },
+    step() {
+      steps += 1;
+      auxState[steps % 16] = (steps % 8) + 1;
+    },
+  };
+  const auxLoop = createHostLoop(auxSim, undefined, () => {});
+  expect(auxLoop.auxSnapshot).toBeInstanceOf(Uint8Array);
+  expect(auxLoop.auxSnapshot?.byteLength).toBe(16);
+  auxLoop.startMatch([0, 1]);
+  expect(auxLoop.auxSnapshot?.[0]).toBe(3);
+
+  const count = auxLoop.tick(16, 16);
+  expect(count).toBeGreaterThan(0);
+  expect(Array.from(auxLoop.auxSnapshot ?? [])).toEqual(Array.from(auxState));
+  expect(auxLoop.auxSnapshot).not.toBe(auxState);
+});
+});

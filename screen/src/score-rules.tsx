@@ -59,6 +59,17 @@ export const ScoreboardPanel: VoidComponent<{
                   {row().status}
                 </span>
               </Show>
+              <Show when={row().ratio !== undefined}>
+                <span class="score-bar" aria-hidden="true">
+                  <span
+                    class="score-bar-fill"
+                    style={{
+                      width: `${clampRatio(row().ratio ?? 0) * 100}%`,
+                      'background-color': row().color,
+                    }}
+                  />
+                </span>
+              </Show>
             </li>
           )}
         </For>
@@ -66,3 +77,9 @@ export const ScoreboardPanel: VoidComponent<{
     </div>
   );
 };
+
+function clampRatio(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}

@@ -1,0 +1,94 @@
+.color-board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-orientation='landscape'] .color-board {
+  gap: 6px;
+}
+
+.color-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.color-splash {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  background: var(--player-color, #ff4d00);
+  border: 2.5px solid var(--ink-primary, #111111);
+  box-shadow: 0px 3px 0px var(--ink-primary, #111111);
+}
+
+.color-splash[data-boost='true'] {
+  border-color: var(--accent-boost, #f5c518);
+  box-shadow: 0px 3px 0px var(--accent-boost, #f5c518);
+}
+
+.color-bar .player-badge {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.color-readout {
+  margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.color-hands .joystick,
+.boost-dock {
+  height: 100%;
+  min-height: 0;
+}
+
+.boost-dock {
+  position: relative;
+  display: grid;
+}
+
+.boost-dock .arcade-button {
+  height: 100%;
+  padding: 16px;
+}
+
+.boost-meter {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 12px;
+  background: var(--accent-ready, #00c853);
+  border-top: 2px solid var(--ink-primary, #111111);
+  transform: scaleX(1);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.boost-meter[data-state='boosting'] {
+  background: var(--accent-boost, #f5c518);
+  transform: scaleX(0);
+  transition: transform 3s linear;
+}
+
+.boost-meter[data-state='recharge'] {
+  background: var(--ink-primary, #111111);
+  transform: scaleX(1);
+  transition: transform 5s linear;
+}

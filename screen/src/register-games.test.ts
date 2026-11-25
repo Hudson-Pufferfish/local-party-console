@@ -52,6 +52,7 @@ test('register-games keeps only manifests eager and deduplicates lazy runtime lo
 
   const manifests = listScreenManifests();
   expect(manifests.some((m) => m.id === 'sumo-dash')).toBe(true);
+  expect(manifests.some((m) => m.id === 'color-clash')).toBe(true);
 
   let calls = 0;
   let shouldFail = true;

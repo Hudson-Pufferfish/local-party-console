@@ -1,22 +1,19 @@
 import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
+import { COLOR_CLASH_MANIFEST } from '../../games/color-clash/src/manifest.ts';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import { GameRegistry } from '../../shared/src/registry.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
-import type { BotLevels, WriteBotInput } from './bot-fill.ts';
-import type { ScreenSim } from './host-loop.ts';
-
-export interface ArenaRenderer {
-  draw(): void;
-  destroy(): void;
-}
+import type { ArenaRenderer, BotLevels, ScreenSim, WriteBotInput } from './types.ts';
 
 export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
-  readonly name: string;
-  readonly score: number | string;
+  readonly name?: string;
+  readonly score?: number | string;
+  readonly text?: string;
   readonly status?: 'LIVE' | 'AWAY';
+  readonly ratio?: number;
 }
 
 export interface ScoreRuleRow {
@@ -29,7 +26,7 @@ export interface ScoreRules {
 }
 
 export interface ScreenGameRuntime {
-  createSim: () => ScreenSim;
+  createSim(): ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array) => Envelope[];
   createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
@@ -71,25 +68,26 @@ export function createScreenGameLoader(entries: readonly ScreenGameEntry[] = [])
   function load(id: string): Promise<ScreenGameRuntime> {
     const cached = loaded.get(id);
     if (cached !== undefined) return Promise.resolve(cached);
+
     const pending = inflight.get(id);
     if (pending !== undefined) return pending;
+
     const entry = registryMap.get(id);
     if (entry === undefined) {
-      return Promise.reject(new Error(`unknown screen game: ${id}`));
+      return Promise.reject(new Error(`Unknown game: ${id}`));
     }
-    const next = entry.load().then(
-      (runtime) => {
-        loaded.set(id, runtime);
-        inflight.delete(id);
-        return runtime;
-      },
-      (error: unknown) => {
-        inflight.delete(id);
-        throw error;
-      },
-    );
-    inflight.set(id, next);
-    return next;
+
+    const promise = entry.load().then((runtime) => {
+      loaded.set(id, runtime);
+      inflight.delete(id);
+      return runtime;
+    }, (error: unknown) => {
+      inflight.delete(id);
+      throw error;
+    });
+
+    inflight.set(id, promise);
+    return promise;
   }
 
   return {
@@ -104,15 +102,10 @@ export function createScreenGameLoader(entries: readonly ScreenGameEntry[] = [])
     },
     load,
     preload(id: string): void {
-      if (!registryMap.has(id) || loaded.has(id) || inflight.has(id)) return;
-      void load(id).catch(() => undefined);
+      void load(id).catch(() => {});
     },
     listManifests(): GameManifest[] {
-      const registry = new GameRegistry();
-      for (const entry of registryMap.values()) {
-        registry.register(entry.manifest);
-      }
-      return registry.list();
+      return Array.from(registryMap.values()).map((entry) => entry.manifest);
     },
   };
 }
@@ -125,7 +118,11 @@ export interface StartGuardOptions {
 
 export interface StartGuard {
   readonly loading: boolean;
-  run(id: string, canLaunch: () => boolean, launch: (runtime: ScreenGameRuntime) => void): Promise<boolean>;
+  run: (
+    id: string,
+    canLaunch: () => boolean,
+    launch: (runtime: ScreenGameRuntime) => void,
+  ) => Promise<boolean>;
 }
 
 export function createStartGuard(options: StartGuardOptions): StartGuard {
@@ -173,8 +170,21 @@ export const screenGames = createScreenGameLoader([
       return mod.createBombPassScreenRuntime();
     },
   },
+  {
+    manifest: COLOR_CLASH_MANIFEST,
+    load: async () => {
+      const mod = await import('../../games/color-clash/src/screen-runtime.ts');
+      return mod.createColorClashScreenRuntime();
+    },
+  },
 ]);
 
 export function listScreenManifests(): GameManifest[] {
   return screenGames.listManifests();
 }
+
+export const GAME_REGISTRY = new GameRegistry([
+  SUMO_DASH_MANIFEST,
+  BOMB_PASS_MANIFEST,
+  COLOR_CLASH_MANIFEST,
+]);

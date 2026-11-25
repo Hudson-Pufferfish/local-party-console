@@ -12,6 +12,7 @@ const PHASE_MATCH_OVER = 3;
 
 export interface ScreenSim {
   readonly state: Float32Array;
+  readonly auxState?: Uint8Array;
   applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void;
   step(dt: number): void;
   startMatch(slots: number[]): void;
@@ -24,6 +25,7 @@ export interface HostLoop {
   readonly matchOver: boolean;
   readonly state: Float32Array;
   readonly snapshot: Float32Array;
+  readonly auxSnapshot: Uint8Array | null;
   startMatch(slots: readonly number[]): void;
   release(): void;
   accept(slot: number, seq: number, buttons: number, axisX: number, axisY: number, now: number): boolean;
@@ -57,6 +59,9 @@ export function createHostLoop(
   const next = new Float32Array(SNAPSHOT_FLOATS);
   const bytes = new ArrayBuffer(SNAPSHOT_BYTES);
   const snapshot = new Float32Array(bytes);
+  const auxSize = sim.auxState?.byteLength ?? 0;
+  const auxBytes = auxSize > 0 ? new ArrayBuffer(auxSize) : null;
+  const auxSnapshot = auxBytes !== null ? new Uint8Array(auxBytes) : null;
   let epoch = 0;
   let inMatch = false;
   let accumulator = 0;
@@ -66,6 +71,9 @@ export function createHostLoop(
     const state = sim.state;
     for (let index = 0; index < SNAPSHOT_FLOATS; index += 1) {
       snapshot[index] = state[index] ?? 0;
+    }
+    if (auxSnapshot !== null && sim.auxState !== undefined) {
+      auxSnapshot.set(sim.auxState);
     }
   }
 
@@ -198,6 +206,7 @@ export function createHostLoop(
       return sim.state;
     },
     snapshot,
+    auxSnapshot,
     startMatch,
     release,
     accept,

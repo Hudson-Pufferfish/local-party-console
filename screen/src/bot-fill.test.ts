@@ -259,3 +259,25 @@ it('rosterForStart assigns lowest-available unique P{X} bot names avoiding human
   const rosterD = rosterForStart([named(0, 'ALICE'), named(1, 'P1')], SUMO, 2);
   expect(rosterD?.botNames).toEqual(['', '', 'P2', 'P3', '', '', '', '']);
 });
+
+it('createBotFill forwards sim.auxState to writeBotInput', () => {
+  const auxState = new Uint8Array(16);
+  auxState[5] = 7;
+  let seenAux: Uint8Array | undefined;
+  const fill = createBotFill((_state, slot, axisX, _axisY, _buttons, _level, aux) => {
+    seenAux = aux;
+    axisX[slot] = 64;
+  });
+  fill.arm(new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]));
+  let appliedX = 0;
+  const sim = {
+    state: new Float32Array(88),
+    auxState,
+    applyInput(_slot: number, _buttons: number, x: number) {
+      appliedX = x;
+    },
+  };
+  expect(fill.fill(1, sim)).toBe(true);
+  expect(seenAux).toBe(auxState);
+  expect(appliedX).toBe(64);
+});

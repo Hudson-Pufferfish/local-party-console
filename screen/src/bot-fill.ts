@@ -144,6 +144,7 @@ export function rosterForStart(
 
 export interface BotFillSim {
   readonly state: Float32Array;
+  readonly auxState?: Uint8Array;
   applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void;
 }
 
@@ -154,6 +155,7 @@ export type WriteBotInput = (
   axisY: Int8Array,
   buttons: Uint8Array,
   level?: number,
+  auxState?: Uint8Array,
 ) => void;
 
 export type BotLevels = (mask: Uint8Array, difficulty?: BotDifficulty) => Uint8Array;
@@ -183,7 +185,9 @@ export function createBotFill(write: WriteBotInput, levelsFor?: BotLevels): BotF
       if (botMask[slot] !== 1) return false;
       const stored = levelBySlot[slot] ?? 0;
       const level = stored === 0 ? undefined : stored;
-      if ((sim.state[0] & 1) === 0) write(sim.state, slot, axisX, axisY, buttons, level);
+      if ((sim.state[0] & 1) === 0) {
+        write(sim.state, slot, axisX, axisY, buttons, level, sim.auxState);
+      }
       sim.applyInput(slot, buttons[slot] ?? 0, axisX[slot] ?? 0, axisY[slot] ?? 0);
       return true;
     },

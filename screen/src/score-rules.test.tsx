@@ -89,3 +89,27 @@ test('MatchRejoinQr renders compact top-left rejoin QR panel labeled SCAN TO REJ
   expect(matchCss).not.toMatch(/\.match\s+canvas\s*\{/);
   expect(matchCss).not.toContain('backdrop-filter');
 });
+
+test('ScoreboardPanel renders optional solid coverage bar only when row.ratio is defined', () => {
+  const withBarHtml = renderToString(() => (
+    <ScoreboardPanel
+      header="TIME 00:45"
+      rows={[
+        { slot: 0, color: '#FF4D00', name: 'HUDSON', score: '34.2%', ratio: 0.342, status: 'LIVE' },
+        { slot: 1, color: '#00C853', name: 'BOT1', score: '12.5%', ratio: 0.125 },
+      ]}
+    />
+  ));
+  expect(withBarHtml).toContain('class="score-bar"');
+  expect(withBarHtml).toContain('class="score-bar-fill"');
+  expect(withBarHtml).toContain('width:34.2%');
+  expect(withBarHtml).toContain('background-color:#FF4D00');
+
+  const noBarHtml = renderToString(() => (
+    <ScoreboardPanel
+      header="THRESHOLD: 9"
+      rows={[{ slot: 0, color: '#FF4D00', name: 'HUDSON', score: 4 }]}
+    />
+  ));
+  expect(noBarHtml).not.toContain('class="score-bar"');
+});

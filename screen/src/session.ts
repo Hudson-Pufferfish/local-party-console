@@ -104,10 +104,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let activeRuntime: ScreenGameRuntime | null = null;
   let loopGameId = '';
   let botLobby = createBotLobby();
-  const bots = createBotFill((state, botIndex, axisX, axisY, buttons, level) => {
+  const bots = createBotFill((state, botIndex, axisX, axisY, buttons, level, auxState) => {
     const writer = activeRuntime?.writeBotInput;
     if (writer === undefined) return;
-    writer(state, botIndex, axisX, axisY, buttons, level);
+    writer(state, botIndex, axisX, axisY, buttons, level, auxState);
   }, (mask, difficulty) => {
     const levels = activeRuntime?.botLevels;
     if (levels === undefined) return new Uint8Array(8);
@@ -125,14 +125,20 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const queue: string[] = [];
   const publishBytes = new ArrayBuffer(SNAPSHOT_BYTES);
   const publishView = new Uint8Array(publishBytes);
+  let publishAuxBytes: ArrayBuffer | null = null;
+  let publishAuxView: Uint8Array | null = null;
   const connected = new Uint8Array(8);
   const activeBotMask = new Uint8Array(8);
   const mirror = new Float32Array(88);
+  let mirrorAux: Uint8Array | null = null;
   let lastScoreHeader = '';
   let lastScoreRows: ScoreRow[] = [];
   let lastScoreRules: ScoreRules | null = null;
   let seenEpoch = -1;
-  const snapMessage = { epoch: 0, bytes: publishBytes };
+  const snapMessage: { epoch: number; bytes: ArrayBuffer; auxBytes?: ArrayBuffer } = {
+    epoch: 0,
+    bytes: publishBytes,
+  };
   let channel: BroadcastChannel | null = null;
   let simLock: TabLockHandle | null = null;
   let antiNapLock: TabLockHandle | null = null;
@@ -248,10 +254,17 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const runtime = currentRuntime();
     if (runtime?.createRenderer === undefined) return;
     const canvas = matchCanvas;
-    renderer = runtime.createRenderer(canvas, () => {
-      if (primary && loop !== null) return loop.state;
-      return mirror;
-    });
+    renderer = runtime.createRenderer(
+      canvas,
+      () => {
+        if (primary && loop !== null) return loop.state;
+        return mirror;
+      },
+      () => {
+        if (primary && loop !== null) return loop.auxSnapshot;
+        return mirrorAux;
+      },
+    );
   }
 
   function scoreNames(): string[] {
@@ -312,6 +325,17 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     if (loop === null || channel === null) return;
     const source = new Uint8Array(loop.snapshot.buffer, loop.snapshot.byteOffset, SNAPSHOT_BYTES);
     publishView.set(source);
+    const aux = loop.auxSnapshot;
+    if (aux !== null && aux.byteLength > 0) {
+      if (publishAuxBytes === null || publishAuxBytes.byteLength !== aux.byteLength) {
+        publishAuxBytes = new ArrayBuffer(aux.byteLength);
+        publishAuxView = new Uint8Array(publishAuxBytes);
+      }
+      publishAuxView?.set(aux);
+      snapMessage.auxBytes = publishAuxBytes;
+    } else {
+      snapMessage.auxBytes = undefined;
+    }
     snapMessage.epoch = loop.epoch;
     channel.postMessage(snapMessage);
     paintMatch();
@@ -437,6 +461,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     loop?.release();
     stopFrames();
     destroyRenderer();
+    mirrorAux = null;
+    publishAuxBytes = null;
+    publishAuxView = null;
+    snapMessage.auxBytes = undefined;
     matchCanvas = null;
     matchCtx = null;
     handlers.setMatch(false);
@@ -602,10 +630,18 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     channel = new BroadcastChannel(`party-snap-${room}`);
     channel.onmessage = (event: MessageEvent) => {
       if (primary) return;
-      const data = event.data as { epoch?: unknown; bytes?: unknown };
+      const data = event.data as { epoch?: unknown; bytes?: unknown; auxBytes?: unknown };
       if (typeof data.epoch !== 'number' || !(data.bytes instanceof ArrayBuffer)) return;
-      if (data.epoch <= seenEpoch || data.bytes.byteLength < SNAPSHOT_BYTES) return;
+      if (data.epoch < seenEpoch || data.bytes.byteLength < SNAPSHOT_BYTES) return;
       mirror.set(new Float32Array(data.bytes, 0, 88));
+      if (data.auxBytes instanceof ArrayBuffer && data.auxBytes.byteLength > 0) {
+        if (mirrorAux === null || mirrorAux.byteLength !== data.auxBytes.byteLength) {
+          mirrorAux = new Uint8Array(data.auxBytes.byteLength);
+        }
+        mirrorAux.set(new Uint8Array(data.auxBytes));
+      } else if (data.auxBytes === undefined) {
+        mirrorAux = null;
+      }
       seenEpoch = data.epoch;
       handlers.setMatch(true);
       handlers.setMatchOver(mirror[1] === 3);
@@ -890,6 +926,7 @@ function sameScoreRows(a: readonly ScoreRow[], b: readonly ScoreRow[]): boolean 
       || left.color !== right.color
       || left.name !== right.name
       || left.score !== right.score
+      || left.ratio !== right.ratio
       || left.status !== right.status
     ) {
       return false;

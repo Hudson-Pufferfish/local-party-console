@@ -1,0 +1,201 @@
+import { createEffect, createSignal, onCleanup, type VoidComponent } from 'solid-js';
+import { normalizeName } from '../../../shared/src/name-service.ts';
+import { playerStyleVars } from '../../../shared/src/theme.ts';
+import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
+import './controller-view.css';
+
+export type BoostUiState = 'ready' | 'boosting' | 'recharge';
+
+export function formatColorReadout(
+  pct: number,
+  boostState: BoostUiState,
+  overtime: boolean,
+  watching = false,
+): string {
+  const safePct = Number.isFinite(pct) && pct > 0 ? pct : 0;
+  let status = 'READY';
+  if (watching) status = 'WATCHING';
+  else if (boostState === 'boosting') status = 'BOOSTING';
+  else if (boostState === 'recharge') status = 'RECHARGE';
+  else if (overtime) status = 'OVERTIME';
+  return `${safePct.toFixed(1)}% · ${status}`;
+}
+
+export const ColorClashController: VoidComponent<{
+  color: string;
+  name: string;
+  slot: number;
+  control: { type: string; payload: unknown } | null;
+  onAxes: (x: number, y: number, timeStamp: number) => void;
+  onButton: (down: boolean, timeStamp: number) => void;
+}> = (props) => {
+  const [pct, setPct] = createSignal(0);
+  const [boostState, setBoostState] = createSignal<BoostUiState>('ready');
+  const [overtime, setOvertime] = createSignal(false);
+  const [watching, setWatching] = createSignal(false);
+
+  let activeTimer: ReturnType<typeof setTimeout> | null = null;
+  let coolTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearTimers(): void {
+    if (activeTimer !== null) {
+      clearTimeout(activeTimer);
+      activeTimer = null;
+    }
+    if (coolTimer !== null) {
+      clearTimeout(coolTimer);
+      coolTimer = null;
+    }
+  }
+
+  function startBoostCycle(activeMs = 3000, cooldownMs = 8000): void {
+    clearTimers();
+    const rechargeMs = Math.max(0, cooldownMs - activeMs);
+    setBoostState('boosting');
+    activeTimer = setTimeout(() => {
+      activeTimer = null;
+      if (rechargeMs <= 0) {
+        setBoostState('ready');
+        return;
+      }
+      setBoostState('recharge');
+      coolTimer = setTimeout(() => {
+        coolTimer = null;
+        setBoostState('ready');
+      }, rechargeMs);
+    }, activeMs);
+  }
+
+  onCleanup(clearTimers);
+
+  createEffect(() => props.control, (message) => {
+    if (message === null) return;
+    if (message.type === 'color:haptic') {
+      const target = readIndex(message.payload);
+      if (target === null || target === props.slot) {
+        buzz(message.payload);
+      }
+      return;
+    }
+    if (message.type === 'color:match_start') {
+      clearTimers();
+      setPct(0);
+      setBoostState('ready');
+      setOvertime(false);
+      setWatching(false);
+      return;
+    }
+    if (message.type === 'color:boost') {
+      const index = readIndex(message.payload);
+      if (index === props.slot) {
+        const activeMs = readNumber(message.payload, 'activeMs', 3000);
+        const cooldownMs = readNumber(message.payload, 'cooldownMs', 8000);
+        startBoostCycle(activeMs, cooldownMs);
+      }
+      return;
+    }
+    if (message.type === 'color:scores') {
+      const percents = readPercents(message.payload);
+      if (percents !== null && props.slot >= 0 && props.slot < 8) {
+        setPct(percents[props.slot] ?? 0);
+      }
+      return;
+    }
+    if (message.type === 'color:overtime') {
+      clearTimers();
+      setBoostState('ready');
+      setOvertime(true);
+      const mask = readNumber(message.payload, 'contenderMask', 0xff);
+      const isContender = props.slot >= 0 && props.slot < 8 && (mask & (1 << props.slot)) !== 0;
+      setWatching(!isContender);
+      return;
+    }
+    if (message.type === 'color:match_end') {
+      clearTimers();
+      setBoostState('ready');
+      const percents = readPercents(message.payload);
+      if (percents !== null && props.slot >= 0 && props.slot < 8) {
+        setPct(percents[props.slot] ?? 0);
+      }
+    }
+  });
+
+  function onBoost(down: boolean, timeStamp: number): void {
+    if (down && boostState() === 'ready' && !watching()) {
+      startBoostCycle(3000, 8000);
+    }
+    props.onButton(down, timeStamp);
+  }
+
+  const label = (): string => (props.slot < 0 ? 'P-' : `P${props.slot + 1}`);
+  const title = (): string => {
+    const normalized = normalizeName(props.name);
+    return normalized === '' ? 'PLAYER' : normalized;
+  };
+
+  return (
+    <section class="color-board" style={playerStyleVars(props.slot, props.color)}>
+      <header class="color-bar">
+        <span
+          class="color-splash"
+          data-boost={boostState() === 'boosting' ? 'true' : 'false'}
+          aria-hidden="true"
+        />
+        <PlayerBadge name={title()} label={label()} />
+        <p class="color-readout">
+          {formatColorReadout(pct(), boostState(), overtime(), watching())}
+        </p>
+      </header>
+      <div class="controller-hands color-hands">
+        <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
+        <div class="boost-dock">
+          <span class="boost-meter" data-state={boostState()} />
+          <ArcadeButton label="BOOST" onPressedChange={onBoost} />
+        </div>
+      </div>
+    </section>
+  );
+};
+
+function buzz(payload: unknown): void {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  const intensity = readIntensity(payload);
+  if (intensity === 'golden') {
+    navigator.vibrate([25, 40, 40]);
+  } else if (intensity === 'heavy') {
+    navigator.vibrate(25);
+  } else if (intensity === 'light') {
+    navigator.vibrate(15);
+  }
+}
+
+function readIntensity(payload: unknown): string {
+  if (typeof payload !== 'object' || payload === null) return '';
+  const intensity = (payload as { intensity?: unknown }).intensity;
+  return typeof intensity === 'string' ? intensity : '';
+}
+
+function readIndex(payload: unknown): number | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const index = (payload as { playerIndex?: unknown }).playerIndex;
+  if (typeof index !== 'number' || index < 0 || index > 7) return null;
+  return index;
+}
+
+function readNumber(payload: unknown, key: string, fallback: number): number {
+  if (typeof payload !== 'object' || payload === null) return fallback;
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function readPercents(payload: unknown): number[] | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const percents = (payload as { percents?: unknown }).percents;
+  if (!Array.isArray(percents)) return null;
+  const list = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (let index = 0; index < 8; index += 1) {
+    const value = percents[index];
+    list[index] = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  }
+  return list;
+}
