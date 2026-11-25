@@ -1,7 +1,6 @@
 import { createEffect, createSignal, type VoidComponent } from 'solid-js';
-import { normalizeName } from '../../../shared/src/name-service.ts';
-import { playerStyleVars } from '../../../shared/src/theme.ts';
-import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
+import { ControllerShell } from '../../../shared/src/ui/index.tsx';
+import { SUMO_DASH_MANIFEST } from './manifest.ts';
 import './controller-view.css';
 
 export function formatSumoReadout(alive: boolean, score: number): string {
@@ -14,11 +13,10 @@ export const SumoController: VoidComponent<{
   slot: number;
   control: { type: string; payload: unknown } | null;
   onAxes: (x: number, y: number, timeStamp: number) => void;
-  onButton: (down: boolean, timeStamp: number) => void;
+  onButton: (down: boolean, timeStamp: number, bit?: number) => void;
 }> = (props) => {
   const [score, setScore] = createSignal(0);
   const [alive, setAlive] = createSignal(true);
-  const [cool, setCool] = createSignal(false);
 
   createEffect(() => props.control, (message) => {
     if (message === null) return;
@@ -43,37 +41,21 @@ export const SumoController: VoidComponent<{
     }
   });
 
-  function onDash(down: boolean, timeStamp: number): void {
-    if (down && !cool()) setCool(true);
-    props.onButton(down, timeStamp);
-  }
-
-  const label = (): string => (props.slot < 0 ? 'P-' : `P${props.slot + 1}`);
-  const title = (): string => {
-    const normalized = normalizeName(props.name);
-    return normalized === '' ? 'PLAYER' : normalized;
-  };
-
   return (
-    <section class="sumo-board" style={playerStyleVars(props.slot, props.color)}>
-      <header class="sumo-bar">
-        <PlayerBadge name={title()} label={label()} />
+    <ControllerShell
+      color={props.color}
+      name={props.name}
+      slot={props.slot}
+      layout={SUMO_DASH_MANIFEST.controllerLayout!}
+      onAxes={props.onAxes}
+      onButton={(down, timeStamp, bit) => props.onButton(down, timeStamp, bit)}
+      customBoardClass="sumo-board"
+      hud={
         <p class="sumo-readout">
           {formatSumoReadout(alive(), score())}
         </p>
-      </header>
-      <div class="controller-hands sumo-hands">
-        <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
-        <div class="dash-dock">
-          <span
-            class="dash-meter"
-            data-cool={cool() ? 'true' : 'false'}
-            onTransitionEnd={() => setCool(false)}
-          />
-          <ArcadeButton label="DASH" onPressedChange={onDash} />
-        </div>
-      </div>
-    </section>
+      }
+    />
   );
 };
 

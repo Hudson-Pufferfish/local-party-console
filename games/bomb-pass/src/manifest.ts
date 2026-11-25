@@ -15,6 +15,18 @@ export const BOMB_PASS_MANIFEST: GameManifest = {
     inputBufferMode: 'zero-buffer',
   },
   supportedOrientations: ['portrait', 'landscape'],
+  controllerLayout: {
+    preset: 'stick-1',
+    buttons: [
+      {
+        bit: 0,
+        glyph: 'A',
+        label: 'DASH',
+        kind: 'tap',
+        cooldownMs: 1500,
+      },
+    ],
+  },
   themeTokens: {
     '--bg-surface': '#EAE6DF',
     '--ink-primary': '#111111',

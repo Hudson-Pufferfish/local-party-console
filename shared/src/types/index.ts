@@ -15,3 +15,10 @@ export type {
   PlayerSlot,
   ScreenViewTarget,
 } from './game.ts';
+export type {
+  ButtonBit,
+  ButtonGlyph,
+  ButtonKind,
+  ButtonSpec,
+  ControllerLayout,
+} from '../controller/layout.ts';

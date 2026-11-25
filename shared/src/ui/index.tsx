@@ -1,5 +1,6 @@
 export { ArcadeButton } from './arcade-button.tsx';
 export { BotDifficultySelector } from './bot-difficulty-selector.tsx';
+export { ControllerShell, type ControllerShellProps } from './controller-shell.tsx';
 export { GameCard } from './game-card.tsx';
 export { HudModal } from './hud-modal.tsx';
 export {

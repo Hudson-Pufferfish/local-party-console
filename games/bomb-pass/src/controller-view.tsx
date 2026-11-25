@@ -1,7 +1,6 @@
 import { createEffect, createSignal, Show, type VoidComponent } from 'solid-js';
-import { normalizeName } from '../../../shared/src/name-service.ts';
-import { playerStyleVars } from '../../../shared/src/theme.ts';
-import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
+import { ControllerShell } from '../../../shared/src/ui/index.tsx';
+import { BOMB_PASS_MANIFEST } from './manifest.ts';
 import './controller-view.css';
 
 export type BombUrgency = 'none' | 'normal' | 'warn' | 'critical';
@@ -146,12 +145,11 @@ export const BombPassController: VoidComponent<{
   slot: number;
   control: BombControlMessage | null;
   onAxes: (x: number, y: number, timeStamp: number) => void;
-  onButton: (down: boolean, timeStamp: number) => void;
+  onButton: (down: boolean, timeStamp: number, bit?: number) => void;
 }> = (props) => {
   const [hud, setHud] = createSignal<BombHudState>(
     reduceBombControl(createInitialBombHudState(), props.control, props.slot),
   );
-  const [cool, setCool] = createSignal(false);
 
   createEffect(
     () => props.control,
@@ -187,16 +185,6 @@ export const BombPassController: VoidComponent<{
     },
   );
 
-  function onDash(down: boolean, timeStamp: number): void {
-    if (down && !cool()) setCool(true);
-    props.onButton(down, timeStamp);
-  }
-
-  const label = (): string => (props.slot < 0 ? 'P-' : `P${props.slot + 1}`);
-  const title = (): string => {
-    const normalized = normalizeName(props.name);
-    return normalized === '' ? 'PLAYER' : normalized;
-  };
   const statusKind = (): 'bomb' | 'safe' | 'out' => {
     const state = hud();
     if (state.holdingBomb) return 'bomb';
@@ -204,37 +192,38 @@ export const BombPassController: VoidComponent<{
   };
 
   return (
-    <section
-      class="bomb-board"
-      data-bomb={hud().holdingBomb ? 'true' : 'false'}
-      data-urgency={hud().urgency}
-      style={playerStyleVars(props.slot, props.color)}
+    <div
+      class="bomb-pass-wrapper"
+      style={{ display: 'contents' }}
     >
-      <header class="bomb-bar">
-        <PlayerBadge name={title()} label={label()} />
-        <p class="bomb-readout" data-status={statusKind()}>
-          <span class="bomb-led" data-status={statusKind()} aria-hidden="true" />
-          <span>{formatBombReadout(hud())}</span>
-        </p>
-      </header>
+      <ControllerShell
+        color={props.color}
+        name={props.name}
+        slot={props.slot}
+        layout={BOMB_PASS_MANIFEST.controllerLayout!}
+        onAxes={props.onAxes}
+        onButton={(down, timeStamp, bit) => props.onButton(down, timeStamp, bit)}
+        customBoardClass="bomb-board"
+        customBoardAttrs={{
+          'data-bomb': hud().holdingBomb ? 'true' : 'false',
+          'data-urgency': hud().urgency,
+        }}
+        hud={
+          <>
+            <p class="bomb-readout" data-status={statusKind()}>
+              <span class="bomb-led" data-status={statusKind()} aria-hidden="true" />
+              <span>{formatBombReadout(hud())}</span>
+            </p>
+          </>
+        }
+      />
       <Show when={hud().holdingBomb}>
         <div class="bomb-alert" data-urgency={hud().urgency} role="status">
           <span>HOLDING BOMB — PASS IT!</span>
           <span class="bomb-alert-time">{formatBombCountdown(hud().remainingMs)}</span>
         </div>
       </Show>
-      <div class="controller-hands bomb-hands">
-        <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
-        <div class="bomb-dash-dock">
-          <span
-            class="bomb-dash-meter"
-            data-cool={cool() ? 'true' : 'false'}
-            onTransitionEnd={() => setCool(false)}
-          />
-          <ArcadeButton label="DASH" onPressedChange={onDash} />
-        </div>
-      </div>
-    </section>
+    </div>
   );
 };
 
