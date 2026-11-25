@@ -21,7 +21,7 @@ const DIFFICULTIES: readonly BotDifficulty[] = ['easy', 'medium', 'hard'];
 test('exports default difficulty and inclusive /100 ranges', () => {
   expect(DEFAULT_BOT_DIFFICULTY).toBe('medium');
   expect(BOT_DIFFICULTY_RANGES).toEqual({
-    easy: [20, 30],
+    easy: [11, 20],
     medium: [30, 50],
     hard: [50, 70],
   });
@@ -57,9 +57,9 @@ test('assignBotScores is deterministic with a seeded rng and handles edge counts
 
   // Asking for more than the pool size caps cleanly at all distinct pool values.
   const fullEasy = assignBotScores(25, 'easy', mulberry32(7));
-  expect(fullEasy).toHaveLength(11);
+  expect(fullEasy).toHaveLength(10);
   expect(fullEasy.slice().sort((a, b) => a - b)).toEqual([
-    20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
   ]);
 
   // Out-of-bounds rng outputs stay safe, in-range, and strictly distinct.
@@ -68,8 +68,8 @@ test('assignBotScores is deterministic with a seeded rng and handles edge counts
     expect(edge).toHaveLength(3);
     expect(new Set(edge).size).toBe(3);
     for (const score of edge) {
-      expect(score).toBeGreaterThanOrEqual(20);
-      expect(score).toBeLessThanOrEqual(30);
+      expect(score).toBeGreaterThanOrEqual(11);
+      expect(score).toBeLessThanOrEqual(20);
     }
   }
 });

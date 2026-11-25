@@ -7,7 +7,7 @@ export type BotScoreRng = () => number;
 export const DEFAULT_BOT_DIFFICULTY: BotDifficulty = 'medium';
 
 export const BOT_DIFFICULTY_RANGES: Readonly<Record<BotDifficulty, BotDifficultyRange>> = {
-  easy: [20, 30],
+  easy: [11, 20],
   medium: [30, 50],
   hard: [50, 70],
 };

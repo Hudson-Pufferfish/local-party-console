@@ -89,7 +89,7 @@ test('a close bot still rams the opponent and higher skill commits harder outwar
   const axisY = new Int8Array(8);
   const buttons = new Uint8Array(8);
 
-  writeHeuristic(state, 0, axisX, axisY, buttons, 25);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 15);
   const easyX = axisX[0] ?? 0;
   writeHeuristic(state, 0, axisX, axisY, buttons, 40);
   const medX = axisX[0] ?? 0;
@@ -118,7 +118,7 @@ test('a bot near the rim steers inward instead of chasing off the ring', () => {
   const axisY = new Int8Array(8);
   const buttons = new Uint8Array(8);
 
-  for (const level of [20, 40, 70]) {
+  for (const level of [11, 40, 70]) {
     writeHeuristic(state, 0, axisX, axisY, buttons, level);
     expect(axisX[0]).toBeLessThan(0);
     expect(buttons[0] & 1).toBe(0);
@@ -139,7 +139,7 @@ test('easy, medium, and hard bots separate monotonically in pace, turn tightness
   const buttons = new Uint8Array(8);
 
   // Farther than dashRange: compare pace (stick magnitude) and turn offset (|atan2(y, x)|).
-  writeHeuristic(state, 0, axisX, axisY, buttons, 25);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 15);
   const easyMag = Math.hypot(axisX[0] ?? 0, axisY[0] ?? 0);
   const easyTurn = Math.abs(Math.atan2(axisY[0] ?? 0, axisX[0] ?? 0));
 
@@ -159,11 +159,11 @@ test('easy, medium, and hard bots separate monotonically in pace, turn tightness
   // Dash range progression: easy dashes at 90, not 150; medium dashes at 150, not 210; hard dashes at 210.
   state[8] = 0;
   state[18] = 90;
-  writeHeuristic(state, 0, axisX, axisY, buttons, 25);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 15);
   expect(buttons[0] & 1).toBe(1);
 
   state[18] = 150;
-  writeHeuristic(state, 0, axisX, axisY, buttons, 25);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 15);
   expect(buttons[0] & 1).toBe(0);
   writeHeuristic(state, 0, axisX, axisY, buttons, 40);
   expect(buttons[0] & 1).toBe(1);
@@ -187,7 +187,7 @@ test('two stacked bots of different levels do not share a zero steer', () => {
   const axisX = new Int8Array(8);
   const axisY = new Int8Array(8);
   const buttons = new Uint8Array(8);
-  writeHeuristic(state, 0, axisX, axisY, buttons, 25);
+  writeHeuristic(state, 0, axisX, axisY, buttons, 15);
   const weakX = axisX[0];
   const weakY = axisY[0];
   writeHeuristic(state, 1, axisX, axisY, buttons, 65);
