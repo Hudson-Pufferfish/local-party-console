@@ -24,6 +24,9 @@ export const HolisticMatchShell: VoidComponent<HolisticMatchShellProps> = (props
   return (
     <section class="match" data-game={props.gameId}>
       <MatchRejoinQr onQr={(canvas) => props.onQr(canvas)} />
+      <Show when={props.manifest?.title}>
+        <span class="match-game-title">{props.manifest?.title}</span>
+      </Show>
       <MatchExitControl
         primary={props.primary}
         match={props.match}

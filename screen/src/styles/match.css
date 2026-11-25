@@ -42,6 +42,25 @@
   background: #eae6df;
 }
 
+.match-game-title {
+  position: fixed;
+  top: 20px;
+  right: 175px;
+  z-index: 2;
+  margin: 0;
+  padding: 8px 14px;
+  border: 2.5px solid var(--ink, #111111);
+  background: var(--paper, #f4f1ea);
+  color: var(--ink, #111111);
+  box-shadow: 0px 4px 0px var(--ink, #111111);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .match-rejoin {
   position: fixed;
   top: 20px;
