@@ -952,3 +952,107 @@ test('mid-match join rejects strangers and unknown tokens with MATCH_IN_PROGRESS
     await relay.close();
   }
 });
+
+test('players who were AWAY at match start or new joiners are rejected mid-match while active match players can rejoin and lobby restores joining', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const playerA = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const playerB = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, playerA, playerB);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+
+    // Player A joins in lobby (LIVE)
+    const aJoined = waitForText(playerA, 'room:joined');
+    const aRoster = waitForText(screen, 'room:players');
+    playerA.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const [aFrame] = await Promise.all([aJoined, aRoster]);
+    const aToken = aFrame.payload?.sessionToken;
+    expect(aFrame.payload?.index).toBe(0);
+    expect(typeof aToken).toBe('string');
+
+    // Player B joins in lobby, then disconnects (AWAY) before match starts
+    const bJoined = waitForText(playerB, 'room:joined');
+    const bRoster = waitForText(screen, 'room:players');
+    playerB.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    const [bFrame] = await Promise.all([bJoined, bRoster]);
+    const bToken = bFrame.payload?.sessionToken;
+    expect(bFrame.payload?.index).toBe(1);
+    expect(typeof bToken).toBe('string');
+
+    const bAwayNotice = waitForText(screen, 'room:players');
+    playerB.close();
+    await bAwayNotice;
+
+    // Host starts match (only Player A is LIVE at match start)
+    const matchPhase = waitForText(playerA, 'room:phase');
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
+    await matchPhase;
+
+    // Player B (AWAY at match start) attempts to rejoin mid-match -> rejected with MATCH_IN_PROGRESS
+    const playerBRetry = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(playerBRetry);
+    const bRejected = waitForText(playerBRetry, 'room:rejected');
+    playerBRetry.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Bea', sessionToken: bToken },
+    }));
+    expect(((await bRejected).payload as { reason?: string } | undefined)?.reason).toBe('MATCH_IN_PROGRESS');
+
+    // Brand-new Player C attempts to join mid-match -> rejected with MATCH_IN_PROGRESS
+    const playerC = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(playerC);
+    const cRejected = waitForText(playerC, 'room:rejected');
+    playerC.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
+    expect(((await cRejected).payload as { reason?: string } | undefined)?.reason).toBe('MATCH_IN_PROGRESS');
+
+    // Player A (LIVE at match start) disconnects mid-match and rejoins -> succeeds
+    const aAwayNotice = waitForText(screen, 'room:players');
+    playerA.close();
+    await aAwayNotice;
+
+    const playerARejoin = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(playerARejoin);
+    const aRejoined = waitForText(playerARejoin, 'room:joined');
+    const aRejoinRoster = waitForText(screen, 'room:players');
+    playerARejoin.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Ada', sessionToken: aToken },
+    }));
+    const [aRejoinFrame, aRejoinRosterFrame] = await Promise.all([aRejoined, aRejoinRoster]);
+    expect(aRejoinFrame.payload?.index).toBe(0);
+    expect((aRejoinFrame.payload as { phase?: string } | undefined)?.phase).toBe('match');
+    expect(aRejoinRosterFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: false }),
+    ]);
+
+    // Host returns to lobby -> Player B can rejoin in the lobby normally
+    const lobbyPhase = waitForText(playerARejoin, 'room:phase');
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'lobby' } }));
+    await lobbyPhase;
+
+    const bLobbyJoined = waitForText(playerBRetry, 'room:joined');
+    const bLobbyRoster = waitForText(screen, 'room:players');
+    playerBRetry.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Bea', sessionToken: bToken },
+    }));
+    const [bLobbyFrame, bLobbyRosterFrame] = await Promise.all([bLobbyJoined, bLobbyRoster]);
+    expect(bLobbyFrame.payload?.index).toBe(1);
+    expect((bLobbyFrame.payload as { phase?: string } | undefined)?.phase).toBe('lobby');
+    expect(bLobbyRosterFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
+    ]);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});

@@ -28,6 +28,7 @@ export interface Room {
   hostToken: string;
   phase: RoomPhase;
   slots: Array<Slot | null>;
+  activeMatchSlots: Set<number>;
   tokens: Map<string, number>;
   revokedTokens: Set<string>;
   views: Map<string, ViewRecord>;
@@ -66,6 +67,7 @@ export function createRoom(store: RoomStore): { roomId: string; hostToken: strin
     hostToken,
     phase: 'lobby',
     slots: Array.from({ length: MAX_SLOTS }, () => null),
+    activeMatchSlots: new Set(),
     tokens: new Map(),
     revokedTokens: new Set(),
     views: new Map(),
@@ -92,8 +94,10 @@ export function joinRoom(room: Room, name: string, sessionToken?: string): JoinR
     }
   }
 
-  if (room.phase === 'match' && existingSlot === null) {
-    return { kind: 'rejected', reason: 'MATCH_IN_PROGRESS' };
+  if (room.phase === 'match') {
+    if (existingSlot === null || !room.activeMatchSlots.has(existingSlot.index)) {
+      return { kind: 'rejected', reason: 'MATCH_IN_PROGRESS' };
+    }
   }
 
   const normalized = normalizeName(name);
@@ -138,6 +142,14 @@ export function joinRoom(room: Room, name: string, sessionToken?: string): JoinR
 
 export function setRoomPhase(room: Room, phase: RoomPhase): void {
   room.phase = phase;
+  room.activeMatchSlots.clear();
+  if (phase === 'match') {
+    for (const slot of room.slots) {
+      if (slot !== null && slot.connected) {
+        room.activeMatchSlots.add(slot.index);
+      }
+    }
+  }
 }
 
 export function kickSlot(room: Room, index: number): KickResult {
