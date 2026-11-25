@@ -1,5 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import type { VoidComponent } from 'solid-js';
+import { BombPassController } from '../../games/bomb-pass/src/controller-view.tsx';
+import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
 import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import type { ControllerOrientation, GameManifest } from '../../shared/src/types/game.ts';
@@ -42,6 +44,11 @@ export function localTheme(gameId: string): ThemeVars {
 controllerGames.set(SUMO_DASH_MANIFEST.id, {
   manifest: SUMO_DASH_MANIFEST,
   View: SumoController,
+});
+
+controllerGames.set(BOMB_PASS_MANIFEST.id, {
+  manifest: BOMB_PASS_MANIFEST,
+  View: BombPassController,
 });
 
 export function controllerView(gameId: string): VoidComponent<ControllerViewProps> | null {

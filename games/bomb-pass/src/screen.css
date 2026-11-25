@@ -1,0 +1,3 @@
+.match[data-game="bomb-pass"] canvas {
+  background: var(--bg-surface, #eae6df);
+}

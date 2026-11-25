@@ -88,3 +88,22 @@ test('bot fill passes difficulty through levelsForMask into the host loop', () =
     expect(score).toBeLessThanOrEqual(70);
   }
 });
+
+test('HostLoop forwards setConnectedMask to ScreenSim when implemented and is a safe no-op otherwise', () => {
+  const masks: number[] = [];
+  const simWithMask: ScreenSim = {
+    state: new Float32Array(88),
+    applyInput() {},
+    step() {},
+    startMatch() {},
+    setConnectedMask(mask: number) {
+      masks.push(mask);
+    },
+  };
+  const loopWithMask = createHostLoop(simWithMask, undefined, () => {});
+  loopWithMask.setConnectedMask(0b0000_0101);
+  expect(masks).toEqual([0b0000_0101]);
+
+  const sumoLoop = createHostLoop(createSumoSimulation(), undefined, () => {});
+  expect(() => sumoLoop.setConnectedMask(0b0000_0011)).not.toThrow();
+});

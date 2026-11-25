@@ -1,3 +1,4 @@
+import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import { GameRegistry } from '../../shared/src/registry.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
@@ -163,6 +164,13 @@ export const screenGames = createScreenGameLoader([
     load: async () => {
       const mod = await import('../../games/sumo-dash/src/screen-runtime.ts');
       return mod.createSumoScreenRuntime();
+    },
+  },
+  {
+    manifest: BOMB_PASS_MANIFEST,
+    load: async () => {
+      const mod = await import('../../games/bomb-pass/src/screen-runtime.ts');
+      return mod.createBombPassScreenRuntime();
     },
   },
 ]);

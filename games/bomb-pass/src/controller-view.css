@@ -1,0 +1,178 @@
+.bomb-board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+  border: 4px solid transparent;
+  box-sizing: border-box;
+}
+
+[data-orientation='landscape'] .bomb-board {
+  gap: 6px;
+}
+
+.bomb-board[data-bomb='true'] {
+  border: 4px solid var(--accent-bomb, #E10600);
+  background: var(--accent-bomb, #E10600);
+  animation: bomb-frame-flash 0.5s steps(2, end) infinite;
+}
+
+.bomb-board[data-bomb='true'][data-urgency='warn'] {
+  animation-duration: 0.33s;
+}
+
+.bomb-board[data-bomb='true'][data-urgency='critical'] {
+  animation-duration: 0.14s;
+}
+
+@keyframes bomb-frame-flash {
+  0% {
+    background: var(--accent-bomb, #E10600);
+    border-color: var(--ink, #111111);
+  }
+  50% {
+    background: var(--bg-surface, #EAE6DF);
+    border-color: var(--accent-bomb, #E10600);
+  }
+  100% {
+    background: var(--accent-bomb, #E10600);
+    border-color: var(--ink, #111111);
+  }
+}
+
+.bomb-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.bomb-bar .player-badge {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.bomb-readout {
+  margin: 0;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: var(--paper, #F4F1EA);
+  color: var(--ink, #111111);
+  border: 2.5px solid var(--ink, #111111);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.bomb-readout[data-status='bomb'] {
+  background: var(--accent-bomb, #E10600);
+  color: var(--paper, #F4F1EA);
+}
+
+.bomb-led {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ink, #111111);
+  border-radius: 999px;
+  background: var(--accent-ready, #00C853);
+  flex-shrink: 0;
+}
+
+.bomb-led[data-status='bomb'] {
+  background: var(--accent-spark, #FFE14D);
+}
+
+.bomb-led[data-status='out'] {
+  background: var(--ink, #111111);
+}
+
+.bomb-alert {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--accent-bomb, #E10600);
+  color: var(--paper, #F4F1EA);
+  border: 2.5px solid var(--ink, #111111);
+  box-shadow: 0px 4px 0px var(--ink, #111111);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bomb-alert[data-urgency='warn'] {
+  animation: bomb-strip-flash 0.33s steps(2, end) infinite;
+}
+
+.bomb-alert[data-urgency='critical'] {
+  animation: bomb-strip-flash 0.14s steps(2, end) infinite;
+}
+
+@keyframes bomb-strip-flash {
+  0% {
+    background: var(--accent-bomb, #E10600);
+    color: var(--paper, #F4F1EA);
+  }
+  50% {
+    background: var(--ink, #111111);
+    color: var(--accent-spark, #FFE14D);
+  }
+  100% {
+    background: var(--accent-bomb, #E10600);
+    color: var(--paper, #F4F1EA);
+  }
+}
+
+.bomb-alert-time {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.bomb-hands .joystick,
+.bomb-dash-dock {
+  height: 100%;
+  min-height: 0;
+}
+
+.bomb-dash-dock {
+  position: relative;
+  display: grid;
+}
+
+.bomb-dash-dock .arcade-button {
+  height: 100%;
+  padding: 16px;
+}
+
+.bomb-dash-meter {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  background: var(--player-ink, var(--ink, #111111));
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.bomb-dash-meter[data-cool='true'] {
+  transform: scaleX(1);
+  transition: transform 1.5s linear;
+}

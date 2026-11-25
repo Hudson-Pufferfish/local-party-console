@@ -15,6 +15,7 @@ export interface ScreenSim {
   applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void;
   step(dt: number): void;
   startMatch(slots: number[]): void;
+  setConnectedMask?(mask: number): void;
 }
 
 export interface HostLoop {
@@ -27,6 +28,7 @@ export interface HostLoop {
   release(): void;
   accept(slot: number, seq: number, buttons: number, axisX: number, axisY: number, now: number): boolean;
   clearSeq(slot: number): void;
+  setConnectedMask(mask: number): void;
   tick(frameMs: number, now: number): number;
 }
 
@@ -128,6 +130,10 @@ export function createHostLoop(
     lastSeq[slot] = -1;
   }
 
+  function setConnectedMask(mask: number): void {
+    sim.setConnectedMask?.(mask & 0xff);
+  }
+
   function tick(frameMs: number, now: number): number {
     if (!inMatch) return 0;
     let frame = frameMs;
@@ -196,6 +202,7 @@ export function createHostLoop(
     release,
     accept,
     clearSeq,
+    setConnectedMask,
     tick,
   };
 }

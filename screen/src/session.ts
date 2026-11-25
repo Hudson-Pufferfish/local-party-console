@@ -126,6 +126,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   const publishBytes = new ArrayBuffer(SNAPSHOT_BYTES);
   const publishView = new Uint8Array(publishBytes);
   const connected = new Uint8Array(8);
+  const activeBotMask = new Uint8Array(8);
   const mirror = new Float32Array(88);
   let lastScoreHeader = '';
   let lastScoreRows: ScoreRow[] = [];
@@ -323,6 +324,17 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     }
   }
 
+  function pushConnectedMask(): void {
+    if (loop === null) return;
+    let mask = 0;
+    for (let slot = 0; slot < connected.length; slot += 1) {
+      if (connected[slot] === 1 || activeBotMask[slot] === 1) {
+        mask |= 1 << slot;
+      }
+    }
+    loop.setConnectedMask(mask);
+  }
+
   function applyPlayers(next: PlayerSlot[]): void {
     const was = connected.slice();
     connected.fill(0);
@@ -343,6 +355,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       }
     }
     players = next;
+    pushConnectedMask();
     handlers.setPlayers(next);
     if (matchCanvas !== null) publishScores();
   }
@@ -420,6 +433,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     botLobby = createBotLobby();
     handlers.setBotLobby(botLobby);
     botNames = ['', '', '', '', '', '', '', ''];
+    activeBotMask.fill(0);
     loop?.release();
     stopFrames();
     destroyRenderer();
@@ -475,8 +489,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           openLoop(targetId, runtime);
           if (loop === null) return;
           botNames = roster.botNames.slice();
+          activeBotMask.set(roster.botMask);
           bots.arm(roster.botMask, botLobby.difficulty);
           loop.startMatch(roster.slots);
+          pushConnectedMask();
           handlers.setMatch(true);
           handlers.setMatchOver(false);
           send({
@@ -496,8 +512,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       const roster = rosterForStart(players, entry.manifest, botLobby.botCount);
       if (roster === null) return;
       botNames = roster.botNames.slice();
+      activeBotMask.set(roster.botMask);
       bots.arm(roster.botMask, botLobby.difficulty);
       loop.startMatch(roster.slots);
+      pushConnectedMask();
       handlers.setMatch(true);
       handlers.setMatchOver(false);
       send({

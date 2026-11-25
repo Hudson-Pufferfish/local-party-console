@@ -1,11 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import type { GameManifest } from '../../shared/src/types/game.ts';
+
+vi.mock('phaser', () => ({
+  default: {
+    CANVAS: 1,
+    Scale: { NONE: 0 },
+    Game: class {},
+    Scene: class {},
+  },
+}));
 import {
   createScreenGameLoader,
   createStartGuard,
   listScreenManifests,
+  screenGames,
   type ScreenGameRuntime,
 } from './register-games.ts';
 
@@ -117,4 +127,25 @@ test('createStartGuard prevents duplicate START launches while loading and abort
   expect(await stalePending).toBe(false);
   expect(launched).toBe(1);
   expect(guard.loading).toBe(false);
+});
+
+test('screenGames registers bomb-pass with lazy runtime and holistic config', async () => {
+  const manifests = listScreenManifests();
+  const bomb = manifests.find((m) => m.id === 'bomb-pass');
+  expect(bomb).toBeDefined();
+  expect(bomb?.title).toBe('BOMB PASS');
+  expect(bomb?.supportsBots).toBe(true);
+  expect(bomb?.viewConfig.mode).toBe('holistic');
+
+  const runtime = await screenGames.load('bomb-pass');
+  expect(typeof runtime.createSim).toBe('function');
+  expect(typeof runtime.eventsFromHeaderDiff).toBe('function');
+  expect(typeof runtime.createRenderer).toBe('function');
+  expect(typeof runtime.writeBotInput).toBe('function');
+  expect(typeof runtime.botLevels).toBe('function');
+  expect(typeof runtime.scoreboardHeader).toBe('function');
+  expect(typeof runtime.scoreboardRows).toBe('function');
+  expect(typeof runtime.scoreRules).toBe('function');
+  expect(typeof runtime.bannerCopy).toBe('function');
+  expect(runtime.rematchEventType).toBe('bomb:rematch');
 });
