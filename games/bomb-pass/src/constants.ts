@@ -23,7 +23,7 @@ export const BOMB_CONSTANTS = {
   warnThreshold: 5.0,
   criticalThreshold: 2.0,
   practiceInitial: 10.0,
-  practiceBreak: 5.0,
+  practiceBreak: 20.0,
   countdown: 3.0,
   roundEnd: 0.8,
   roundEndSuddenDeath: 1.5,
