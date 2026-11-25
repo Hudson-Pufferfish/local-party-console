@@ -1,4 +1,4 @@
-export const CONTROLLER_REV = '0.2.0';
+export const CONTROLLER_REV = '0.3.0';
 
 export function qrTarget(lanIp: string, port: number, code: string): string {
   return `https://${lanIp}:${port}/controller?rev=${CONTROLLER_REV}&room=${code}`;

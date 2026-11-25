@@ -35,7 +35,7 @@ export interface GameManifest {
   rendererType: 'phaser-2d' | 'three-3d';
   viewConfig: GameViewConfig;
   supportedOrientations?: readonly ControllerOrientation[];
-  controllerLayout?: ControllerLayout;
+  controllerLayout: ControllerLayout;
   themeTokens: Record<string, string>;
 }
 

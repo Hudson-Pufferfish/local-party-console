@@ -192,38 +192,33 @@ export const BombPassController: VoidComponent<{
   };
 
   return (
-    <div
-      class="bomb-pass-wrapper"
-      style={{ display: 'contents' }}
-    >
-      <ControllerShell
-        color={props.color}
-        name={props.name}
-        slot={props.slot}
-        layout={BOMB_PASS_MANIFEST.controllerLayout!}
-        onAxes={props.onAxes}
-        onButton={(down, timeStamp, bit) => props.onButton(down, timeStamp, bit)}
-        customBoardClass="bomb-board"
-        customBoardAttrs={{
-          'data-bomb': hud().holdingBomb ? 'true' : 'false',
-          'data-urgency': hud().urgency,
-        }}
-        hud={
-          <>
-            <p class="bomb-readout" data-status={statusKind()}>
-              <span class="bomb-led" data-status={statusKind()} aria-hidden="true" />
-              <span>{formatBombReadout(hud())}</span>
-            </p>
-          </>
-        }
-      />
-      <Show when={hud().holdingBomb}>
-        <div class="bomb-alert" data-urgency={hud().urgency} role="status">
-          <span>HOLDING BOMB — PASS IT!</span>
-          <span class="bomb-alert-time">{formatBombCountdown(hud().remainingMs)}</span>
-        </div>
-      </Show>
-    </div>
+    <ControllerShell
+      color={props.color}
+      name={props.name}
+      slot={props.slot}
+      layout={BOMB_PASS_MANIFEST.controllerLayout}
+      onAxes={props.onAxes}
+      onButton={(down, timeStamp, bit) => props.onButton(down, timeStamp, bit)}
+      customBoardClass="bomb-board"
+      customBoardAttrs={{
+        'data-bomb': hud().holdingBomb ? 'true' : 'false',
+        'data-urgency': hud().urgency,
+      }}
+      hud={
+        <p class="bomb-readout" data-status={statusKind()}>
+          <span class="bomb-led" data-status={statusKind()} aria-hidden="true" />
+          <span>{formatBombReadout(hud())}</span>
+        </p>
+      }
+      alert={
+        <Show when={hud().holdingBomb}>
+          <div class="bomb-alert" data-urgency={hud().urgency} role="status">
+            <span>HOLDING BOMB — PASS IT!</span>
+            <span class="bomb-alert-time">{formatBombCountdown(hud().remainingMs)}</span>
+          </div>
+        </Show>
+      }
+    />
   );
 };
 

@@ -46,7 +46,7 @@ export const SumoController: VoidComponent<{
       color={props.color}
       name={props.name}
       slot={props.slot}
-      layout={SUMO_DASH_MANIFEST.controllerLayout!}
+      layout={SUMO_DASH_MANIFEST.controllerLayout}
       onAxes={props.onAxes}
       onButton={(down, timeStamp, bit) => props.onButton(down, timeStamp, bit)}
       customBoardClass="sumo-board"
