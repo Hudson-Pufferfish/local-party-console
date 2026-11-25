@@ -191,9 +191,10 @@ function handleText(
     handleKick(clients, room, message.payload);
     return;
   }
-  if (type === 'game:mount' || type.startsWith('sumo:')) {
+  if (type === 'game:mount' || type === 'game:unmount' || type.startsWith('sumo:')) {
     if (primaries.get(room) !== client) return;
     if (type === 'game:mount') mounts.set(room, raw);
+    if (type === 'game:unmount') mounts.delete(room);
     fanOut(clients, room, client, raw);
     return;
   }

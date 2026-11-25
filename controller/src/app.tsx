@@ -178,6 +178,11 @@ export const App: VoidComponent = () => {
           setGameId(id);
           window.scrollTo(0, 0);
         },
+        onUnmount: () => {
+          setGameId('');
+          setTheme({});
+          setControl(null);
+        },
         onPhase: (nextPhase) => {
           setPhase(nextPhase);
           if (nextPhase !== 'lobby') return;

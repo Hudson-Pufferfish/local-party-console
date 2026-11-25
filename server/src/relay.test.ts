@@ -775,3 +775,55 @@ test('room:join normalizes names to uppercase and rejects empty or duplicate nam
     await relay.close();
   }
 });
+
+test('game:unmount from primary clears cached game:mount and fans out to room clients, while non-primary unmount is ignored', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const mounted = waitForText(phone, 'game:mount');
+    screen.send(JSON.stringify({ type: 'game:mount', payload: { gameId: 'sumo-dash' } }));
+    await mounted;
+
+    // Non-primary client cannot unmount the room game
+    const screenFrames: string[] = [];
+    screen.on('message', (data, isBinary) => {
+      if (!isBinary) screenFrames.push(data.toString());
+    });
+    phone.send(JSON.stringify({ type: 'game:unmount', payload: {} }));
+    await settle();
+    expect(screenFrames.some((raw) => raw.includes('"game:unmount"'))).toBe(false);
+
+    // Primary game:unmount fans out to existing clients and clears cached mount
+    const unmounted = waitForText(phone, 'game:unmount');
+    screen.send(JSON.stringify({ type: 'game:unmount', payload: {} }));
+    const unmountFrame = await unmounted;
+    expect(unmountFrame.type).toBe('game:unmount');
+
+    // Late joiner after game:unmount does not receive stale game:mount
+    const late = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(late);
+    const lateMounts: string[] = [];
+    late.on('message', (data, isBinary) => {
+      if (isBinary) return;
+      const frame = JSON.parse(data.toString()) as { type?: string };
+      if (frame.type === 'game:mount') lateMounts.push(frame.type);
+    });
+    const lateJoined = waitForText(late, 'room:joined');
+    late.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    await lateJoined;
+    await settle();
+    expect(lateMounts).toEqual([]);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});

@@ -112,6 +112,7 @@ export function connectPhone(
     onKicked?: () => void;
     onRejected?: (reason: NameRejectReason) => void;
     onMount: (gameId: string) => void;
+    onUnmount?: () => void;
     onPhase?: (phase: RoomPhase) => void;
     onPong: (sentAt: number, receivedAt: number) => void;
     onLink: (up: boolean) => void;
@@ -289,6 +290,12 @@ export function connectPhone(
       const gameId = readGameId(payload);
       if (gameId === null) return;
       hooks.onMount(gameId);
+      return;
+    }
+    if (type === 'game:unmount') {
+      const unmountedRoom = readRoomId(payload);
+      if (unmountedRoom !== null && unmountedRoom !== room) return;
+      hooks.onUnmount?.();
       return;
     }
     if (type === 'room:phase') {

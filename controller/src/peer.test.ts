@@ -323,6 +323,78 @@ test('prepareJoinName blocks empty names and room:rejected notifies duplicate or
   expect(joinedNames).toEqual(['BOB']);
 });
 
+test('game:unmount and room:phase lobby reset mounted game state to null view so NO GAME / WAITING and QUIT apply', () => {
+  vi.stubGlobal('location', { host: '10.0.0.72:8443' });
+  globalThis.window = globalThis as unknown as Window & typeof globalThis;
+  openSockets.length = 0;
+  const previousSocket = globalThis.WebSocket;
+  globalThis.WebSocket = OpenSocket as unknown as typeof WebSocket;
+
+  let activeGameId: string | null = null;
+  let phase: 'lobby' | 'match' = 'lobby';
+  let unmountCalls = 0;
+
+  try {
+    const link = connectPhone('ABCD', {
+      onJoined() {},
+      onFull() {},
+      onMount(id) {
+        activeGameId = id;
+      },
+      onUnmount() {
+        unmountCalls += 1;
+        activeGameId = null;
+      },
+      onPhase(nextPhase) {
+        phase = nextPhase;
+        if (nextPhase === 'lobby') activeGameId = null;
+      },
+      onPong() {},
+      onLink() {},
+    });
+    const socket = openSockets[0];
+    if (socket === undefined) throw new Error('missing socket');
+
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'game:mount', payload: { gameId: 'sumo-dash' } }),
+    }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }),
+    }));
+    expect(activeGameId).toBe('sumo-dash');
+    expect(phase).toBe('match');
+
+    // Mismatched roomId is ignored
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'game:unmount', payload: { roomId: 'WXYZ' } }),
+    }));
+    expect(activeGameId).toBe('sumo-dash');
+    expect(unmountCalls).toBe(0);
+
+    // game:unmount resets mounted game view to null
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'game:unmount', payload: {} }),
+    }));
+    expect(unmountCalls).toBe(1);
+    expect(activeGameId).toBeNull();
+
+    // Re-mounting then receiving room:phase lobby also clears active game and sets lobby phase
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'game:mount', payload: { gameId: 'sumo-dash' } }),
+    }));
+    expect(activeGameId).toBe('sumo-dash');
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'room:phase', payload: { phase: 'lobby' } }),
+    }));
+    expect(phase).toBe('lobby');
+    expect(activeGameId).toBeNull();
+
+    link.close();
+  } finally {
+    globalThis.WebSocket = previousSocket;
+  }
+});
+
 class OpenSocket extends EventTarget {
   static CONNECTING = 0;
   static OPEN = 1;

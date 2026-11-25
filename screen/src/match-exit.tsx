@@ -2,8 +2,8 @@ import { createMemo, createSignal, Show, type VoidComponent } from 'solid-js';
 import type { GameManifest } from '../../shared/src/types/game.ts';
 import { ConfirmModal } from './confirm-modal.tsx';
 
-// NOTE: Single-screen games ('holistic', e.g. Sumo Dash) use this in-match exit button. Multi-screen games ('team-exclusive') will handle coordinated exit orchestration separately.
-// TODO(@agents): implement exit mode for multiscreen type ('team-exclusive') when multi-display viewport coordination is added.
+// NOTE: Single-screen games ('holistic', e.g. Sumo Dash) use this in-match exit button. Both single-screen exit and future multi-screen ('team-exclusive') coordinated exit route through the common session.resetLobby() seam.
+// TODO(@agents): implement exit mode for multiscreen type ('team-exclusive') when multi-display viewport coordination is added, delegating its final teardown to session.resetLobby().
 export function isSingleScreenGame(manifest: GameManifest | undefined): boolean {
   return manifest?.viewConfig.mode === 'holistic';
 }

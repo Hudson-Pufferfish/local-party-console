@@ -168,7 +168,7 @@ export const App: VoidComponent = () => {
                 primary={primary()}
                 match={match()}
                 manifest={selectedGame()}
-                onConfirm={() => session?.returnToLobby()}
+                onConfirm={() => session?.resetLobby()}
               />
               <p class="hud">{banner()}</p>
               <Show when={scoreRules()}>
@@ -188,7 +188,7 @@ export const App: VoidComponent = () => {
                   <button type="button" class="key" onClick={() => session?.playAgain()}>
                     PLAY AGAIN
                   </button>
-                  <button type="button" class="key" onClick={() => session?.returnToLobby()}>
+                  <button type="button" class="key" onClick={() => session?.resetLobby()}>
                     RETURN TO LOBBY
                   </button>
                 </div>

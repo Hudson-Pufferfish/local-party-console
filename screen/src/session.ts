@@ -11,7 +11,6 @@ import {
   nextBotCount,
   nextBotDifficulty,
   rosterForStart,
-  unlockBotCount,
   type BotLobbyState,
 } from './bot-fill.ts';
 import { SNAPSHOT_BYTES, createHostLoop, type HostLoop } from './host-loop.ts';
@@ -52,7 +51,7 @@ export interface ScreenSession {
   selectGame: (id: string) => void;
   start: () => void;
   playAgain: () => void;
-  returnToLobby: () => void;
+  resetLobby: () => void;
   kickPlayer: (index: number) => void;
   setBotCount: (requested: number) => void;
   setBotDifficulty: (difficulty: BotDifficulty) => void;
@@ -413,6 +412,30 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     return currentRuntime()?.rematchEventType ?? 'sumo:rematch';
   }
 
+  function clearMatchAndLobbyState(): void {
+    selectedId = '';
+    activeRuntime = null;
+    handlers.setSelectedId?.('');
+    botLobby = createBotLobby();
+    handlers.setBotLobby(botLobby);
+    botNames = ['', '', '', '', '', '', '', ''];
+    loop?.release();
+    stopFrames();
+    destroyRenderer();
+    matchCanvas = null;
+    matchCtx = null;
+    handlers.setMatch(false);
+    handlers.setMatchOver(false);
+    handlers.setStandby(null);
+    lastScoreHeader = '';
+    handlers.setScoreHeader?.('');
+    lastScoreRows = [];
+    handlers.setScoreRows([]);
+    lastScoreRules = null;
+    handlers.setScoreRules?.(null);
+    handlers.setBanner('');
+  }
+
   return {
     view,
     selectGame(id: string): void {
@@ -484,25 +507,15 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       publish();
       send({ type: rematchEventType(), payload: { action: 'restart' } });
     },
-    returnToLobby(): void {
-      if (!primary || loop === null) return;
-      botLobby = unlockBotCount(botLobby);
-      handlers.setBotLobby(botLobby);
-      botNames = ['', '', '', '', '', '', '', ''];
-      loop.release();
-      stopFrames();
-      destroyRenderer();
-      handlers.setMatch(false);
-      handlers.setMatchOver(false);
-      lastScoreHeader = '';
-      handlers.setScoreHeader?.('');
-      lastScoreRows = [];
-      handlers.setScoreRows([]);
-      lastScoreRules = null;
-      handlers.setScoreRules?.(null);
-      handlers.setBanner('');
+    // Single common exit seam for both single-screen ('holistic') and future
+    // multi-screen ('team-exclusive') game exits. Every match exit path calls
+    // resetLobby() so the primary screen, secondary displays, relay, and phone
+    // controllers return to an unselected lobby together.
+    resetLobby(): void {
+      if (!primary) return;
+      clearMatchAndLobbyState();
+      send({ type: 'game:unmount', payload: {} });
       send({ type: 'room:phase', payload: { phase: 'lobby' } });
-      send({ type: rematchEventType(), payload: { action: 'lobby' } });
     },
     kickPlayer(index: number): void {
       const request = kickRequestFor(players, index, primary, loop?.inMatch === true);
@@ -630,6 +643,16 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         onGameMount(message.payload);
         return;
       }
+      if (message.type === 'game:unmount') {
+        if (!primary) clearMatchAndLobbyState();
+        return;
+      }
+      if (message.type === 'room:phase') {
+        if (!primary && readPhase(message.payload) === 'lobby') {
+          clearMatchAndLobbyState();
+        }
+        return;
+      }
       if (message.type === 'net:ping') {
         const t = readT(message.payload);
         if (t !== null) send({ type: 'net:pong', payload: { t } });
@@ -647,16 +670,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       if (message.type === rematchEventType() && !primary) {
         const action = readAction(message.payload);
         if (action === 'lobby' && view === 'holistic') {
-          destroyRenderer();
-          handlers.setMatch(false);
-          handlers.setMatchOver(false);
-          lastScoreHeader = '';
-          handlers.setScoreHeader?.('');
-          lastScoreRows = [];
-          handlers.setScoreRows([]);
-          lastScoreRules = null;
-          handlers.setScoreRules?.(null);
-          handlers.setBanner('');
+          clearMatchAndLobbyState();
         }
         if (action === 'restart' && view === 'holistic') {
           handlers.setMatch(true);
@@ -721,7 +735,7 @@ function idleSession(view: ScreenViewTarget): ScreenSession {
     selectGame() {},
     start() {},
     playAgain() {},
-    returnToLobby() {},
+    resetLobby() {},
     kickPlayer() {},
     setBotCount() {},
     setBotDifficulty() {},
@@ -828,6 +842,12 @@ function readAction(payload: unknown): string {
   if (typeof payload !== 'object' || payload === null) return '';
   const action = (payload as { action?: unknown }).action;
   return typeof action === 'string' ? action : '';
+}
+
+function readPhase(payload: unknown): 'lobby' | 'match' | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const phase = (payload as { phase?: unknown }).phase;
+  return phase === 'lobby' || phase === 'match' ? phase : null;
 }
 
 function readT(payload: unknown): number | null {
