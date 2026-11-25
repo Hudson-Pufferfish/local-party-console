@@ -85,14 +85,18 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
 
   const lobbyCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/lobby.css'), 'utf8');
   const kickBlock = lobbyCss.match(/\.player-kick\s*\{[^}]*background:[^}]*\}/)?.[0] ?? '';
+  const kickAfterBlock = lobbyCss.match(/\.player-kick::after\s*\{[^}]*\}/)?.[0] ?? '';
   const kickHoverBlock = lobbyCss.match(/\.player-kick:hover\s*\{[^}]*\}/)?.[0] ?? '';
   const gameSelectedBlock = lobbyCss.match(/\.game-key\[data-selected="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
   const startBlock = lobbyCss.match(/\.start\s*\{[^}]*\}/)?.[0] ?? '';
   const qrPromptBlock = lobbyCss.match(/\.qr-prompt\s*\{[^}]*\}/)?.[0] ?? '';
+  expect(kickBlock).toContain('position: relative');
   expect(kickBlock).toContain('var(--player-color');
   expect(kickBlock).toContain('var(--player-ink');
+  expect(kickAfterBlock).toContain('inset: -6px');
   expect(kickHoverBlock).toContain('var(--player-color');
   expect(kickHoverBlock).not.toContain('--theme-yellow');
+  expect(kickHoverBlock).not.toContain('transform:');
   expect(gameSelectedBlock).toContain('background: var(--theme-yellow)');
   expect(startBlock).toContain('background: var(--theme-yellow)');
   expect(qrPromptBlock).toContain('text-transform: uppercase');

@@ -78,7 +78,10 @@ export function attachRelay(httpServer: Server, store: RoomStore): Relay {
       });
       ws.on('close', () => {
         group.delete(client);
-        if (primaries.get(room) === client) primaries.delete(room);
+        if (primaries.get(room) === client) {
+          primaries.delete(room);
+          resetPhaseToLobby(clients, mounts, room, client);
+        }
         if (client.slotIndex !== null) {
           markSlotDisconnected(room, client.slotIndex);
           const notice = JSON.stringify({
@@ -138,8 +141,9 @@ function handleText(
   if (type === 'viewport:claim') {
     if (client.role === 'screen') {
       const existing = primaries.get(room);
-      if (existing === undefined || existing.ws.readyState !== WebSocket.OPEN) {
-        primaries.set(room, client);
+      primaries.set(room, client);
+      if (existing !== client) {
+        resetPhaseToLobby(clients, mounts, room, client);
       }
     }
     return;
@@ -292,6 +296,21 @@ function readJoin(payload: unknown): { name: string; sessionToken?: string } {
     name: typeof record.name === 'string' ? record.name : '',
     sessionToken: typeof record.sessionToken === 'string' ? record.sessionToken : undefined,
   };
+}
+
+function resetPhaseToLobby(
+  clients: Map<Room, Set<Client>>,
+  mounts: WeakMap<Room, string>,
+  room: Room,
+  sender: Client,
+): void {
+  if (room.phase === 'lobby') return;
+  setRoomPhase(room, 'lobby');
+  mounts.delete(room);
+  fanOut(clients, room, sender, JSON.stringify({
+    type: 'room:phase',
+    payload: { phase: 'lobby' },
+  }));
 }
 
 function fanOut(clients: Map<Room, Set<Client>>, room: Room, sender: Client, raw: string): void {
