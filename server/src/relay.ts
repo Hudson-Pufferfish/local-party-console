@@ -222,6 +222,10 @@ function handleJoin(
     client.ws.send(JSON.stringify({ type: 'room:kicked', payload: { reason: 'kicked' } }));
     return;
   }
+  if (result.kind === 'rejected') {
+    client.ws.send(JSON.stringify({ type: 'room:rejected', payload: { reason: result.reason } }));
+    return;
+  }
   const group = clients.get(room);
   if (group !== undefined) {
     for (const other of group) {

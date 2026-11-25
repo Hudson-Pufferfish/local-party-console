@@ -32,8 +32,8 @@ test('ScoreRulesPanel renders rank payouts on the left and ScoreboardPanel rende
     <ScoreboardPanel
       header="THRESHOLD: 9"
       rows={[
-        { slot: 0, color: '#FF4D00', text: 'hu 4' },
-        { slot: 1, color: '#00C853', text: 'da 2' },
+        { slot: 0, color: '#FF4D00', text: 'HU 4' },
+        { slot: 1, color: '#00C853', text: 'DA 2' },
       ]}
     />
   ));
@@ -41,9 +41,9 @@ test('ScoreRulesPanel renders rank payouts on the left and ScoreboardPanel rende
   expect(rightHtml).toContain('class="scoreboard-panel"');
   expect(rightHtml).toContain('class="scoreboard-threshold"');
   expect(rightHtml).toContain('THRESHOLD: 9');
-  expect(rightHtml).toContain('hu 4');
-  expect(rightHtml).toContain('da 2');
-  expect(rightHtml.indexOf('THRESHOLD: 9')).toBeLessThan(rightHtml.indexOf('hu 4'));
+  expect(rightHtml).toContain('HU 4');
+  expect(rightHtml).toContain('DA 2');
+  expect(rightHtml.indexOf('THRESHOLD: 9')).toBeLessThan(rightHtml.indexOf('HU 4'));
 
   const matchCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/match.css'), 'utf8');
   const leftBlock = matchCss.match(/\.match\s+\.score-rules\s*\{[^}]*\}/)?.[0] ?? '';

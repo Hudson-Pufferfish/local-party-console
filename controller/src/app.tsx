@@ -1,6 +1,7 @@
 import { createEffect, createSignal, Show, type VoidComponent } from 'solid-js';
 import type { OrientationPreference } from '../../shared/src/controller/orientation.ts';
 import { classifyPower, rfc3550Jitter } from '../../shared/src/controller/preflight.ts';
+import { MAX_PLAYER_NAME_LENGTH, normalizeName } from '../../shared/src/name-service.ts';
 import { CONTROLLER_REV } from '../../shared/src/sdp/qr-target.ts';
 import { tierFor } from '../../shared/src/sync/tier.ts';
 import { playerStyleVars } from '../../shared/src/theme.ts';
@@ -23,6 +24,8 @@ import {
   connectPhone,
   joinNotice,
   LINK_DOWN_NOTICE,
+  prepareJoinName,
+  rejectNotice,
   storeSeq,
   storedToken,
   type PhoneLink,
@@ -143,13 +146,18 @@ export const App: VoidComponent = () => {
           setSlot(next.index);
           setColor(next.color);
           publishTier();
-          if (next.name !== '') setName(next.name);
+          if (next.name !== '') setName(normalizeName(next.name));
           setNotice('');
         },
         onFull: () => {
           joinPending = false;
           window.clearTimeout(joinTimer);
           setNotice('CANNOT JOIN, ROOM IS ALREADY FULL (8 PLAYERS)');
+        },
+        onRejected: (reason) => {
+          joinPending = false;
+          window.clearTimeout(joinTimer);
+          setNotice(rejectNotice(reason));
         },
         onKicked: () => {
           joinPending = false;
@@ -261,13 +269,19 @@ export const App: VoidComponent = () => {
 
   function onJoin(pressed: boolean): void {
     if (!pressed || joined()) return;
+    const prepared = prepareJoinName(name());
+    if (!prepared.ok) {
+      setNotice(prepared.notice);
+      return;
+    }
+    setName(prepared.name);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     window.scrollTo(0, 0);
     const current = link;
     current?.reconnect();
     const token = storedToken(room);
     const payload: { name: string; sessionToken?: string } = {
-      name: name().trim().slice(0, 16),
+      name: prepared.name,
     };
     if (token !== null) payload.sessionToken = token;
     const result = current === undefined ? 'missing' : current.sendText({ type: 'room:join', payload });
@@ -318,13 +332,13 @@ export const App: VoidComponent = () => {
         />
       </div>
       <Show when={notice() !== ''}>
-        <p class="notice">{notice()}</p>
+        <p class="notice">{notice().toUpperCase()}</p>
       </Show>
       <Show when={view() === null}>
         <section class="lobby-board">
           <header class="lobby-status">
             <PlayerBadge
-              name={name().trim() === '' ? 'OPEN' : name().trim()}
+              name={normalizeName(name()) === '' ? 'OPEN' : normalizeName(name())}
               label={slot() < 0 ? 'P-' : `P${slot() + 1}`}
             />
             <Show
@@ -335,10 +349,13 @@ export const App: VoidComponent = () => {
                 <input
                   class="name-field"
                   placeholder="NAME"
-                  maxlength={16}
+                  maxlength={MAX_PLAYER_NAME_LENGTH}
                   autocomplete="off"
                   value={name()}
-                  onInput={(event) => setName(event.currentTarget.value)}
+                  onInput={(event) => {
+                    const upper = event.currentTarget.value.toUpperCase().slice(0, MAX_PLAYER_NAME_LENGTH);
+                    setName(upper);
+                  }}
                   onBlur={() => window.scrollTo(0, 0)}
                 />
                 <ArcadeButton

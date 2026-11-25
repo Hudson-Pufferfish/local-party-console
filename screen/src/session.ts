@@ -1,5 +1,6 @@
 import { toCanvas } from 'qrcode';
 import type { BotDifficulty } from '../../shared/src/bot-difficulty.ts';
+import { normalizeName } from '../../shared/src/name-service.ts';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
 import type { GameManifest, PlayerSlot, ScreenViewTarget } from '../../shared/src/types/game.ts';
 import { standbyCopy } from '../../shared/src/view/policy.ts';
@@ -99,6 +100,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let matchCtx: CanvasRenderingContext2D | null = null;
   let renderer: ArenaRenderer | null = null;
   let players: PlayerSlot[] = [];
+  let botNames: string[] = ['', '', '', '', '', '', '', ''];
   let selectedId = '';
   let activeRuntime: ScreenGameRuntime | null = null;
   let loopGameId = '';
@@ -254,9 +256,13 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
 
   function scoreNames(): string[] {
     const names = ['', '', '', '', '', '', '', ''];
+    for (let index = 0; index < names.length; index += 1) {
+      names[index] = botNames[index] ?? '';
+    }
     for (const player of players) {
       if (player.index < 0 || player.index >= names.length) continue;
-      names[player.index] = player.name;
+      const normalized = normalizeName(player.name);
+      if (normalized !== '') names[player.index] = normalized;
     }
     return names;
   }
@@ -344,6 +350,8 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   function onGameMount(payload: unknown): void {
     const manifest = readManifest(payload);
     if (manifest === null) return;
+    const mountedBotNames = readBotNames(payload);
+    if (mountedBotNames !== null) botNames = mountedBotNames;
     const gameId = readGameId(payload);
     const local = gameId === null ? undefined : screenGames.get(gameId);
     if (local !== undefined && gameId !== null) {
@@ -442,13 +450,14 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           handlers.setBotLobby(botLobby);
           openLoop(targetId, runtime);
           if (loop === null) return;
+          botNames = roster.botNames.slice();
           bots.arm(roster.botMask, botLobby.difficulty);
           loop.startMatch(roster.slots);
           handlers.setMatch(true);
           handlers.setMatchOver(false);
           send({
             type: 'game:mount',
-            payload: { gameId: targetId, manifest: entry.manifest, players },
+            payload: { gameId: targetId, manifest: entry.manifest, players, botNames },
           });
           send({ type: 'room:phase', payload: { phase: 'match' } });
           publish();
@@ -462,13 +471,14 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       if (entry === undefined) return;
       const roster = rosterForStart(players, entry.manifest, botLobby.botCount);
       if (roster === null) return;
+      botNames = roster.botNames.slice();
       bots.arm(roster.botMask, botLobby.difficulty);
       loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
       send({
         type: 'game:mount',
-        payload: { gameId: selectedId, manifest: entry.manifest, players },
+        payload: { gameId: selectedId, manifest: entry.manifest, players, botNames },
       });
       send({ type: 'room:phase', payload: { phase: 'match' } });
       publish();
@@ -478,6 +488,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       if (!primary || loop === null) return;
       botLobby = unlockBotCount(botLobby);
       handlers.setBotLobby(botLobby);
+      botNames = ['', '', '', '', '', '', '', ''];
       loop.release();
       stopFrames();
       destroyRenderer();
@@ -792,6 +803,18 @@ function readGameId(payload: unknown): string | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const gameId = (payload as { gameId?: unknown }).gameId;
   return typeof gameId === 'string' && gameId !== '' ? gameId : null;
+}
+
+function readBotNames(payload: unknown): string[] | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const raw = (payload as { botNames?: unknown }).botNames;
+  if (!Array.isArray(raw)) return null;
+  const names = ['', '', '', '', '', '', '', ''];
+  for (let index = 0; index < names.length; index += 1) {
+    const entry = raw[index];
+    names[index] = typeof entry === 'string' ? normalizeName(entry) : '';
+  }
+  return names;
 }
 
 function readIndex(payload: unknown): number | null {

@@ -1,4 +1,5 @@
 import { createEffect, createSignal, type VoidComponent } from 'solid-js';
+import { normalizeName } from '../../../shared/src/name-service.ts';
 import { playerStyleVars } from '../../../shared/src/theme.ts';
 import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
 import './controller-view.css';
@@ -44,7 +45,10 @@ export const SumoController: VoidComponent<{
   }
 
   const label = (): string => (props.slot < 0 ? 'P-' : `P${props.slot + 1}`);
-  const title = (): string => (props.name.trim() === '' ? 'PLAYER' : props.name.trim());
+  const title = (): string => {
+    const normalized = normalizeName(props.name);
+    return normalized === '' ? 'PLAYER' : normalized;
+  };
 
   return (
     <section class="sumo-board" style={playerStyleVars(props.slot, props.color)}>

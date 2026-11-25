@@ -1,10 +1,14 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { PlayerSlot, RoomPhase } from '@shared/types';
+import {
+  normalizeName,
+  validatePlayerName,
+  type NameRejectReason,
+} from '../../shared/src/name-service.ts';
 import { PLAYER_COLORS } from '../../shared/src/registry.ts';
 
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const MAX_SLOTS = 8;
-const MAX_NAME = 16;
 
 export interface ViewRecord {
   view: string;
@@ -33,7 +37,8 @@ export interface Room {
 export type JoinResult =
   | { kind: 'joined'; index: number; sessionToken: string; players: PlayerSlot[] }
   | { kind: 'full' }
-  | { kind: 'kicked' };
+  | { kind: 'kicked' }
+  | { kind: 'rejected'; reason: NameRejectReason };
 
 export type KickResult =
   | { kind: 'kicked'; index: number; players: PlayerSlot[] }
@@ -78,22 +83,38 @@ export function hostTokenMatches(room: Room, presented: string): boolean {
 }
 
 export function joinRoom(room: Room, name: string, sessionToken?: string): JoinResult {
-  const trimmed = name.trim().slice(0, MAX_NAME);
+  let existingSlot: Slot | null = null;
   if (sessionToken !== undefined && sessionToken !== '') {
     if (room.revokedTokens.has(sessionToken)) return { kind: 'kicked' };
     const existing = room.tokens.get(sessionToken);
     const slot = existing === undefined ? undefined : room.slots[existing];
     if (slot !== undefined && slot !== null) {
-      slot.name = trimmed;
-      slot.connected = true;
-      return {
-        kind: 'joined',
-        index: slot.index,
-        sessionToken: slot.sessionToken,
-        players: publicPlayers(room),
-      };
+      existingSlot = slot;
     }
   }
+
+  const normalized = normalizeName(name);
+  const otherSlots: Slot[] = [];
+  for (const slot of room.slots) {
+    if (slot === null || slot === existingSlot) continue;
+    otherSlots.push(slot);
+  }
+  const validation = validatePlayerName(normalized, otherSlots);
+  if (!validation.valid) {
+    return { kind: 'rejected', reason: validation.reason };
+  }
+
+  if (existingSlot !== null) {
+    existingSlot.name = normalized;
+    existingSlot.connected = true;
+    return {
+      kind: 'joined',
+      index: existingSlot.index,
+      sessionToken: existingSlot.sessionToken,
+      players: publicPlayers(room),
+    };
+  }
+
   const index = room.slots.findIndex((slot) => slot === null);
   if (index < 0) return { kind: 'full' };
   const color = PLAYER_COLORS[index];
@@ -101,7 +122,7 @@ export function joinRoom(room: Room, name: string, sessionToken?: string): JoinR
   const issued = randomBytes(16).toString('hex');
   room.slots[index] = {
     index,
-    name: trimmed,
+    name: normalized,
     color,
     teamId: null,
     connected: true,

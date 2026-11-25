@@ -15,8 +15,8 @@ export const PlayerBadge: VoidComponent<{
   return (
     <p class="player-badge">
       <span class="swatch" style={swatchStyle()} />
-      <span class="badge-label">{props.label}</span>
-      <span class="badge-name">{props.name}</span>
+      <span class="badge-label">{props.label.toUpperCase()}</span>
+      <span class="badge-name">{props.name.toUpperCase()}</span>
     </p>
   );
 };

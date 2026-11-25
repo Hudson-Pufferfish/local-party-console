@@ -1,3 +1,8 @@
+import {
+  normalizeName,
+  validatePlayerName,
+  type NameRejectReason,
+} from '../../shared/src/name-service.ts';
 import { ntpOffset } from '../../shared/src/sync/clock.ts';
 import { HEARTBEAT_MS } from '../../shared/src/sync/heartbeat.ts';
 import { WINDOW_MS, nextDelayMs } from '../../shared/src/sync/tdma.ts';
@@ -38,10 +43,28 @@ export interface JoinedSlot {
 export type SendResult = 'open' | 'queued' | 'closed';
 
 export const LINK_DOWN_NOTICE = 'DISCONNECTED FROM HOST — CHECK WI-FI OR RELOAD';
+export const EMPTY_NAME_NOTICE = 'ENTER AT LEAST 1 CHARACTER';
+export const DUPLICATE_NAME_NOTICE = 'NAME ALREADY TAKEN — CHOOSE ANOTHER';
 
 export function joinNotice(result: SendResult | 'missing'): string {
   if (result === 'open' || result === 'queued') return 'JOINING ROOM...';
   return LINK_DOWN_NOTICE;
+}
+
+export function rejectNotice(reason: NameRejectReason): string {
+  if (reason === 'DUPLICATE') return DUPLICATE_NAME_NOTICE;
+  return EMPTY_NAME_NOTICE;
+}
+
+export function prepareJoinName(
+  raw: string,
+): { ok: true; name: string } | { ok: false; notice: string } {
+  const normalized = normalizeName(raw);
+  const validation = validatePlayerName(normalized, []);
+  if (!validation.valid) {
+    return { ok: false, notice: rejectNotice(validation.reason) };
+  }
+  return { ok: true, name: normalized };
 }
 
 export interface PhoneLink {
@@ -87,6 +110,7 @@ export function connectPhone(
     onJoined: (slot: JoinedSlot) => void;
     onFull: () => void;
     onKicked?: () => void;
+    onRejected?: (reason: NameRejectReason) => void;
     onMount: (gameId: string) => void;
     onPhase?: (phase: RoomPhase) => void;
     onPong: (sentAt: number, receivedAt: number) => void;
@@ -252,6 +276,11 @@ export function connectPhone(
       clearSession();
       disconnectSocket();
       hooks.onKicked?.();
+      return;
+    }
+    if (type === 'room:rejected') {
+      const reason = readRejectReason(payload);
+      if (reason !== null) hooks.onRejected?.(reason);
       return;
     }
     if (type === 'game:mount') {
@@ -543,6 +572,12 @@ function readPhase(payload: unknown): RoomPhase | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const phase = (payload as { phase?: unknown }).phase;
   return phase === 'lobby' || phase === 'match' ? phase : null;
+}
+
+function readRejectReason(payload: unknown): NameRejectReason | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const reason = (payload as { reason?: unknown }).reason;
+  return reason === 'EMPTY' || reason === 'DUPLICATE' ? reason : null;
 }
 
 function readClockSample(payload: unknown): { slot: number; t1: number; t2: number; t3: number } | null {

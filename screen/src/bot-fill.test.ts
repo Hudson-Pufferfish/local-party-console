@@ -237,3 +237,22 @@ it('nextBotDifficulty updates while unlocked and arm forwards difficulty to leve
   fill.arm(new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]), 'hard');
   expect(seen).toEqual(['hard']);
 });
+
+it('rosterForStart assigns lowest-available unique P{X} bot names avoiding human names', () => {
+  const named = (index: number, name: string): PlayerSlot => ({
+    index,
+    name,
+    color: '#111111',
+    teamId: null,
+    connected: true,
+  });
+
+  const rosterA = rosterForStart([named(0, 'P1')], SUMO, 2);
+  expect(rosterA?.botNames).toEqual(['', 'P2', 'P3', '', '', '', '', '']);
+
+  const rosterB = rosterForStart([named(0, 'p2')], SUMO, 2);
+  expect(rosterB?.botNames).toEqual(['', 'P1', 'P3', '', '', '', '', '']);
+
+  const rosterC = rosterForStart([named(0, 'ADA'), named(1, 'P1')], SUMO, 2);
+  expect(rosterC?.botNames).toEqual(['', '', 'P2', 'P3', '', '', '', '']);
+});

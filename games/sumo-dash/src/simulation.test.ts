@@ -520,7 +520,7 @@ test('three round wins end the match and the scoreboard follows the scores', () 
     sim.step(DT);
     expect(sim.state[PHASE]).toBe(2);
     expect(sim.state[slotBase(0) + 9]).toBe(round + 1);
-    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'])).toBe(`hu ${round + 1}  ad 0`);
+    expect(scoreboardLine(sim.state, ['Hudson', 'Ada'])).toBe(`HU ${round + 1}  AD 0`);
   }
   let guard = 0;
   while (sim.state[PHASE] !== 3 && guard < 4000) {
@@ -558,13 +558,13 @@ test('a pack that stays inside still ends the round and scores', () => {
   expect(line.includes(' 2')).toBe(true);
 });
 
-test('practice countdown lasts 15 seconds before entering 3-2-1 countdown', () => {
+test('practice countdown lasts 20 seconds before entering 3-2-1 countdown', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
   expect(sim.state[PHASE]).toBe(4);
-  expect(sim.state[2]).toBeCloseTo(15, 5);
+  expect(sim.state[2]).toBeCloseTo(20, 5);
 
-  for (let tick = 0; tick < 15 * 120 - 2; tick += 1) {
+  for (let tick = 0; tick < 20 * 120 - 2; tick += 1) {
     sim.step(DT);
   }
   expect(sim.state[PHASE]).toBe(4);

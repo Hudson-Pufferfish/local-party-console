@@ -66,17 +66,17 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
 
 export function shortTag(name: string, slot: number): string {
   let letters = '';
-  const raw = name.toLowerCase();
+  const raw = name.toUpperCase();
   for (let index = 0; index < raw.length; index += 1) {
     const code = raw.charCodeAt(index);
     const digit = code >= 48 && code <= 57;
-    const alpha = code >= 97 && code <= 122;
+    const alpha = code >= 65 && code <= 90;
     if (!digit && !alpha) continue;
     letters += raw.charAt(index);
     if (letters.length === 2) break;
   }
-  if (letters.length === 2) return letters;
-  return `p${slot + 1}`;
+  if (letters.length > 0) return letters;
+  return `P${slot + 1}`;
 }
 
 export function scoreboardRows(

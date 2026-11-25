@@ -20,6 +20,7 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   ));
   expect(sumoHtml).toContain('--player-color:var(--player-7, #111111)');
   expect(sumoHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
+  expect(sumoHtml).toContain('>CID<');
   expect(sumoHtml).toContain('controller-hands');
   expect(sumoHtml).not.toContain('var(--theme-yellow)');
   expect(sumoHtml).not.toContain('var(--accent');
@@ -30,10 +31,12 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   expect(modalHtml).not.toContain('var(--theme-yellow)');
 
   const explicitBadgeHtml = renderToString(() => (
-    <PlayerBadge name="HS" label="P1" color="#FF4D00" />
+    <PlayerBadge name="hs" label="p1" color="#FF4D00" />
   ));
   expect(explicitBadgeHtml).toContain('<p class="player-badge">');
   expect(explicitBadgeHtml).toContain('<span class="swatch" style="--player-color:#FF4D00">');
+  expect(explicitBadgeHtml).toContain('>P1<');
+  expect(explicitBadgeHtml).toContain('>HS<');
 
   const warnStripHtml = renderToString(() => (
     <PreflightStrip

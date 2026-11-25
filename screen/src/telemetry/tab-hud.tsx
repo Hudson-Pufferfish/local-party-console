@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For, Show, type VoidComponent } from 'solid-js';
+import { normalizeName } from '../../../shared/src/name-service.ts';
 import type { PlayerSlot } from '../../../shared/src/types/game.ts';
 import type { TelemetryRead } from './ingest.ts';
 import './tab-hud.css';
@@ -113,7 +114,8 @@ export const TabHud: VoidComponent<{
 
 function line(row: HudRow) {
   const team = row.teamId === null ? '-' : String(row.teamId);
-  const name = row.name === '' ? 'PLAYER' : row.name;
+  const normalized = normalizeName(row.name);
+  const name = normalized === '' ? 'PLAYER' : normalized;
   const transport = row.transport === 'dc' ? 'UDP-DIRECT' : row.transport === 'ws' ? 'WS-FALLBACK' : 'IDLE';
   const tier = row.lowPower || row.tier === '30' ? '[ULP/LOW-POWER]' : '[TIER 60]';
   const net = row.hasOffset && row.netP50 !== null && row.netP99 !== null

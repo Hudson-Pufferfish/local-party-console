@@ -1,4 +1,5 @@
 import { DEFAULT_BOT_DIFFICULTY, type BotDifficulty } from '../../shared/src/bot-difficulty.ts';
+import { generateBotName, normalizeName } from '../../shared/src/name-service.ts';
 import type { PlayerSlot } from '../../shared/src/types/game.ts';
 
 export const NOTICE_OVER_CAP = 'exceed max — modify bot count';
@@ -12,6 +13,7 @@ export type StartBlock = 'no-human' | 'below-min' | 'over-cap';
 export interface BotRoster {
   slots: number[];
   botMask: Uint8Array;
+  botNames: string[];
 }
 
 export function createBotLobby(): BotLobbyState {
@@ -115,7 +117,13 @@ export function rosterForStart(
   }
 
   const botMask = new Uint8Array(MASK_LEN);
+  const botNames = ['', '', '', '', '', '', '', ''];
   if (manifest.supportsBots && botCount > 0) {
+    const usedNames: string[] = [];
+    for (const player of players) {
+      const normalized = normalizeName(player.name);
+      if (normalized !== '') usedNames.push(normalized);
+    }
     let placed = 0;
     const limit = manifest.maxPlayers < MASK_LEN ? manifest.maxPlayers : MASK_LEN;
     for (let index = 0; index < limit; index += 1) {
@@ -123,12 +131,15 @@ export function rosterForStart(
       if (occupied[index] === 1) continue;
       occupied[index] = 1;
       botMask[index] = 1;
+      const botName = generateBotName(usedNames);
+      usedNames.push(botName);
+      botNames[index] = botName;
       slots.push(index);
       placed += 1;
     }
     if (placed !== botCount) return null;
   }
-  return { slots, botMask };
+  return { slots, botMask, botNames };
 }
 
 export interface BotFillSim {

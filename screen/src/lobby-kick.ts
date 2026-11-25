@@ -1,7 +1,9 @@
+import { normalizeName } from '../../shared/src/name-service.ts';
 import type { PlayerSlot, RoomKickPayload } from '../../shared/src/types/index.ts';
 
 export function playerDisplayName(name: string): string {
-  return name === '' ? 'PLAYER' : name;
+  const normalized = normalizeName(name);
+  return normalized === '' ? 'PLAYER' : normalized;
 }
 
 export function kickButtonLabel(name: string): string {

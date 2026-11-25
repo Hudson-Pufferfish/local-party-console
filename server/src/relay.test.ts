@@ -393,10 +393,10 @@ test('kicking a LIVE or AWAY player in lobby removes them, closes LIVE socket af
       beaAfterLiveKick,
     ]);
     expect(screenLiveFrame.payload?.players).toEqual([
-      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
     ]);
     expect(beaLiveFrame.payload?.players).toEqual([
-      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
     ]);
 
     // Revoked token from kicked LIVE player is rejected
@@ -583,7 +583,7 @@ test('primary re-claim over an open old screen or after a mid-match disconnect r
     screen2.send(JSON.stringify({ type: 'room:kick', payload: { index: 1 } }));
     const awayKickFrame = await afterAwayKick;
     expect(awayKickFrame.payload?.players).toEqual([
-      expect.objectContaining({ index: 0, name: 'Ada', connected: true }),
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
     ]);
 
     // screen2 kicks LIVE Ada (slot 0)
@@ -664,10 +664,10 @@ test('room:leave frees the slot in lobby, broadcasts room:players, allows instan
     ada.send(JSON.stringify({ type: 'room:leave', payload: {} }));
     const [screenLeaveFrame, beaLeaveFrame] = await Promise.all([screenAfterLeave, beaAfterLeave]);
     expect(screenLeaveFrame.payload?.players).toEqual([
-      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
     ]);
     expect(beaLeaveFrame.payload?.players).toEqual([
-      expect.objectContaining({ index: 1, name: 'Bea', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
     ]);
 
     // Ada rejoins on the same open socket and gets slot 0 back cleanly
@@ -701,6 +701,68 @@ test('room:leave frees the slot in lobby, broadcasts room:players, allows instan
     cy.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
     const cyFrame = await cyJoined;
     expect((cyFrame.payload as { phase?: string } | undefined)?.phase).toBe('match');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+test('room:join normalizes names to uppercase and rejects empty or duplicate names with room:rejected', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const first = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const second = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, first, second);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+
+    const emptyRejected = waitForText(first, 'room:rejected');
+    first.send(JSON.stringify({ type: 'room:join', payload: { name: '   ' } }));
+    const emptyFrame = await emptyRejected;
+    expect((emptyFrame.payload as { reason?: string } | undefined)?.reason).toBe('EMPTY');
+
+    const firstJoined = waitForText(first, 'room:joined');
+    const firstRoster = waitForText(screen, 'room:players');
+    first.send(JSON.stringify({ type: 'room:join', payload: { name: '  ada  ' } }));
+    const [joinFrame, rosterFrame] = await Promise.all([firstJoined, firstRoster]);
+    expect(joinFrame.payload?.index).toBe(0);
+    expect(rosterFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+    ]);
+
+    const dupRejected = waitForText(second, 'room:rejected');
+    second.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    const dupFrame = await dupRejected;
+    expect((dupFrame.payload as { reason?: string } | undefined)?.reason).toBe('DUPLICATE');
+
+    // Socket stays open so the rejected player can pick a different name and join
+    const secondJoined = waitForText(second, 'room:joined');
+    const secondRoster = waitForText(screen, 'room:players');
+    second.send(JSON.stringify({ type: 'room:join', payload: { name: 'bea' } }));
+    const [secondFrame, updatedRoster] = await Promise.all([secondJoined, secondRoster]);
+    expect(secondFrame.payload?.index).toBe(1);
+    expect(updatedRoster.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
+    ]);
+
+    // After first player leaves, ADA is free to take again
+    const afterLeave = waitForText(screen, 'room:players');
+    first.send(JSON.stringify({ type: 'room:leave', payload: {} }));
+    await afterLeave;
+
+    const third = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(third);
+    const thirdJoined = waitForText(third, 'room:joined');
+    third.send(JSON.stringify({ type: 'room:join', payload: { name: 'ada' } }));
+    const thirdFrame = await thirdJoined;
+    expect(thirdFrame.payload?.index).toBe(0);
   } finally {
     for (const socket of sockets) socket.close();
     await relay.close();

@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./bot-difficulty": "./src/bot-difficulty.ts",
+    "./name-service": "./src/name-service.ts",
     "./types": "./src/types/index.ts",
     "./registry": "./src/registry.ts",
     "./theme": "./src/theme.ts",

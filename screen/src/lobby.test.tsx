@@ -28,7 +28,7 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   ];
   const baseProps = {
     roomId: 'ABCD',
-    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.4&room=ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.5&room=ABCD',
     notice: '',
     sdpWarning: false,
     players,
@@ -49,9 +49,12 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   const kickMatches = primaryHtml.match(/class="player-kick"/g) ?? [];
   expect(kickMatches).toHaveLength(3);
   expect(primaryHtml).toContain('type="button"');
-  expect(primaryHtml).toContain('aria-label="Remove Ada"');
-  expect(primaryHtml).toContain('aria-label="Remove Bea"');
-  expect(primaryHtml).toContain('aria-label="Remove Cid"');
+  expect(primaryHtml).toContain('>ADA<');
+  expect(primaryHtml).toContain('>BEA<');
+  expect(primaryHtml).toContain('>CID<');
+  expect(primaryHtml).toContain('aria-label="Remove ADA"');
+  expect(primaryHtml).toContain('aria-label="Remove BEA"');
+  expect(primaryHtml).toContain('aria-label="Remove CID"');
   expect(primaryHtml).toContain('title="Remove player"');
   expect(primaryHtml).toContain('--player-color:var(--player-1, #FF4D00)');
   expect(primaryHtml).toContain('--player-ink:var(--player-1-ink, #111111)');

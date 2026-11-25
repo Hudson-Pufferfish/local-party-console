@@ -17,10 +17,11 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   state[26] = 1;
   state[27] = 2;
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 3');
-  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('hu 1  da 2');
+  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('HU 1  DA 2');
   state[17] = 3;
-  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('hu 3  da 2');
-  expect(scoreboardLine(state, ['', 'Dash'])).toBe('p1 3  da 2');
+  expect(scoreboardLine(state, ['Hudson', 'Dash'])).toBe('HU 3  DA 2');
+  expect(scoreboardLine(state, ['', 'Dash'])).toBe('P1 3  DA 2');
+  expect(scoreboardLine(state, ['x', 'p2'])).toBe('X 3  P2 2');
 
   // 4 active players -> threshold = (4 - 1) * 3 = 9
   state[28] = 120;
@@ -30,7 +31,7 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   state[46] = 0; // eliminated, still active via non-zero position
   state[47] = 0;
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
-  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('hu 3  da 2  ad 4  p4 0');
+  expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HU 3  DA 2  AD 4  P4 0');
 });
 
 test('scoreboard rows carry puck colors and scoreRules formats rank payouts for the left HUD', () => {
@@ -49,9 +50,9 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 21');
 
   const rows = scoreboardRows(state, ['Hudson', '', '', '', '', '', '', 'Ada']);
-  expect(rows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'hu 0' });
-  expect(rows[2]).toEqual({ slot: 2, color: PLAYER_COLORS[2], text: 'p3 2' });
-  expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'ad 7' });
+  expect(rows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HU 0' });
+  expect(rows[2]).toEqual({ slot: 2, color: PLAYER_COLORS[2], text: 'P3 2' });
+  expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'AD 7' });
 
   const rules = scoreRules(state);
   expect(rules).toEqual({

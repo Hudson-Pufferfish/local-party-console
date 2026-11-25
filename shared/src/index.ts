@@ -6,3 +6,11 @@ export {
   type BotDifficultyRange,
   type BotScoreRng,
 } from './bot-difficulty.ts';
+export {
+  MAX_PLAYER_NAME_LENGTH,
+  generateBotName,
+  normalizeName,
+  validatePlayerName,
+  type NameRejectReason,
+  type NameValidationResult,
+} from './name-service.ts';

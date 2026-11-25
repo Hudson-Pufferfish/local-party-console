@@ -1,5 +1,14 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { connectPhone, joinNotice, storedSeq, storedToken } from './peer.ts';
+import {
+  connectPhone,
+  DUPLICATE_NAME_NOTICE,
+  EMPTY_NAME_NOTICE,
+  joinNotice,
+  prepareJoinName,
+  rejectNotice,
+  storedSeq,
+  storedToken,
+} from './peer.ts';
 import { sendAxes } from './send-input.ts';
 
 class IdleSocket extends EventTarget {
@@ -214,6 +223,48 @@ test('room:kicked clears stored reconnect state, closes the kicked socket withou
   expect(storedToken('ABCD')).toBeNull();
   expect(storedSeq('ABCD')).toBe(-1);
   expect(sentBuffers).toEqual([]);
+});
+
+test('prepareJoinName blocks empty names and room:rejected notifies duplicate or empty without closing the socket', () => {
+  expect(prepareJoinName('')).toEqual({ ok: false, notice: EMPTY_NAME_NOTICE });
+  expect(prepareJoinName('   ')).toEqual({ ok: false, notice: EMPTY_NAME_NOTICE });
+  expect(prepareJoinName('  ada  ')).toEqual({ ok: true, name: 'ADA' });
+  expect(rejectNotice('EMPTY')).toBe('ENTER AT LEAST 1 CHARACTER');
+  expect(rejectNotice('DUPLICATE')).toBe('NAME ALREADY TAKEN — CHOOSE ANOTHER');
+  expect(EMPTY_NAME_NOTICE).toBe('ENTER AT LEAST 1 CHARACTER');
+  expect(DUPLICATE_NAME_NOTICE).toBe('NAME ALREADY TAKEN — CHOOSE ANOTHER');
+
+  vi.stubGlobal('location', { host: '10.0.0.72:8443' });
+  globalThis.window = globalThis as unknown as Window & typeof globalThis;
+  openSockets.length = 0;
+  const previousSocket = globalThis.WebSocket;
+  globalThis.WebSocket = OpenSocket as unknown as typeof WebSocket;
+  const reasons: string[] = [];
+  try {
+    const link = connectPhone('ABCD', {
+      onJoined() {},
+      onFull() {},
+      onRejected(reason) {
+        reasons.push(reason);
+      },
+      onMount() {},
+      onPong() {},
+      onLink() {},
+    });
+    const socket = openSockets[0];
+    if (socket === undefined) throw new Error('missing socket');
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'room:rejected', payload: { reason: 'DUPLICATE' } }),
+    }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'room:rejected', payload: { reason: 'EMPTY' } }),
+    }));
+    expect(socket.readyState).toBe(OpenSocket.OPEN);
+    link.close();
+  } finally {
+    globalThis.WebSocket = previousSocket;
+  }
+  expect(reasons).toEqual(['DUPLICATE', 'EMPTY']);
 });
 
 class OpenSocket extends EventTarget {
