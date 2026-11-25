@@ -191,7 +191,7 @@ Avoid sending separate telemetry JSON events during gameplay. Bake observability
 Byte 0..1 : [Uint16] Sequence Number (0..65535)        -> Detects packet loss & out-of-order UDP
 Byte 2..3 : [Uint16] Phone Timestamp (ms mod 65536)    -> Computes One-Way Transit + Jitter
 Byte 4    : [Uint8]  Input Lag (T_touch in 0.5ms steps)-> Exposes phone browser/GC freezes to Host
-Byte 5    : [Uint8]  Button Bitmask (Up to 8 buttons)  -> Game input
+Byte 5    : [Uint8]  4 Buttons: Lower nibble (0..3 held), Upper nibble (4..7 toggles) -> Loss-proof input
 Byte 6..7 : [Int8x2] Quantized Joystick (X, Y -127..127)-> Game input
 ```
 
