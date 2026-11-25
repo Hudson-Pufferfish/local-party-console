@@ -184,6 +184,11 @@
   align-items: center;
 }
 
+.panel .bot-difficulty {
+  margin-top: 14px;
+  max-width: 280px;
+}
+
 .bot-count {
   display: inline-flex;
   align-items: center;

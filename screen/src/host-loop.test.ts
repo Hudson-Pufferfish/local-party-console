@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { writeHeuristic } from '../../games/sumo-dash/src/heuristic.ts';
+import { levelsForMask, writeHeuristic } from '../../games/sumo-dash/src/heuristic.ts';
 import { createSumoSimulation } from '../../games/sumo-dash/src/simulation.ts';
 import { createBotFill } from './bot-fill.ts';
 import { createHostLoop, type ScreenSim } from './host-loop.ts';
@@ -34,8 +34,8 @@ test('a human slot still receives applyInput when a bot fills another slot', () 
 test('a held stick moves a human while bots fill the other slots', () => {
   const sim = createSumoSimulation();
   const mask = new Uint8Array([0, 0, 1, 1, 0, 0, 0, 0]);
-  const fill = createBotFill(writeHeuristic, () => Uint8Array.from([0, 0, 2, 5, 0, 0, 0, 0]));
-  fill.arm(mask);
+  const fill = createBotFill(writeHeuristic, () => Uint8Array.from([0, 0, 25, 65, 0, 0, 0, 0]));
+  fill.arm(mask, 'medium');
   const loop = createHostLoop(sim, undefined, () => {}, (slot, current) => fill.fill(slot, current));
   loop.startMatch([0, 1, 2, 3]);
   let now = 0;
@@ -51,8 +51,8 @@ test('a held stick moves a human while bots fill the other slots', () => {
 test('two bots do not stay locked together for the whole round', () => {
   const sim = createSumoSimulation();
   const mask = new Uint8Array([1, 1, 0, 0, 0, 0, 0, 0]);
-  const fill = createBotFill(writeHeuristic, () => Uint8Array.from([2, 5, 0, 0, 0, 0, 0, 0]));
-  fill.arm(mask);
+  const fill = createBotFill(writeHeuristic, () => Uint8Array.from([25, 65, 0, 0, 0, 0, 0, 0]));
+  fill.arm(mask, 'hard');
   const loop = createHostLoop(sim, undefined, () => {}, (slot, current) => fill.fill(slot, current));
   loop.startMatch([0, 1]);
   let now = 0;
@@ -64,4 +64,27 @@ test('two bots do not stay locked together for the whole round', () => {
   const strong = sim.state[27] ?? 0;
   expect(weak + strong).toBeGreaterThan(0);
   expect(strong).toBeGreaterThan(weak);
+});
+
+test('bot fill passes difficulty through levelsForMask into the host loop', () => {
+  const sim = createSumoSimulation();
+  const mask = new Uint8Array([0, 1, 1, 0, 0, 0, 0, 0]);
+  const capturedLevels: number[] = [];
+  const fill = createBotFill(
+    (state, botIndex, axisX, axisY, buttons, level) => {
+      if (level !== undefined && capturedLevels.length < 2) capturedLevels.push(level);
+      writeHeuristic(state, botIndex, axisX, axisY, buttons, level);
+    },
+    (botMask, difficulty) => levelsForMask(botMask, difficulty),
+  );
+  fill.arm(mask, 'hard');
+  const loop = createHostLoop(sim, undefined, () => {}, (slot, current) => fill.fill(slot, current));
+  loop.startMatch([0, 1, 2]);
+  loop.tick(16, 16);
+  expect(capturedLevels).toHaveLength(2);
+  expect(capturedLevels[0]).not.toBe(capturedLevels[1]);
+  for (const score of capturedLevels) {
+    expect(score).toBeGreaterThanOrEqual(50);
+    expect(score).toBeLessThanOrEqual(70);
+  }
 });

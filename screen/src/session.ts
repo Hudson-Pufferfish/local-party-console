@@ -1,4 +1,5 @@
 import { toCanvas } from 'qrcode';
+import type { BotDifficulty } from '../../shared/src/bot-difficulty.ts';
 import { qrTarget } from '../../shared/src/sdp/qr-target.ts';
 import type { GameManifest, PlayerSlot, ScreenViewTarget } from '../../shared/src/types/game.ts';
 import { standbyCopy } from '../../shared/src/view/policy.ts';
@@ -7,6 +8,7 @@ import {
   createBotLobby,
   lockBotCount,
   nextBotCount,
+  nextBotDifficulty,
   rosterForStart,
   unlockBotCount,
   type BotLobbyState,
@@ -49,6 +51,7 @@ export interface ScreenSession {
   returnToLobby: () => void;
   kickPlayer: (index: number) => void;
   setBotCount: (requested: number) => void;
+  setBotDifficulty: (difficulty: BotDifficulty) => void;
   readTelemetry: (slot: number) => TelemetryRead | null;
   resumeAudio: () => void;
   attachQr: (canvas: HTMLCanvasElement) => void;
@@ -101,10 +104,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const writer = activeRuntime?.writeBotInput;
     if (writer === undefined) return;
     writer(state, botIndex, axisX, axisY, buttons, level);
-  }, (mask) => {
+  }, (mask, difficulty) => {
     const levels = activeRuntime?.botLevels;
     if (levels === undefined) return new Uint8Array(8);
-    return levels(mask);
+    return levels(mask, difficulty);
   });
   let primary = false;
   let socket: WebSocket | null = null;
@@ -424,7 +427,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           handlers.setBotLobby(botLobby);
           openLoop(targetId, runtime);
           if (loop === null) return;
-          bots.arm(roster.botMask);
+          bots.arm(roster.botMask, botLobby.difficulty);
           loop.startMatch(roster.slots);
           handlers.setMatch(true);
           handlers.setMatchOver(false);
@@ -444,7 +447,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       if (entry === undefined) return;
       const roster = rosterForStart(players, entry.manifest, botLobby.botCount);
       if (roster === null) return;
-      bots.arm(roster.botMask);
+      bots.arm(roster.botMask, botLobby.difficulty);
       loop.startMatch(roster.slots);
       handlers.setMatch(true);
       handlers.setMatchOver(false);
@@ -488,6 +491,15 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         requested,
         connectedHumans(),
         entry?.manifest.maxPlayers ?? 8,
+        entry?.manifest.supportsBots === true,
+      );
+      handlers.setBotLobby(botLobby);
+    },
+    setBotDifficulty(difficulty: BotDifficulty): void {
+      const entry = screenGames.get(selectedId);
+      botLobby = nextBotDifficulty(
+        botLobby,
+        difficulty,
         entry?.manifest.supportsBots === true,
       );
       handlers.setBotLobby(botLobby);
@@ -678,6 +690,7 @@ function idleSession(view: ScreenViewTarget): ScreenSession {
     returnToLobby() {},
     kickPlayer() {},
     setBotCount() {},
+    setBotDifficulty() {},
     readTelemetry() {
       return null;
     },

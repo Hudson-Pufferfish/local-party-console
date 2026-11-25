@@ -9,6 +9,7 @@ import {
   createBotLobby,
   lockBotCount,
   nextBotCount,
+  nextBotDifficulty,
   rosterForStart,
   startBlockReason,
   startNotice,
@@ -39,8 +40,8 @@ function reason(humanCount: number, bots: number, supportsBots = true) {
   });
 }
 
-it('default bot count is 0', () => {
-  expect(createBotLobby()).toEqual({ botCount: 0, locked: false });
+it('default bot count is 0 and difficulty is medium', () => {
+  expect(createBotLobby()).toEqual({ botCount: 0, difficulty: 'medium', locked: false });
 });
 
 it('bot toggle is a no-op when no human is connected', () => {
@@ -95,7 +96,7 @@ it('locked bot count ignores a change', () => {
   const state = lockBotCount(nextBotCount(createBotLobby(), 1, 1, 8, true));
   const next = nextBotCount(state, 4, 1, 8, true);
   expect(next).toBe(state);
-  expect(next).toEqual({ botCount: 1, locked: true });
+  expect(next).toEqual({ botCount: 1, difficulty: 'medium', locked: true });
 });
 
 it('last human leaving disables start', () => {
@@ -154,7 +155,7 @@ it('play again keeps the frozen count and the lobby unlocks at that count', () =
   const unlocked = unlockBotCount(locked);
   expect(unlocked.botCount).toBe(2);
   expect(unlocked.locked).toBe(false);
-  expect(createBotLobby()).toEqual({ botCount: 0, locked: false });
+  expect(createBotLobby()).toEqual({ botCount: 0, difficulty: 'medium', locked: false });
 });
 
 it('a human leave during a match does not add a bot', () => {
@@ -173,7 +174,7 @@ it('a human leave during a match does not add a bot', () => {
 
 it('a second human does not change the bot count', () => {
   const state = nextBotCount(createBotLobby(), 1, 1, 8, true);
-  expect(state).toEqual({ botCount: 1, locked: false });
+  expect(state).toEqual({ botCount: 1, difficulty: 'medium', locked: false });
   expect(reason(2, state.botCount)).toBeNull();
   const roster = rosterForStart(humans(2), SUMO, state.botCount);
   expect(roster?.slots).toHaveLength(3);
@@ -217,4 +218,22 @@ it('supportsBots false adds no bots', () => {
   const roster = rosterForStart([player(0, true), player(1, true)], off, 3);
   expect(roster?.slots).toEqual([0, 1]);
   expect(Array.from(roster?.botMask ?? [])).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+});
+
+it('nextBotDifficulty updates while unlocked and arm forwards difficulty to levelsFor', () => {
+  const start = createBotLobby();
+  const hard = nextBotDifficulty(start, 'hard', true);
+  expect(hard).toEqual({ botCount: 0, difficulty: 'hard', locked: false });
+  expect(nextBotDifficulty(hard, 'easy', false)).toBe(hard);
+  const locked = lockBotCount(hard);
+  expect(nextBotDifficulty(locked, 'easy', true)).toBe(locked);
+  expect(unlockBotCount(locked).difficulty).toBe('hard');
+
+  const seen: string[] = [];
+  const fill = createBotFill(writeHeuristic, (_mask, difficulty) => {
+    seen.push(difficulty ?? 'none');
+    return Uint8Array.from([0, 62, 0, 0, 0, 0, 0, 0]);
+  });
+  fill.arm(new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]), 'hard');
+  expect(seen).toEqual(['hard']);
 });

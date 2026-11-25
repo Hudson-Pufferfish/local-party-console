@@ -1,8 +1,14 @@
+import {
+  DEFAULT_BOT_DIFFICULTY,
+  assignBotScores,
+  type BotDifficulty,
+} from '../../../shared/src/bot-difficulty.ts';
 import { SUMO_CONSTANTS } from './constants';
 
 const PREDICT = 0.15;
 const DASH_LIMIT = 0.85;
-const LEVEL_SCALE = 20;
+export const LEVEL_SCALE = 100;
+const DEFAULT_LEVEL = 40;
 const CONTACT = SUMO_CONSTANTS.puckRadius * 2 + 40;
 const TRAVEL = SUMO_CONSTANTS.dashSpeed * SUMO_CONSTANTS.dashActive;
 const ARENA = 3;
@@ -14,47 +20,48 @@ const SLOTS = 8;
 
 export type LevelRng = () => number;
 
-const LEVEL_DECK = [1, 2, 3, 4, 5, 6, 7];
+export function nerf(base: number, mult: number, share: number): number {
+  return base + share * mult;
+}
 
-export function assignBotLevels(count: number, rng: LevelRng = Math.random): readonly number[] {
+export function assignBotLevels(
+  count: number,
+  difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY,
+  rng: LevelRng = Math.random,
+): readonly number[] {
   let n = Math.trunc(count);
   if (!Number.isFinite(count) || n < 0) n = 0;
   if (n > 7) n = 7;
   if (n === 0) return [];
-  const deck = LEVEL_DECK.slice();
-  for (let index = deck.length - 1; index > 0; index -= 1) {
-    let pick = Math.floor(rng() * (index + 1));
-    if (pick < 0) pick = 0;
-    if (pick > index) pick = index;
-    const swap = deck[index] ?? 1;
-    deck[index] = deck[pick] ?? 1;
-    deck[pick] = swap;
-  }
-  return deck.slice(0, n);
+  return assignBotScores(n, difficulty, rng);
 }
 
-export function levelsForMask(mask: Uint8Array, rng: LevelRng = Math.random): Uint8Array {
+export function levelsForMask(
+  mask: Uint8Array,
+  difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY,
+  rng: LevelRng = Math.random,
+): Uint8Array {
   let count = 0;
   const limit = mask.length < SLOTS ? mask.length : SLOTS;
   for (let index = 0; index < limit; index += 1) {
     if (mask[index] === 1) count += 1;
   }
-  const levels = assignBotLevels(count, rng);
+  const levels = assignBotLevels(count, difficulty, rng);
   const out = new Uint8Array(SLOTS);
   let placed = 0;
   for (let index = 0; index < limit; index += 1) {
     if (mask[index] !== 1 || placed >= levels.length) continue;
-    out[index] = levels[placed] ?? 1;
+    out[index] = levels[placed] ?? DEFAULT_LEVEL;
     placed += 1;
   }
   return out;
 }
 
 function clampLevel(level: number): number {
-  if (!Number.isFinite(level)) return 4;
+  if (!Number.isFinite(level)) return DEFAULT_LEVEL;
   let value = Math.trunc(level);
   if (value < 1) value = 1;
-  if (value > 7) value = 7;
+  if (value > LEVEL_SCALE) value = LEVEL_SCALE;
   return value;
 }
 
@@ -64,7 +71,7 @@ export function writeHeuristic(
   axisX: Int8Array,
   axisY: Int8Array,
   buttons: Uint8Array,
-  level = 7,
+  level = DEFAULT_LEVEL,
 ): void {
   if (botIndex !== (botIndex | 0) || botIndex < 0 || botIndex > 7) {
     return;
@@ -79,8 +86,8 @@ export function writeHeuristic(
 
   const skill = clampLevel(level);
   const share = skill / LEVEL_SCALE;
-  const pace = 0.5 + share * 0.15;
-  const safe = 0.8 + share * 0.03;
+  const pace = nerf(0.32, 0.58, share);
+  const safe = nerf(0.74, 0.09, share);
   const x = state[base];
   const y = state[base + 1];
   const arena = state[ARENA];
@@ -115,7 +122,7 @@ export function writeHeuristic(
     const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
     if (aimDist > 0) {
-      const turn = (1 - share) * 0.12 * side;
+      const turn = nerf(0.24, -0.22, share) * side;
       const turnCos = Math.cos(turn);
       const turnSin = Math.sin(turn);
       aimX = x + aimDx * turnCos - aimDy * turnSin;
@@ -167,7 +174,7 @@ export function writeHeuristic(
       }
       pushX /= push;
       pushY /= push;
-      const commit = 0.48 + share * 1.05;
+      const commit = nerf(0.35, 0.6, share);
       const slide = 1 - commit;
       unitX = pushX * commit - pushY * side * slide;
       unitY = pushY * commit + pushX * side * slide;
@@ -198,8 +205,8 @@ export function writeHeuristic(
     const aimDx = rawAimX - x;
     const aimDy = rawAimY - y;
     const aimDist = Math.hypot(aimDx, aimDy);
-    const dashRange = 80 + share * 300;
-    const alignNeed = 0.94 - share * 0.08;
+    const dashRange = nerf(60, 260, share);
+    const alignNeed = nerf(0.96, -0.1, share);
     let align = 0;
     if (aimDist !== 0 && (unitX !== 0 || unitY !== 0)) {
       align = unitX * (aimDx / aimDist) + unitY * (aimDy / aimDist);

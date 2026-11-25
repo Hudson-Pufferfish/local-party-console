@@ -4,6 +4,7 @@
 @import "@fontsource/jetbrains-mono/700.css";
 @import "../../../shared/src/ui/theme.css";
 @import "../../../shared/src/ui/layout.css";
+@import "../../../shared/src/ui/primitives.css";
 
 :root {
   color: #111111;

@@ -1,3 +1,4 @@
+import { DEFAULT_BOT_DIFFICULTY, type BotDifficulty } from '../../shared/src/bot-difficulty.ts';
 import type { PlayerSlot } from '../../shared/src/types/game.ts';
 
 export const NOTICE_OVER_CAP = 'exceed max — modify bot count';
@@ -5,7 +6,7 @@ export const NOTICE_NO_HUMAN = 'need minimum one real player';
 
 const MASK_LEN = 8;
 
-export type BotLobbyState = { botCount: number; locked: boolean };
+export type BotLobbyState = { botCount: number; difficulty: BotDifficulty; locked: boolean };
 export type StartBlock = 'no-human' | 'below-min' | 'over-cap';
 
 export interface BotRoster {
@@ -14,17 +15,26 @@ export interface BotRoster {
 }
 
 export function createBotLobby(): BotLobbyState {
-  return { botCount: 0, locked: false };
+  return { botCount: 0, difficulty: DEFAULT_BOT_DIFFICULTY, locked: false };
 }
 
 export function lockBotCount(state: BotLobbyState): BotLobbyState {
   if (state.locked) return state;
-  return { botCount: state.botCount, locked: true };
+  return { botCount: state.botCount, difficulty: state.difficulty, locked: true };
 }
 
 export function unlockBotCount(state: BotLobbyState): BotLobbyState {
   if (!state.locked) return state;
-  return { botCount: state.botCount, locked: false };
+  return { botCount: state.botCount, difficulty: state.difficulty, locked: false };
+}
+
+export function nextBotDifficulty(
+  state: BotLobbyState,
+  difficulty: BotDifficulty,
+  supportsBots: boolean,
+): BotLobbyState {
+  if (state.locked || !supportsBots || state.difficulty === difficulty) return state;
+  return { botCount: state.botCount, difficulty, locked: false };
 }
 
 export function clampBotCount(requested: number, humans: number, maxPlayers: number): number {
@@ -48,10 +58,10 @@ export function nextBotCount(
   if (requested > clamped) {
     const lowered = Math.trunc(requested);
     if (!Number.isFinite(requested) || lowered >= state.botCount || lowered < 0) return state;
-    return { botCount: lowered, locked: false };
+    return { botCount: lowered, difficulty: state.difficulty, locked: false };
   }
   if (clamped === state.botCount) return state;
-  return { botCount: clamped, locked: false };
+  return { botCount: clamped, difficulty: state.difficulty, locked: false };
 }
 
 export function startBlockReason(input: {
@@ -135,10 +145,10 @@ export type WriteBotInput = (
   level?: number,
 ) => void;
 
-export type BotLevels = (mask: Uint8Array) => Uint8Array;
+export type BotLevels = (mask: Uint8Array, difficulty?: BotDifficulty) => Uint8Array;
 
 export interface BotFill {
-  arm(mask: Uint8Array): void;
+  arm(mask: Uint8Array, difficulty?: BotDifficulty): void;
   fill(slot: number, sim: BotFillSim): boolean;
 }
 
@@ -149,18 +159,19 @@ export function createBotFill(write: WriteBotInput, levelsFor?: BotLevels): BotF
   const botMask = new Uint8Array(MASK_LEN);
   const levelBySlot = new Uint8Array(MASK_LEN);
   return {
-    arm(mask: Uint8Array): void {
+    arm(mask: Uint8Array, difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY): void {
       for (let index = 0; index < MASK_LEN; index += 1) {
         botMask[index] = mask[index] ?? 0;
       }
-      const levels = levelsFor?.(botMask);
+      const levels = levelsFor?.(botMask, difficulty);
       for (let index = 0; index < MASK_LEN; index += 1) {
         levelBySlot[index] = levels?.[index] ?? 0;
       }
     },
     fill(slot: number, sim: BotFillSim): boolean {
       if (botMask[slot] !== 1) return false;
-      const level = levelBySlot[slot] === 0 ? 4 : levelBySlot[slot];
+      const stored = levelBySlot[slot] ?? 0;
+      const level = stored === 0 ? undefined : stored;
       if ((sim.state[0] & 1) === 0) write(sim.state, slot, axisX, axisY, buttons, level);
       sim.applyInput(slot, buttons[slot] ?? 0, axisX[slot] ?? 0, axisY[slot] ?? 0);
       return true;

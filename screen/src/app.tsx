@@ -136,10 +136,12 @@ export const App: VoidComponent = () => {
                 startEnabled={startEnabled()}
                 starting={starting()}
                 botCount={botLobby().botCount}
+                botDifficulty={botLobby().difficulty}
                 botControlEnabled={selectedGame()?.supportsBots === true && connectedHumans() > 0}
                 botNotice={botNotice()}
                 canKick={primary()}
                 onBotStep={(delta) => session?.setBotCount(botLobby().botCount + delta)}
+                onBotDifficulty={(difficulty) => session?.setBotDifficulty(difficulty)}
                 onQr={(canvas) => {
                   canvases.qr = canvas;
                   session?.attachQr(canvas);

@@ -105,6 +105,92 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   expect(secondaryHtml).not.toContain('class="player-kick"');
 });
 
+test('lobby renders BotDifficultySelector under BOTS when supportsBots is true, defaults to MED, and switches cleanly', () => {
+  const games = [
+    {
+      id: 'sumo-dash',
+      title: 'SUMO DASH',
+      minPlayers: 2,
+      maxPlayers: 8,
+      supportsTeams: false,
+      maxTeams: 0,
+      supportsBots: true,
+      rendererType: 'phaser-2d' as const,
+      viewConfig: { mode: 'holistic' as const, inputBufferMode: 'zero-buffer' as const },
+      themeTokens: {},
+    },
+    {
+      id: 'human-only',
+      title: 'HUMAN ONLY',
+      minPlayers: 2,
+      maxPlayers: 8,
+      supportsTeams: false,
+      maxTeams: 0,
+      supportsBots: false,
+      rendererType: 'phaser-2d' as const,
+      viewConfig: { mode: 'holistic' as const, inputBufferMode: 'zero-buffer' as const },
+      themeTokens: {},
+    },
+  ];
+  const baseProps = {
+    roomId: 'ABCD',
+    qrUrl: 'https://10.0.0.1:8443/controller?rev=0.0.0&room=ABCD',
+    notice: '',
+    sdpWarning: false,
+    players: [{ index: 0, name: 'Ada', color: '#FF4D00', teamId: null, connected: true }],
+    games,
+    selectedId: 'sumo-dash',
+    startEnabled: true,
+    botCount: 2,
+    botControlEnabled: true,
+    botNotice: '',
+    canKick: true,
+    onBotStep() {},
+    onBotDifficulty() {},
+    onQr() {},
+    onSelect() {},
+    onStart() {},
+    onKick() {},
+  };
+
+  const defaultHtml = renderToString(() => <Lobby {...baseProps} />);
+  expect(defaultHtml).toContain('role="group"');
+  expect(defaultHtml).toContain('aria-label="Bot difficulty"');
+  expect(defaultHtml.indexOf('bot-stepper')).toBeLessThan(defaultHtml.indexOf('bot-difficulty'));
+  expect(defaultHtml).toContain('data-difficulty="easy" data-active="false" aria-pressed="false"');
+  expect(defaultHtml).toContain('data-difficulty="medium" data-active="true" aria-pressed="true"');
+  expect(defaultHtml).toContain('data-difficulty="hard" data-active="false" aria-pressed="false"');
+  expect(defaultHtml).toContain('>EASY<');
+  expect(defaultHtml).toContain('>MED<');
+  expect(defaultHtml).toContain('>HARD<');
+  expect(defaultHtml).toContain('data-disabled="false"');
+
+  const hardHtml = renderToString(() => <Lobby {...baseProps} botDifficulty="hard" />);
+  expect(hardHtml).toContain('data-difficulty="hard" data-active="true" aria-pressed="true"');
+  expect(hardHtml).toContain('data-difficulty="medium" data-active="false" aria-pressed="false"');
+
+  const easyHtml = renderToString(() => <Lobby {...baseProps} botDifficulty="easy" />);
+  expect(easyHtml).toContain('data-difficulty="easy" data-active="true" aria-pressed="true"');
+
+  const zeroBotsHtml = renderToString(() => <Lobby {...baseProps} botCount={0} />);
+  expect(zeroBotsHtml).toContain('data-disabled="true"');
+
+  const secondaryHtml = renderToString(() => <Lobby {...baseProps} canKick={false} />);
+  expect(secondaryHtml).toContain('data-disabled="true"');
+
+  const noBotsGameHtml = renderToString(() => <Lobby {...baseProps} selectedId="human-only" />);
+  expect(noBotsGameHtml).not.toContain('aria-label="Bot difficulty"');
+
+  const primitivesCss = fs.readFileSync(
+    path.resolve(import.meta.dirname, '../../shared/src/ui/primitives.css'),
+    'utf8',
+  );
+  const activeBlock = primitivesCss.match(/\.bot-difficulty-btn\[data-active='true'\]\s*\{[^}]*\}/)?.[0] ?? '';
+  expect(activeBlock).toContain('var(--theme-yellow');
+  expect(activeBlock).toContain('var(--ink');
+  expect(primitivesCss).toContain('.bot-difficulty-btn');
+});
+
 test('kickRequestFor dispatches room:kick for LIVE or AWAY players only in primary lobby', () => {
   const players: PlayerSlot[] = [
     { index: 0, name: 'Ada', color: '#FF4D00', teamId: null, connected: true },
