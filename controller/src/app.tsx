@@ -26,6 +26,7 @@ import {
   LINK_DOWN_NOTICE,
   prepareJoinName,
   rejectNotice,
+  storedName,
   storeSeq,
   storedToken,
   type PhoneLink,
@@ -80,6 +81,38 @@ export function submitJoinAttempt(options: JoinAttemptOptions): SendResult | 'mi
     name: prepared.name,
   };
   if (options.token !== null) payload.sessionToken = options.token;
+  const result = current === undefined ? 'missing' : current.sendText({ type: 'room:join', payload });
+  options.setPending(true);
+  options.setNotice(joinNotice(result));
+  options.scheduleTimeout(() => {
+    if (!options.isJoined()) options.setNotice(LINK_DOWN_NOTICE);
+  }, 2000);
+  return result;
+}
+
+export interface AutoResumeOptions {
+  readonly token: string | null;
+  readonly storedName: string | null;
+  readonly link: PhoneLink | undefined;
+  readonly setName: (next: string) => void;
+  readonly setNotice: (next: string) => void;
+  readonly setPending: (next: boolean) => void;
+  readonly scheduleTimeout: (fn: () => void, ms: number) => void;
+  readonly isJoined: () => boolean;
+}
+
+export function attemptAutoResume(
+  options: AutoResumeOptions,
+): SendResult | 'missing' | 'skipped' {
+  if (options.token === null || options.token === '') return 'skipped';
+  const normalized = options.storedName === null ? '' : normalizeName(options.storedName);
+  if (normalized !== '') options.setName(normalized);
+  const current = options.link;
+  current?.reconnect();
+  const payload = {
+    name: normalized,
+    sessionToken: options.token,
+  };
   const result = current === undefined ? 'missing' : current.sendText({ type: 'room:join', payload });
   options.setPending(true);
   options.setNotice(joinNotice(result));
@@ -273,6 +306,21 @@ export const App: VoidComponent = () => {
             setNotice((current) => (current === LINK_DOWN_NOTICE ? '' : current));
           }
         },
+      });
+      attemptAutoResume({
+        token: storedToken(room),
+        storedName: storedName(room),
+        link,
+        setName,
+        setNotice,
+        setPending: (next) => {
+          joinPending = next;
+        },
+        scheduleTimeout: (fn, ms) => {
+          window.clearTimeout(joinTimer);
+          joinTimer = window.setTimeout(fn, ms);
+        },
+        isJoined: joined,
       });
       return () => {
         window.clearTimeout(joinTimer);

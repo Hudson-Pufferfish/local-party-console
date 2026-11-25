@@ -656,7 +656,8 @@ test('room:leave frees the slot in lobby, broadcasts room:players, allows instan
     const beaJoined = waitForText(bea, 'room:joined');
     const beaRoster = waitForText(screen, 'room:players');
     bea.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
-    await Promise.all([beaJoined, beaRoster]);
+    const [beaFrame] = await Promise.all([beaJoined, beaRoster]);
+    const beaToken = beaFrame.payload?.sessionToken;
 
     // Ada leaves pre-start: slot 0 is freed, screen and Bea receive updated roster, Ada stays connected
     const screenAfterLeave = waitForText(screen, 'room:players');
@@ -694,13 +695,16 @@ test('room:leave frees the slot in lobby, broadcasts room:players, allows instan
     await settle();
     expect(midMatchUpdates).toEqual([]);
 
-    // A controller joining mid-match receives phase: 'match' in room:joined
-    const cy = await connect(relay.port, `room=${created.roomId}&role=controller`);
-    sockets.push(cy);
-    const cyJoined = waitForText(cy, 'room:joined');
-    cy.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
-    const cyFrame = await cyJoined;
-    expect((cyFrame.payload as { phase?: string } | undefined)?.phase).toBe('match');
+    // A returning controller rejoining mid-match receives phase: 'match' in room:joined
+    const beaRejoin = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(beaRejoin);
+    const beaRejoined = waitForText(beaRejoin, 'room:joined');
+    beaRejoin.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Bea', sessionToken: beaToken },
+    }));
+    const beaRejoinFrame = await beaRejoined;
+    expect((beaRejoinFrame.payload as { phase?: string } | undefined)?.phase).toBe('match');
   } finally {
     for (const socket of sockets) socket.close();
     await relay.close();
@@ -822,6 +826,127 @@ test('game:unmount from primary clears cached game:mount and fans out to room cl
     await lateJoined;
     await settle();
     expect(lateMounts).toEqual([]);
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+test('mid-match join rejects strangers and unknown tokens with MATCH_IN_PROGRESS while returning players rejoin and broadcast connected: true', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const ada = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const bea = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, ada, bea);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+
+    const adaJoined = waitForText(ada, 'room:joined');
+    const adaRoster = waitForText(screen, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'Ada' } }));
+    await Promise.all([adaJoined, adaRoster]);
+
+    const beaJoined = waitForText(bea, 'room:joined');
+    const beaRoster = waitForText(screen, 'room:players');
+    bea.send(JSON.stringify({ type: 'room:join', payload: { name: 'Bea' } }));
+    const [beaFrame] = await Promise.all([beaJoined, beaRoster]);
+    const beaToken = beaFrame.payload?.sessionToken;
+    expect(typeof beaToken).toBe('string');
+
+    // Mount game and start match
+    const adaMounted = waitForText(ada, 'game:mount');
+    const adaMatch = waitForText(ada, 'room:phase');
+    screen.send(JSON.stringify({ type: 'game:mount', payload: { gameId: 'sumo-dash' } }));
+    screen.send(JSON.stringify({ type: 'room:phase', payload: { phase: 'match' } }));
+    await Promise.all([adaMounted, adaMatch]);
+
+    const rosterUpdates: unknown[] = [];
+    screen.on('message', (data, isBinary) => {
+      if (isBinary) return;
+      const frame = JSON.parse(data.toString()) as { type: string; payload?: unknown };
+      if (frame.type === 'room:players') rosterUpdates.push(frame.payload);
+    });
+
+    // Brand new stranger is rejected with MATCH_IN_PROGRESS
+    const stranger = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(stranger);
+    const strangerRejected = waitForText(stranger, 'room:rejected');
+    stranger.send(JSON.stringify({ type: 'room:join', payload: { name: 'Cy' } }));
+    expect(((await strangerRejected).payload as { reason?: string } | undefined)?.reason).toBe('MATCH_IN_PROGRESS');
+
+    // Stranger with an unknown session token is also rejected with MATCH_IN_PROGRESS
+    const bogusRejected = waitForText(stranger, 'room:rejected');
+    stranger.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Cy', sessionToken: 'deadbeef00000000deadbeef00000000' },
+    }));
+    expect(((await bogusRejected).payload as { reason?: string } | undefined)?.reason).toBe('MATCH_IN_PROGRESS');
+
+    // Stranger with empty name mid-match still gets MATCH_IN_PROGRESS
+    const emptyStrangerRejected = waitForText(stranger, 'room:rejected');
+    stranger.send(JSON.stringify({ type: 'room:join', payload: { name: '' } }));
+    expect(((await emptyStrangerRejected).payload as { reason?: string } | undefined)?.reason).toBe('MATCH_IN_PROGRESS');
+
+    await settle();
+    expect(rosterUpdates).toEqual([]);
+
+    // Returning player Bea disconnects -> screen sees connected: false
+    const awayUpdate = waitForText(screen, 'room:players');
+    bea.close();
+    const awayFrame = await awayUpdate;
+    expect(awayFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: false }),
+    ]);
+
+    // Returning player Bea reconnects with valid token -> rejoins slot 1, gets game:mount, broadcasts connected: true
+    const bea2 = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(bea2);
+    const bea2Joined = waitForText(bea2, 'room:joined');
+    const bea2Mounted = waitForText(bea2, 'game:mount');
+    const liveUpdate = waitForText(screen, 'room:players');
+    bea2.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: 'Bea', sessionToken: beaToken },
+    }));
+    const [rejoinedFrame, mountedFrame, liveFrame] = await Promise.all([
+      bea2Joined,
+      bea2Mounted,
+      liveUpdate,
+    ]);
+    expect(rejoinedFrame.payload?.index).toBe(1);
+    expect((rejoinedFrame.payload as { phase?: string } | undefined)?.phase).toBe('match');
+    expect(mountedFrame.payload?.gameId).toBe('sumo-dash');
+    expect(liveFrame.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
+    ]);
+
+    // Returning player rejoining with valid token and empty name preserves existing slot name
+    const bea2Away = waitForText(screen, 'room:players');
+    bea2.close();
+    await bea2Away;
+
+    const bea3 = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(bea3);
+    const bea3Joined = waitForText(bea3, 'room:joined');
+    const bea3Live = waitForText(screen, 'room:players');
+    bea3.send(JSON.stringify({
+      type: 'room:join',
+      payload: { name: '', sessionToken: beaToken },
+    }));
+    const [bea3Frame, bea3Roster] = await Promise.all([bea3Joined, bea3Live]);
+    expect(bea3Frame.payload?.index).toBe(1);
+    expect(bea3Roster.payload?.players).toEqual([
+      expect.objectContaining({ index: 0, name: 'ADA', connected: true }),
+      expect.objectContaining({ index: 1, name: 'BEA', connected: true }),
+    ]);
   } finally {
     for (const socket of sockets) socket.close();
     await relay.close();

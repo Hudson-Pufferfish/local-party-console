@@ -17,7 +17,7 @@ import {
   type ScoreRow,
   type ScoreRules,
 } from './register-games.ts';
-import { ScoreboardPanel, ScoreRulesPanel } from './score-rules.tsx';
+import { MatchRejoinQr, ScoreboardPanel, ScoreRulesPanel } from './score-rules.tsx';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
 import { TabHud } from './telemetry/tab-hud.tsx';
@@ -164,6 +164,12 @@ export const App: VoidComponent = () => {
             }
           >
             <section class="match" data-game={selectedId()}>
+              <MatchRejoinQr
+                onQr={(canvas) => {
+                  canvases.qr = canvas;
+                  session?.attachQr(canvas);
+                }}
+              />
               <MatchExitControl
                 primary={primary()}
                 match={match()}

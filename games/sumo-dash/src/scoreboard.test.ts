@@ -69,17 +69,29 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
   expect(rows[2]).toEqual({ slot: 2, color: PLAYER_COLORS[2], text: 'P3 2' });
   expect(rows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'AD 7' });
 
+  const statusRows = scoreboardRows(
+    state,
+    ['Hudson', 'P2', '', '', '', '', '', 'Ada'],
+    [
+      { index: 0, connected: true },
+      { index: 7, connected: false },
+    ],
+  );
+  expect(statusRows[0]).toEqual({ slot: 0, color: PLAYER_COLORS[0], text: 'HU 0', status: 'LIVE' });
+  expect(statusRows[1]).toEqual({ slot: 1, color: PLAYER_COLORS[1], text: 'P2 1' });
+  expect(statusRows[7]).toEqual({ slot: 7, color: PLAYER_COLORS[7], text: 'AD 7', status: 'AWAY' });
+
   const rules = scoreRules(state);
   expect(rules).toEqual({
     rows: [
-      { label: '1ST', value: '+7' },
-      { label: '2ND', value: '+6' },
-      { label: '3RD', value: '+5' },
-      { label: '4TH', value: '+4' },
-      { label: '5TH', value: '+3' },
-      { label: '6TH', value: '+2' },
-      { label: '7TH', value: '+1' },
-      { label: '8TH', value: '+0' },
+      { label: '1ST', value: '+7 PTS' },
+      { label: '2ND', value: '+6 PTS' },
+      { label: '3RD', value: '+5 PTS' },
+      { label: '4TH', value: '+4 PTS' },
+      { label: '5TH', value: '+3 PTS' },
+      { label: '6TH', value: '+2 PTS' },
+      { label: '7TH', value: '+1 PTS' },
+      { label: '8TH', value: '+0 PTS' },
     ],
   });
 });

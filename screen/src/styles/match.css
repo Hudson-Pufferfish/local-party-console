@@ -30,7 +30,7 @@
   justify-self: end;
 }
 
-.match canvas {
+.match > canvas {
   grid-column: 2;
   grid-row: 2;
   justify-self: center;
@@ -40,6 +40,46 @@
   height: var(--arena-size);
   border: 2.5px solid #111111;
   background: #eae6df;
+}
+
+.match-rejoin {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 2.5px solid var(--ink, #111111);
+  background: var(--paper, #f4f1ea);
+  color: var(--ink, #111111);
+  box-shadow: 0px 4px 0px var(--ink, #111111);
+}
+
+.match-rejoin-qr {
+  display: block;
+  box-sizing: border-box;
+  width: 80px;
+  height: 80px;
+  border: 2px solid var(--ink, #111111);
+  background: var(--paper, #f4f1ea);
+  image-rendering: pixelated;
+}
+
+.match-rejoin-label {
+  margin: 0;
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .match .scoreboard-panel {
@@ -162,6 +202,26 @@
   border: 2.5px solid #111111;
 }
 
+.score-status {
+  display: inline-block;
+  padding: 3px 6px;
+  border: 2px solid var(--ink, #111111);
+  background: var(--paper, #f4f1ea);
+  color: var(--ink, #111111);
+  font-family: "JetBrains Mono";
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.score-status[data-status="away"] {
+  background: var(--theme-yellow, #f5c518);
+  color: var(--ink, #111111);
+}
+
 @media (max-width: 720px) {
   .match {
     grid-template-columns: minmax(0, 1fr);
@@ -171,14 +231,14 @@
 
   .hud,
   .match .score-rules,
-  .match canvas,
+  .match > canvas,
   .match .scoreboard-panel,
   .match .podium {
     grid-column: 1;
     justify-self: center;
   }
 
-  .match canvas {
+  .match > canvas {
     width: min(800px, max(200px, calc(100dvw - 64px)), max(200px, calc(100dvh - 300px)));
     height: min(800px, max(200px, calc(100dvw - 64px)), max(200px, calc(100dvh - 300px)));
   }

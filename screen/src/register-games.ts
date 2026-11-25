@@ -1,7 +1,7 @@
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import { GameRegistry } from '../../shared/src/registry.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
-import type { GameManifest } from '../../shared/src/types/game.ts';
+import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
 import type { BotLevels, WriteBotInput } from './bot-fill.ts';
 import type { ScreenSim } from './host-loop.ts';
 
@@ -14,6 +14,7 @@ export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
   readonly text: string;
+  readonly status?: 'LIVE' | 'AWAY';
 }
 
 export interface ScoreRuleRow {
@@ -32,7 +33,11 @@ export interface ScreenGameRuntime {
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
   scoreboardHeader?: (state: Float32Array) => string;
-  scoreboardRows?: (state: Float32Array, names: readonly string[]) => ScoreRow[];
+  scoreboardRows?: (
+    state: Float32Array,
+    names: readonly string[],
+    players?: readonly PlayerSlot[],
+  ) => ScoreRow[];
   scoreRules?: (state: Float32Array) => ScoreRules | null;
   bannerCopy?: (state: Float32Array, names: readonly string[]) => string;
   rematchEventType?: string;

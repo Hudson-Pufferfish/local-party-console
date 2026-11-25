@@ -1,13 +1,12 @@
 import {
   normalizeName,
   validatePlayerName,
-  type NameRejectReason,
 } from '../../shared/src/name-service.ts';
 import { ntpOffset } from '../../shared/src/sync/clock.ts';
 import { HEARTBEAT_MS } from '../../shared/src/sync/heartbeat.ts';
 import { WINDOW_MS, nextDelayMs } from '../../shared/src/sync/tdma.ts';
 import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
-import type { RoomPhase } from '../../shared/src/types/envelope.ts';
+import type { RoomPhase, RoomRejectReason } from '../../shared/src/types/envelope.ts';
 import {
   bindTransport,
   flushHeartbeat,
@@ -45,6 +44,7 @@ export type SendResult = 'open' | 'queued' | 'closed';
 export const LINK_DOWN_NOTICE = 'DISCONNECTED FROM HOST — CHECK WI-FI OR RELOAD';
 export const EMPTY_NAME_NOTICE = 'ENTER AT LEAST 1 CHARACTER';
 export const DUPLICATE_NAME_NOTICE = 'NAME ALREADY TAKEN — CHOOSE ANOTHER';
+export const MATCH_IN_PROGRESS_NOTICE = 'MATCH IN PROGRESS — CANNOT JOIN MID-GAME';
 
 export function joinNotice(result: SendResult | 'missing'): string {
   if (result === 'open') return '';
@@ -52,8 +52,9 @@ export function joinNotice(result: SendResult | 'missing'): string {
   return LINK_DOWN_NOTICE;
 }
 
-export function rejectNotice(reason: NameRejectReason): string {
+export function rejectNotice(reason: RoomRejectReason): string {
   if (reason === 'DUPLICATE') return DUPLICATE_NAME_NOTICE;
+  if (reason === 'MATCH_IN_PROGRESS') return MATCH_IN_PROGRESS_NOTICE;
   return EMPTY_NAME_NOTICE;
 }
 
@@ -89,6 +90,22 @@ export function clearToken(room: string): void {
   localStorage.removeItem(sessionKey(room));
 }
 
+export function storedName(room: string): string | null {
+  const value = localStorage.getItem(nameKey(room));
+  if (value === null || value === '') return null;
+  return value;
+}
+
+export function storeName(room: string, name: string): void {
+  const normalized = normalizeName(name);
+  if (normalized === '') return;
+  localStorage.setItem(nameKey(room), normalized);
+}
+
+export function clearName(room: string): void {
+  localStorage.removeItem(nameKey(room));
+}
+
 export function storedSeq(room: string): number {
   const raw = localStorage.getItem(seqKey(room));
   if (raw === null) return -1;
@@ -111,7 +128,7 @@ export function connectPhone(
     onJoined: (slot: JoinedSlot) => void;
     onFull: () => void;
     onKicked?: () => void;
-    onRejected?: (reason: NameRejectReason) => void;
+    onRejected?: (reason: RoomRejectReason) => void;
     onMount: (gameId: string) => void;
     onUnmount?: () => void;
     onPhase?: (phase: RoomPhase) => void;
@@ -254,6 +271,7 @@ export function connectPhone(
       if (joined === null) return;
       slot = joined.index;
       storeToken(room, joined.sessionToken);
+      if (joined.name !== '') storeName(room, joined.name);
       const previous = storedSeq(room);
       setSeq(previous < 0 ? 0 : (previous + 1) & 0xffff);
       markJoined();
@@ -376,6 +394,7 @@ export function connectPhone(
     pc = null;
     markUnjoined();
     clearToken(room);
+    clearName(room);
     clearSeq(room);
   }
 
@@ -530,6 +549,10 @@ function sessionKey(room: string): string {
   return `party-session-${room}`;
 }
 
+function nameKey(room: string): string {
+  return `lpc:name:${room}`;
+}
+
 function seqKey(room: string): string {
   return `party-seq-${room}`;
 }
@@ -582,10 +605,12 @@ function readPhase(payload: unknown): RoomPhase | null {
   return phase === 'lobby' || phase === 'match' ? phase : null;
 }
 
-function readRejectReason(payload: unknown): NameRejectReason | null {
+function readRejectReason(payload: unknown): RoomRejectReason | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const reason = (payload as { reason?: unknown }).reason;
-  return reason === 'EMPTY' || reason === 'DUPLICATE' ? reason : null;
+  return reason === 'EMPTY' || reason === 'DUPLICATE' || reason === 'MATCH_IN_PROGRESS'
+    ? reason
+    : null;
 }
 
 function readClockSample(payload: unknown): { slot: number; t1: number; t2: number; t3: number } | null {

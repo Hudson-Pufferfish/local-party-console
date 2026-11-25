@@ -4,8 +4,10 @@ import {
   DUPLICATE_NAME_NOTICE,
   EMPTY_NAME_NOTICE,
   joinNotice,
+  MATCH_IN_PROGRESS_NOTICE,
   prepareJoinName,
   rejectNotice,
+  storedName,
   storedSeq,
   storedToken,
 } from './peer.ts';
@@ -392,6 +394,75 @@ test('game:unmount and room:phase lobby reset mounted game state to null view so
     link.close();
   } finally {
     globalThis.WebSocket = previousSocket;
+  }
+});
+
+test('MATCH_IN_PROGRESS rejection maps to notice and room:joined stores player name in lpc:name:<room>', () => {
+  expect(MATCH_IN_PROGRESS_NOTICE).toBe('MATCH IN PROGRESS — CANNOT JOIN MID-GAME');
+  expect(rejectNotice('MATCH_IN_PROGRESS')).toBe('MATCH IN PROGRESS — CANNOT JOIN MID-GAME');
+
+  const memory = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memory.set(key, value);
+    },
+    removeItem: (key: string) => {
+      memory.delete(key);
+    },
+  });
+  vi.stubGlobal('location', { host: '10.0.0.72:8443' });
+  globalThis.window = globalThis as unknown as Window & typeof globalThis;
+  openSockets.length = 0;
+  const previousSocket = globalThis.WebSocket;
+  const previousPeer = globalThis.RTCPeerConnection;
+  globalThis.WebSocket = OpenSocket as unknown as typeof WebSocket;
+  globalThis.RTCPeerConnection = class {
+    constructor() {
+      throw new Error('no pc');
+    }
+  } as unknown as typeof RTCPeerConnection;
+
+  const rejected: string[] = [];
+  try {
+    const link = connectPhone('ABCD', {
+      onJoined() {},
+      onFull() {},
+      onRejected(reason) {
+        rejected.push(rejectNotice(reason));
+      },
+      onMount() {},
+      onPong() {},
+      onLink() {},
+    });
+    const socket = openSockets[0];
+    if (socket === undefined) throw new Error('missing socket');
+
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'room:rejected', payload: { reason: 'MATCH_IN_PROGRESS' } }),
+    }));
+    expect(rejected).toEqual(['MATCH IN PROGRESS — CANNOT JOIN MID-GAME']);
+    expect(socket.readyState).toBe(OpenSocket.OPEN);
+
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:joined',
+        payload: {
+          index: 0,
+          sessionToken: 'tok-ada',
+          players: [{ index: 0, name: 'ada', color: '#FF4D00' }],
+        },
+      }),
+    }));
+    expect(memory.get('lpc:name:ABCD')).toBe('ADA');
+    expect(storedName('ABCD')).toBe('ADA');
+
+    link.leave();
+    expect(storedName('ABCD')).toBeNull();
+    link.close();
+  } finally {
+    globalThis.WebSocket = previousSocket;
+    globalThis.RTCPeerConnection = previousPeer;
   }
 });
 

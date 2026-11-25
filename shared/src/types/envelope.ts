@@ -18,7 +18,7 @@ export interface RoomKickedPayload {
   reason: 'kicked';
 }
 
-export type RoomRejectReason = 'EMPTY' | 'DUPLICATE';
+export type RoomRejectReason = 'EMPTY' | 'DUPLICATE' | 'MATCH_IN_PROGRESS';
 
 export interface RoomRejectedPayload {
   reason: RoomRejectReason;

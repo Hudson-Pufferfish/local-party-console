@@ -276,7 +276,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       lastScoreHeader = header;
       handlers.setScoreHeader?.(header);
     }
-    const rows = runtime.scoreboardRows?.(state, names) ?? [];
+    const rows = runtime.scoreboardRows?.(state, names, players) ?? [];
     if (!sameScoreRows(lastScoreRows, rows)) {
       lastScoreRows = rows;
       handlers.setScoreRows(rows);
@@ -344,6 +344,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     }
     players = next;
     handlers.setPlayers(next);
+    if (matchCanvas !== null) publishScores();
   }
 
   function onGameMount(payload: unknown): void {
@@ -862,7 +863,12 @@ function sameScoreRows(a: readonly ScoreRow[], b: readonly ScoreRow[]): boolean 
     const left = a[index];
     const right = b[index];
     if (left === undefined || right === undefined) return false;
-    if (left.slot !== right.slot || left.color !== right.color || left.text !== right.text) {
+    if (
+      left.slot !== right.slot
+      || left.color !== right.color
+      || left.text !== right.text
+      || left.status !== right.status
+    ) {
       return false;
     }
   }

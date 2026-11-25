@@ -11,6 +11,12 @@ export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
   readonly text: string;
+  readonly status?: 'LIVE' | 'AWAY';
+}
+
+export interface ScorePlayerStatus {
+  readonly index: number;
+  readonly connected: boolean;
 }
 
 export interface ScoreRuleRow {
@@ -93,7 +99,7 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
   for (let rank = 1; rank <= count; rank += 1) {
     rows.push({
       label: ORDINALS[rank - 1] ?? `${rank}TH`,
-      value: `+${count - rank}`,
+      value: `+${count - rank} PTS`,
     });
   }
   return { rows };
@@ -117,6 +123,7 @@ export function shortTag(name: string, slot: number): string {
 export function scoreboardRows(
   state: Float32Array,
   names: readonly string[],
+  players?: readonly ScorePlayerStatus[],
 ): ScoreRow[] {
   const rows: ScoreRow[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
@@ -127,11 +134,21 @@ export function scoreboardRows(
     const y = state[base + 1] ?? 0;
     if ((flags & 1) === 0 && score === 0 && x === 0 && y === 0) continue;
     const tag = shortTag(names[index] ?? '', index);
-    rows.push({
-      slot: index,
-      color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
-      text: `${tag} ${score}`,
-    });
+    const player = players?.find((entry) => entry.index === index);
+    if (player === undefined) {
+      rows.push({
+        slot: index,
+        color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
+        text: `${tag} ${score}`,
+      });
+    } else {
+      rows.push({
+        slot: index,
+        color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
+        text: `${tag} ${score}`,
+        status: player.connected ? 'LIVE' : 'AWAY',
+      });
+    }
   }
   return rows;
 }

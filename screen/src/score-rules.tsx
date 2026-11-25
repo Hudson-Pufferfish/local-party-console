@@ -18,6 +18,22 @@ export const ScoreRulesPanel: VoidComponent<{ rules: ScoreRules }> = (props) => 
   );
 };
 
+export const MatchRejoinQr: VoidComponent<{
+  onQr: (canvas: HTMLCanvasElement) => void;
+}> = (props) => {
+  return (
+    <aside class="match-rejoin" aria-label="Scan to rejoin">
+      <canvas
+        class="match-rejoin-qr"
+        ref={(canvas) => props.onQr(canvas)}
+        width={80}
+        height={80}
+      />
+      <p class="match-rejoin-label">SCAN TO REJOIN</p>
+    </aside>
+  );
+};
+
 export const ScoreboardPanel: VoidComponent<{
   header: string;
   rows: readonly ScoreRow[];
@@ -37,6 +53,11 @@ export const ScoreboardPanel: VoidComponent<{
                 style={{ 'background-color': row().color }}
               />
               <span>{row().text}</span>
+              <Show when={row().status !== undefined}>
+                <span class="score-status" data-status={row().status?.toLowerCase()}>
+                  {row().status}
+                </span>
+              </Show>
             </li>
           )}
         </For>

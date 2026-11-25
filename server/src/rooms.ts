@@ -1,9 +1,8 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import type { PlayerSlot, RoomPhase } from '@shared/types';
+import type { PlayerSlot, RoomPhase, RoomRejectReason } from '@shared/types';
 import {
   normalizeName,
   validatePlayerName,
-  type NameRejectReason,
 } from '../../shared/src/name-service.ts';
 import { PLAYER_COLORS } from '../../shared/src/registry.ts';
 
@@ -38,7 +37,7 @@ export type JoinResult =
   | { kind: 'joined'; index: number; sessionToken: string; players: PlayerSlot[] }
   | { kind: 'full' }
   | { kind: 'kicked' }
-  | { kind: 'rejected'; reason: NameRejectReason };
+  | { kind: 'rejected'; reason: RoomRejectReason };
 
 export type KickResult =
   | { kind: 'kicked'; index: number; players: PlayerSlot[] }
@@ -93,19 +92,24 @@ export function joinRoom(room: Room, name: string, sessionToken?: string): JoinR
     }
   }
 
+  if (room.phase === 'match' && existingSlot === null) {
+    return { kind: 'rejected', reason: 'MATCH_IN_PROGRESS' };
+  }
+
   const normalized = normalizeName(name);
+  const candidateName = existingSlot !== null && normalized === '' ? existingSlot.name : normalized;
   const otherSlots: Slot[] = [];
   for (const slot of room.slots) {
     if (slot === null || slot === existingSlot) continue;
     otherSlots.push(slot);
   }
-  const validation = validatePlayerName(normalized, otherSlots);
+  const validation = validatePlayerName(candidateName, otherSlots);
   if (!validation.valid) {
     return { kind: 'rejected', reason: validation.reason };
   }
 
   if (existingSlot !== null) {
-    existingSlot.name = normalized;
+    existingSlot.name = candidateName;
     existingSlot.connected = true;
     return {
       kind: 'joined',

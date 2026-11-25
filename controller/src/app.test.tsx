@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
-import { submitJoinAttempt } from './app.tsx';
+import { attemptAutoResume, submitJoinAttempt } from './app.tsx';
 import { LINK_DOWN_NOTICE, type PhoneLink, type SendResult } from './peer.ts';
 
 afterEach(() => {
@@ -106,4 +106,81 @@ test('controller notice banner overlays out of flex flow so it cannot push or sh
   expect(combined).toContain('position: absolute');
   expect(combined).toContain('pointer-events: none');
   expect(combined).not.toContain('backdrop-filter');
+});
+
+test('attemptAutoResume dispatches room:join with stored token and name on load, or skips when no token exists', () => {
+  vi.useFakeTimers();
+  const sent: Array<{ type: string; payload: unknown }> = [];
+  const notices: string[] = [];
+  const names: string[] = [];
+  let pending = false;
+  let joined = false;
+  const link: PhoneLink = {
+    sendText(message): SendResult {
+      sent.push(message);
+      return 'queued';
+    },
+    leave() {},
+    reconnect() {},
+    close() {},
+  };
+
+  // Without stored token, auto-resume is skipped
+  expect(attemptAutoResume({
+    token: null,
+    storedName: 'ADA',
+    link,
+    setName: (next) => names.push(next),
+    setNotice: (next) => notices.push(next),
+    setPending: (next) => {
+      pending = next;
+    },
+    scheduleTimeout: () => {},
+    isJoined: () => joined,
+  })).toBe('skipped');
+  expect(sent).toEqual([]);
+  expect(pending).toBe(false);
+
+  // With stored token and stored name, auto-resume pre-fills name and queues room:join
+  let timer = 0;
+  expect(attemptAutoResume({
+    token: 'tok-ada',
+    storedName: 'ada',
+    link,
+    setName: (next) => names.push(next),
+    setNotice: (next) => notices.push(next),
+    setPending: (next) => {
+      pending = next;
+    },
+    scheduleTimeout: (fn, ms) => {
+      timer = Number(setTimeout(fn, ms));
+    },
+    isJoined: () => joined,
+  })).toBe('queued');
+  expect(names).toEqual(['ADA']);
+  expect(sent).toEqual([
+    { type: 'room:join', payload: { name: 'ADA', sessionToken: 'tok-ada' } },
+  ]);
+  expect(pending).toBe(true);
+  expect(notices).toEqual(['JOINING ROOM...']);
+
+  vi.advanceTimersByTime(2000);
+  expect(notices.at(-1)).toBe(LINK_DOWN_NOTICE);
+  clearTimeout(timer);
+
+  // With stored token and no stored name, auto-resume still dispatches token rejoin with empty name
+  sent.length = 0;
+  expect(attemptAutoResume({
+    token: 'tok-ada',
+    storedName: null,
+    link,
+    setName: () => {},
+    setNotice: () => {},
+    setPending: () => {},
+    scheduleTimeout: () => {},
+    isJoined: () => false,
+  })).toBe('queued');
+  expect(sent).toEqual([
+    { type: 'room:join', payload: { name: '', sessionToken: 'tok-ada' } },
+  ]);
 });

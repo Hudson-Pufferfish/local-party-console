@@ -4,6 +4,8 @@ export type {
   RoomKickedPayload,
   RoomPhase,
   RoomPhasePayload,
+  RoomRejectReason,
+  RoomRejectedPayload,
 } from './envelope.ts';
 export type {
   ControllerOrientation,
