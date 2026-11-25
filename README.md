@@ -47,7 +47,7 @@ https://<lan-ip>:8443/screen/
 
 Scan the QR code with each phone. Open the controller page in the browser that trusts the CA below. Pick Sumo Dash. Start stays off until at least 2 players have joined.
 
-Do not open `/screen/` in Incognito. That window has no saved host token, so the page says `HOST // TOKEN MISSING` and the QR stays empty.
+Do not open `/screen/` in Incognito. That window has no saved host token, so the page says `HOST ACCESS MISSING — OPEN IN THE ORIGINAL BROWSER WINDOW` and the QR stays empty.
 
 If the page says `CERT // HOST NOT IN SAN`, the QR host is not on the cert. Recreate the cert with the current LAN IP.
 

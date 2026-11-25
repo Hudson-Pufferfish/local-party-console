@@ -64,7 +64,7 @@ Enforce two boundaries on Day 1 so v1.1 heuristic bots, Stretch 2 (SharedWorker 
            inputBufferMode: 'zero-buffer' | 'adaptive-1tick';
          };
      ```
-     * **When `mode === 'holistic'`:** Requires `/screen?view=holistic`. Any open `team-N` monitor tabs automatically render a clean standby screen (`STANDBY // THIS GAME USES HOLISTIC VIEW`).
+     * **When `mode === 'holistic'`:** Requires `/screen?view=holistic`. Any open `team-N` monitor tabs automatically render a clean standby screen (`STANDBY — THIS GAME USES HOLISTIC VIEW`).
      * **When `mode === 'team-exclusive'`:** The Lobby **Start Game** trigger is **hard-locked** until every required `team-1..N` viewport is actively connected and heartbeating. If `allowHolisticSpectator === false`, any `/holistic` tab stays on a standby screen to guarantee zero accidental screen-peeking.
    * Both human phone controllers and local AI bots call the exact same `applyInput(playerIndex, ...)` interface.
 
@@ -204,8 +204,8 @@ Because the telemetry metadata rides inside the 8-byte input packet itself, the 
 Stretch 1 adds a Neo-Brutalist overlay (`JetBrains Mono` tabular numbers) on the monitor. Stretch 3 fills the flight-recorder field. The target layout is:
 
 ```text
-VIEWPORTS // HOLISTIC: 60fps (DisplayLink) | TEAM-1: 120fps (3.1ms Native) | TEAM-2: 120fps (3.4ms Native)
-VIEWPORT SYNC // TICK DELTA: 0 ticks | CLOCK SKEW: 1.2ms (OK) | DISPLAYLINK COMP: +0ms | FLIGHT REC: 1.4MB/5.0MB
+VIEWPORTS: HOLISTIC 60fps (DisplayLink) | TEAM-1 120fps (3.1ms Native) | TEAM-2 120fps (3.4ms Native)
+VIEWPORT SYNC: TICK DELTA 0 ticks | CLOCK SKEW 1.2ms (OK) | DISPLAYLINK COMP +0ms | FLIGHT REC 1.4MB/5.0MB
 -------------------------------------------------------------------------------------------------------------------
 P1 [T1] (iPhone 15)  | UDP-DIRECT | Hz: 60 [120Hz rAF]     | Touch: 2.1ms   | Net p50/p99: 2ms/7ms   | Loss: 0.0% | LongTasks: 0
 P4 [T2] (Galaxy A50) | UDP-DIRECT | Hz: 30 [ULP/LOW-POWER] | Touch: 14.8ms! | Net p50/p99: 6ms/48ms! | Loss: 0.8% | LongTasks: 4

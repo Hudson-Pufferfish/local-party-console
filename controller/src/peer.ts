@@ -36,9 +36,11 @@ export interface JoinedSlot {
 
 export type SendResult = 'open' | 'queued' | 'closed';
 
+export const LINK_DOWN_NOTICE = 'DISCONNECTED FROM HOST — CHECK WI-FI OR RELOAD';
+
 export function joinNotice(result: SendResult | 'missing'): string {
-  if (result === 'open' || result === 'queued') return 'JOIN // SENT';
-  return 'LINK // DOWN';
+  if (result === 'open' || result === 'queued') return 'JOINING ROOM...';
+  return LINK_DOWN_NOTICE;
 }
 
 export interface PhoneLink {

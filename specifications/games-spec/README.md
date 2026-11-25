@@ -51,7 +51,7 @@ export interface GameManifest {
 ```
 
 * **Enforcement Invariants:**
-  * **`mode: 'holistic'`:** Requires `/screen?view=holistic`. Any open `team-N` monitor tabs automatically display a standby state (`STANDBY // THIS GAME USES HOLISTIC VIEW`).
+  * **`mode: 'holistic'`:** Requires `/screen?view=holistic`. Any open `team-N` monitor tabs automatically display a standby state (`STANDBY — THIS GAME USES HOLISTIC VIEW`).
   * **`mode: 'team-exclusive'`:** The Lobby **Start Game** trigger is hard-locked until all `requiredTeams` viewports (`team-1..N`) are connected and heartbeating. If `allowHolisticSpectator === false`, any `/holistic` tab remains in standby to prevent accidental screen-peeking.
 
 ### B. Authoritative Simulation (`GameSimulation`)

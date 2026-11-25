@@ -125,7 +125,7 @@ The holistic screen lists everyone in the match in the cream to the right of the
 | **Zero-Allocation Hot Path** | Neither `GameSimulation.step(dt)` nor the phone's `pointermove` handler may allocate objects, arrays, or closures during `ROUND_ACTIVE`. | Verified via Chrome DevTools Allocation Profiler ($0\text{ B/frame}$ heap churn). |
 | **End-to-End Latency** | Total Motion-to-Photon ($T_{\text{touch}} + T_{\text{js}} + T_{\text{net}} + T_{\text{sim}} + T_{\text{render}}$) over 5GHz LAN. | **$< 25\text{ms}$ p50**, **$< 40\text{ms}$ p99** on modern phones; **$< 55\text{ms}$ p99** on 30Hz ULP phones. |
 | **Mobile Ergonomics** | All touch targets (`<VirtualJoystick/>`, `<ArcadeButton/>`) strictly inset **$\ge 36\text{px}$** from screen edges; `setPointerCapture` locked per `pointerId` for independent simultaneous left/right multi-touch. | Zero iOS Safari edge-swipe freezes; zero dropped multi-touch events. |
-| **Strict View Compliance** | Strictly enforces `mode: 'holistic'`. Opening `/screen?view=team-1` while `sumo-dash` is active must display the platform's `STANDBY // THIS GAME USES HOLISTIC VIEW` state with $0\%$ GPU physics/render cost. | Enforced by `/screen` viewport router. |
+| **Strict View Compliance** | Strictly enforces `mode: 'holistic'`. Opening `/screen?view=team-1` while `sumo-dash` is active must display the platform's `STANDBY — THIS GAME USES HOLISTIC VIEW` state with $0\%$ GPU physics/render cost. | Enforced by `/screen` viewport router. |
 | **Weak-Phone Compatibility** | Phone controller is event-driven (no continuous `rAF` loop). v1 warns on 30Hz Low Power Mode and still accepts that phone's input. The 30Hz send cap is Stretch 1. | $0\%$ idle phone GPU utilization. |
 
 ---
@@ -278,4 +278,4 @@ Every PR or AI-generated change to `sumo-dash` must preserve these invariants:
   1. Connect 2 phones on 5GHz LAN. The host Chrome tab is the peer. Input arrives as `UDP-DIRECT` with `TouchLag < 4ms`, `Net p50 < 4ms`, and `Loss < 0.5%` once Stretch 1 HUD exists. Until then, log the same fields.
   2. Block UDP on 1 phone. That phone falls back to `WS-FALLBACK` within 3s and play continues.
 * **30Hz Low-Power Mode Test:** Enable iOS Low Power Mode on a test iPhone, scan QR code $\rightarrow$ verify Pre-Flight Strip displays the amber `30Hz Low Power` warning, and verify gameplay auto-caps cleanly to `[ULP 30Hz]` without rubber-banding on the M4 monitor.
-* **Strict Holistic Standby Check:** Open `/screen?room=ABCD&view=holistic` on Monitor 1 and `/screen?room=ABCD&view=team-1` on Monitor 2 $\rightarrow$ launch `sumo-dash` and verify Monitor 2 stays on `STANDBY // THIS GAME USES HOLISTIC VIEW` (`INV-8`).
+* **Strict Holistic Standby Check:** Open `/screen?room=ABCD&view=holistic` on Monitor 1 and `/screen?room=ABCD&view=team-1` on Monitor 2 $\rightarrow$ launch `sumo-dash` and verify Monitor 2 stays on `STANDBY — THIS GAME USES HOLISTIC VIEW` (`INV-8`).

@@ -133,7 +133,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       handlers.setStarting?.(loading);
     },
     onError: () => {
-      handlers.setNotice('GAME // LOAD FAILED');
+      handlers.setNotice('COULD NOT LOAD GAME — TRY AGAIN');
     },
   });
 
@@ -166,7 +166,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   });
 
   if (hostToken === null) {
-    handlers.setNotice('HOST // TOKEN MISSING');
+    handlers.setNotice('HOST ACCESS MISSING — OPEN IN THE ORIGINAL BROWSER WINDOW');
     antiNapLock = holdAntiNap(roomId, tabId);
     return {
       ...idleSession(view),
@@ -622,7 +622,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     });
     socket.addEventListener('close', () => {
       socketOpen = false;
-      if (!stopped) handlers.setNotice('LINK // DOWN');
+      if (!stopped) handlers.setNotice('SERVER CONNECTION LOST — CHECK SERVER AND RELOAD');
     });
     heartbeat = window.setInterval(() => {
       if (!socketOpen || socket === null) return;
@@ -636,7 +636,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   async function loadHost(room: string): Promise<void> {
     const response = await fetch('/api/host');
     if (!response.ok) {
-      handlers.setNotice('HOST // OFFLINE');
+      handlers.setNotice('SERVER OFFLINE — START THE HOST SERVER AND RELOAD');
       return;
     }
     const body = await response.json() as { lanIp?: unknown; port?: unknown };
