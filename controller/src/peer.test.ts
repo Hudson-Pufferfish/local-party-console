@@ -228,24 +228,45 @@ test('room:kicked clears stored reconnect state, closes the kicked socket withou
 test('prepareJoinName blocks empty names and room:rejected notifies duplicate or empty without closing the socket', () => {
   expect(prepareJoinName('')).toEqual({ ok: false, notice: EMPTY_NAME_NOTICE });
   expect(prepareJoinName('   ')).toEqual({ ok: false, notice: EMPTY_NAME_NOTICE });
-  expect(prepareJoinName('  ada  ')).toEqual({ ok: true, name: 'ADA' });
+  expect(prepareJoinName('  bob  ')).toEqual({ ok: true, name: 'BOB' });
+  expect(prepareJoinName('Alice')).toEqual({ ok: true, name: 'ALICE' });
   expect(rejectNotice('EMPTY')).toBe('ENTER AT LEAST 1 CHARACTER');
   expect(rejectNotice('DUPLICATE')).toBe('NAME ALREADY TAKEN — CHOOSE ANOTHER');
   expect(EMPTY_NAME_NOTICE).toBe('ENTER AT LEAST 1 CHARACTER');
   expect(DUPLICATE_NAME_NOTICE).toBe('NAME ALREADY TAKEN — CHOOSE ANOTHER');
 
+  const memory = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memory.set(key, value);
+    },
+    removeItem: (key: string) => {
+      memory.delete(key);
+    },
+  });
   vi.stubGlobal('location', { host: '10.0.0.72:8443' });
   globalThis.window = globalThis as unknown as Window & typeof globalThis;
   openSockets.length = 0;
   const previousSocket = globalThis.WebSocket;
+  const previousPeer = globalThis.RTCPeerConnection;
   globalThis.WebSocket = OpenSocket as unknown as typeof WebSocket;
-  const reasons: string[] = [];
+  globalThis.RTCPeerConnection = class {
+    constructor() {
+      throw new Error('no pc');
+    }
+  } as unknown as typeof RTCPeerConnection;
+  const notices: string[] = [];
+  const joinedNames: string[] = [];
+  const sentTexts: string[] = [];
   try {
     const link = connectPhone('ABCD', {
-      onJoined() {},
+      onJoined(slot) {
+        joinedNames.push(slot.name);
+      },
       onFull() {},
       onRejected(reason) {
-        reasons.push(reason);
+        notices.push(rejectNotice(reason));
       },
       onMount() {},
       onPong() {},
@@ -253,6 +274,17 @@ test('prepareJoinName blocks empty names and room:rejected notifies duplicate or
     });
     const socket = openSockets[0];
     if (socket === undefined) throw new Error('missing socket');
+    socket.send = (data: string | ArrayBuffer) => {
+      if (typeof data === 'string') sentTexts.push(data);
+    };
+    socket.dispatchEvent(new Event('open'));
+
+    // Empty name is blocked locally and never sent over WebSocket
+    const empty = prepareJoinName('   ');
+    if (!empty.ok) notices.push(empty.notice);
+    expect(sentTexts.some((frame) => frame.includes('"room:join"'))).toBe(false);
+
+    // Server duplicate rejection surfaces the exact notice and keeps the socket open
     socket.dispatchEvent(new MessageEvent('message', {
       data: JSON.stringify({ type: 'room:rejected', payload: { reason: 'DUPLICATE' } }),
     }));
@@ -260,11 +292,35 @@ test('prepareJoinName blocks empty names and room:rejected notifies duplicate or
       data: JSON.stringify({ type: 'room:rejected', payload: { reason: 'EMPTY' } }),
     }));
     expect(socket.readyState).toBe(OpenSocket.OPEN);
+
+    // Retrying with a valid unique name sends uppercase BOB and succeeds
+    const valid = prepareJoinName('bob');
+    expect(valid).toEqual({ ok: true, name: 'BOB' });
+    if (valid.ok) {
+      expect(link.sendText({ type: 'room:join', payload: { name: valid.name } })).toBe('open');
+    }
+    expect(sentTexts).toContain(JSON.stringify({ type: 'room:join', payload: { name: 'BOB' } }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:joined',
+        payload: {
+          index: 1,
+          sessionToken: 'tok-bob',
+          players: [{ index: 1, name: 'BOB', color: '#00C853' }],
+        },
+      }),
+    }));
     link.close();
   } finally {
     globalThis.WebSocket = previousSocket;
+    globalThis.RTCPeerConnection = previousPeer;
   }
-  expect(reasons).toEqual(['DUPLICATE', 'EMPTY']);
+  expect(notices).toEqual([
+    'ENTER AT LEAST 1 CHARACTER',
+    'NAME ALREADY TAKEN — CHOOSE ANOTHER',
+    'ENTER AT LEAST 1 CHARACTER',
+  ]);
+  expect(joinedNames).toEqual(['BOB']);
 });
 
 class OpenSocket extends EventTarget {

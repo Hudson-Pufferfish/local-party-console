@@ -247,12 +247,15 @@ it('rosterForStart assigns lowest-available unique P{X} bot names avoiding human
     connected: true,
   });
 
-  const rosterA = rosterForStart([named(0, 'P1')], SUMO, 2);
-  expect(rosterA?.botNames).toEqual(['', 'P2', 'P3', '', '', '', '', '']);
+  const rosterA = rosterForStart([named(0, 'P1'), named(1, 'P2'), named(2, 'P3')], SUMO, 1);
+  expect(rosterA?.botNames).toEqual(['', '', '', 'P4', '', '', '', '']);
 
-  const rosterB = rosterForStart([named(0, 'p2')], SUMO, 2);
-  expect(rosterB?.botNames).toEqual(['', 'P1', 'P3', '', '', '', '', '']);
+  const rosterB = rosterForStart([named(0, 'P1'), named(1, 'P3')], SUMO, 2);
+  expect(rosterB?.botNames).toEqual(['', '', 'P2', 'P4', '', '', '', '']);
 
-  const rosterC = rosterForStart([named(0, 'ADA'), named(1, 'P1')], SUMO, 2);
-  expect(rosterC?.botNames).toEqual(['', '', 'P2', 'P3', '', '', '', '']);
+  const rosterC = rosterForStart([named(0, 'p2')], SUMO, 2);
+  expect(rosterC?.botNames).toEqual(['', 'P1', 'P3', '', '', '', '', '']);
+
+  const rosterD = rosterForStart([named(0, 'ALICE'), named(1, 'P1')], SUMO, 2);
+  expect(rosterD?.botNames).toEqual(['', '', 'P2', 'P3', '', '', '', '']);
 });
