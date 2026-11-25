@@ -1,7 +1,6 @@
 import { createEffect, createSignal, onCleanup, type VoidComponent } from 'solid-js';
-import { normalizeName } from '../../../shared/src/name-service.ts';
-import { playerStyleVars } from '../../../shared/src/theme.ts';
-import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
+import { ControllerShell } from '../../../shared/src/ui/index.tsx';
+import { COLOR_CLASH_MANIFEST } from './manifest.ts';
 import './controller-view.css';
 
 export type BoostUiState = 'ready' | 'boosting' | 'recharge';
@@ -27,7 +26,7 @@ export const ColorClashController: VoidComponent<{
   slot: number;
   control: { type: string; payload: unknown } | null;
   onAxes: (x: number, y: number, timeStamp: number) => void;
-  onButton: (down: boolean, timeStamp: number) => void;
+  onButton: (down: boolean, timeStamp: number, bit?: number) => void;
 }> = (props) => {
   const [pct, setPct] = createSignal(0);
   const [boostState, setBoostState] = createSignal<BoostUiState>('ready');
@@ -120,40 +119,35 @@ export const ColorClashController: VoidComponent<{
     }
   });
 
-  function onBoost(down: boolean, timeStamp: number): void {
+  function onBoost(down: boolean, timeStamp: number, bit?: number): void {
     if (down && boostState() === 'ready' && !watching()) {
       startBoostCycle(3000, 8000);
     }
-    props.onButton(down, timeStamp);
+    props.onButton(down, timeStamp, bit);
   }
 
-  const label = (): string => (props.slot < 0 ? 'P-' : `P${props.slot + 1}`);
-  const title = (): string => {
-    const normalized = normalizeName(props.name);
-    return normalized === '' ? 'PLAYER' : normalized;
-  };
-
   return (
-    <section class="color-board" style={playerStyleVars(props.slot, props.color)}>
-      <header class="color-bar">
-        <span
-          class="color-splash"
-          data-boost={boostState() === 'boosting' ? 'true' : 'false'}
-          aria-hidden="true"
-        />
-        <PlayerBadge name={title()} label={label()} />
-        <p class="color-readout">
-          {formatColorReadout(pct(), boostState(), overtime(), watching())}
-        </p>
-      </header>
-      <div class="controller-hands color-hands">
-        <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
-        <div class="boost-dock">
-          <span class="boost-meter" data-state={boostState()} />
-          <ArcadeButton label="BOOST" onPressedChange={onBoost} />
-        </div>
-      </div>
-    </section>
+    <ControllerShell
+      color={props.color}
+      name={props.name}
+      slot={props.slot}
+      layout={COLOR_CLASH_MANIFEST.controllerLayout!}
+      onAxes={props.onAxes}
+      onButton={onBoost}
+      customBoardClass="color-board"
+      hud={
+        <>
+          <span
+            class="color-splash"
+            data-boost={boostState() === 'boosting' ? 'true' : 'false'}
+            aria-hidden="true"
+          />
+          <p class="color-readout">
+            {formatColorReadout(pct(), boostState(), overtime(), watching())}
+          </p>
+        </>
+      }
+    />
   );
 };
 

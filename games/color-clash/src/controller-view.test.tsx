@@ -26,6 +26,6 @@ test('ColorClashController renders PlayerBadge, paint splash swatch, MOVE joysti
   expect(html).toContain('>HUDSON<');
   expect(html).toContain('MOVE');
   expect(html).toContain('BOOST');
-  expect(html).toContain('class="boost-meter"');
+  expect(html).toContain('class="button-cooldown-meter"');
   expect(html).toContain('class="color-readout"');
 });
