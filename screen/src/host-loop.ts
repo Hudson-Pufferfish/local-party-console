@@ -48,6 +48,7 @@ export function createHostLoop(
 ): HostLoop {
   const lastSeq = new Int32Array(SLOT_COUNT);
   const lastButtons = new Uint8Array(SLOT_COUNT);
+  const lastToggles = new Uint8Array(SLOT_COUNT);
   const lastAxisX = new Int8Array(SLOT_COUNT);
   const lastAxisY = new Int8Array(SLOT_COUNT);
   const lastAt = new Float64Array(SLOT_COUNT);
@@ -80,6 +81,7 @@ export function createHostLoop(
   function startMatch(slots: readonly number[]): void {
     lastSeq.fill(-1);
     lastButtons.fill(0);
+    lastToggles.fill(0);
     lastAxisX.fill(0);
     lastAxisY.fill(0);
     lastAt.fill(0);
@@ -121,10 +123,25 @@ export function createHostLoop(
     if (slot !== (slot | 0) || slot < 0 || slot > 7) return false;
     const stored = lastSeq[slot] ?? -1;
     if (!seqAccepted(stored < 0 ? null : stored, seq)) return false;
-    const prior = saw[slot] === 1 ? (lastButtons[slot] ?? 0) : 0;
-    if ((buttons & 1) !== 0 && (prior & 1) === 0) latch[slot] = 1;
-    if ((buttons & 1) === 0) maskHold[slot] = 0;
-    lastButtons[slot] = buttons & 0xff;
+    const incomingHeld = buttons & 0x0f;
+    const incomingToggles = (buttons >> 4) & 0x0f;
+    const priorHeld = saw[slot] === 1 ? (lastButtons[slot] ?? 0) : 0;
+    const priorToggles = saw[slot] === 1 ? (lastToggles[slot] ?? 0) : 0;
+
+    // Detect new presses via toggle bit changes:
+    const toggleFlips = saw[slot] === 1 ? (incomingToggles ^ priorToggles) : incomingToggles;
+    // Also detect direct 0->1 rising edges on held state:
+    const directRising = incomingHeld & ~priorHeld;
+    const newEdges = toggleFlips | directRising;
+
+    // Accumulate into latch for all buttons 0..3:
+    latch[slot] |= newEdges;
+
+    // Clear maskHold for buttons that are no longer held:
+    maskHold[slot] &= incomingHeld;
+
+    lastButtons[slot] = incomingHeld;
+    lastToggles[slot] = incomingToggles;
     lastAxisX[slot] = axisX;
     lastAxisY[slot] = axisY;
     lastAt[slot] = now;
@@ -155,22 +172,22 @@ export function createHostLoop(
         if (fillBot !== undefined && fillBot(slot, sim)) continue;
         const at = lastAt[slot] ?? 0;
         const silent = at === 0 || now - at >= SILENCE_MS;
-        if (silent && latch[slot] === 1) {
-          sim.applyInput(slot, (lastButtons[slot] ?? 0) | 1, lastAxisX[slot] ?? 0, lastAxisY[slot] ?? 0);
+        const latchedBits = latch[slot] ?? 0;
+        if (silent && latchedBits !== 0) {
+          sim.applyInput(slot, (lastButtons[slot] ?? 0) | latchedBits, lastAxisX[slot] ?? 0, lastAxisY[slot] ?? 0);
           latch[slot] = 0;
           maskHold[slot] = 0;
         } else if (silent) {
           sim.applyInput(slot, 0, 0, 0);
-          if (((lastButtons[slot] ?? 0) & 1) !== 0) maskHold[slot] = 1;
+          maskHold[slot] |= lastButtons[slot] ?? 0;
         } else {
           let buttons = lastButtons[slot] ?? 0;
-          if (maskHold[slot] === 1 && (buttons & 1) !== 0 && latch[slot] === 0) {
-            buttons &= ~1;
-          }
-          if (latch[slot] === 1) {
-            buttons |= 1;
+          // Suppress held buttons that were masked out during silence until released or latched
+          buttons &= ~(maskHold[slot] ?? 0);
+          if (latchedBits !== 0) {
+            buttons |= latchedBits;
             latch[slot] = 0;
-            maskHold[slot] = 0;
+            maskHold[slot] &= ~latchedBits;
           }
           sim.applyInput(slot, buttons, lastAxisX[slot] ?? 0, lastAxisY[slot] ?? 0);
         }

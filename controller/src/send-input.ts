@@ -26,9 +26,9 @@ type Sender = (buffer: ArrayBuffer) => boolean;
 let seq = 0;
 let axisX = 0;
 let axisY = 0;
-let buttons = 0;
-let buttonDown = false;
-let dashEdge = false;
+let heldBits = 0;
+let toggleBits = 0;
+let pendingEdgeBits = 0;
 let touchLag = 0;
 let lastSend = 0;
 let lastInputAtMs = Number.NEGATIVE_INFINITY;
@@ -65,9 +65,9 @@ export function markUnjoined(): void {
   haveSent = false;
   axisX = 0;
   axisY = 0;
-  buttons = 0;
-  buttonDown = false;
-  dashEdge = false;
+  heldBits = 0;
+  toggleBits = 0;
+  pendingEdgeBits = 0;
   cancelPending();
 }
 
@@ -98,19 +98,23 @@ export function sendAxes(x: number, y: number, timeStamp: number): void {
   scheduleInput();
 }
 
-export function sendButton(down: boolean, timeStamp: number): void {
-  buttonDown = down;
+export function sendButton(down: boolean, timeStamp: number, buttonIndex = 0): void {
+  if (buttonIndex < 0 || buttonIndex > 3) return;
   touchLag = lagSteps(timeStamp);
+  const mask = 1 << buttonIndex;
   if (down) {
-    buttons |= 1;
-    dashEdge = true;
-  } else if (!dashEdge) {
-    buttons &= ~1;
+    if ((heldBits & mask) === 0) {
+      toggleBits ^= mask;
+      pendingEdgeBits |= mask;
+    }
+    heldBits |= mask;
+  } else {
+    heldBits &= ~mask;
   }
   if (!joined) {
     if (!down) {
-      buttons &= ~1;
-      dashEdge = false;
+      heldBits &= ~mask;
+      pendingEdgeBits &= ~mask;
     }
     return;
   }
@@ -146,7 +150,8 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
   packet.seq = seq;
   packet.phoneTs = Math.floor(now) % 65536;
   packet.touchLag = touchLag;
-  packet.buttons = buttons;
+  // Byte 5: Upper nibble = toggleBits (bits 4..7), Lower nibble = heldBits (bits 0..3)
+  packet.buttons = ((toggleBits & 0x0f) << 4) | (heldBits & 0x0f);
   packet.axisX = axisX;
   packet.axisY = axisY;
   encodeInto(packet, view);
@@ -158,10 +163,7 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
     if (sendWs(scratchWs)) queued = true;
   }
   if (!queued) return route === 'wait' ? 'wait' : 'closed';
-  if ((buttons & 1) !== 0) {
-    dashEdge = false;
-    if (!buttonDown) buttons &= ~1;
-  }
+  pendingEdgeBits = 0;
   seq = (seq + 1) & 0xffff;
   lastSend = now;
   lastInputAtMs = now;
@@ -170,7 +172,7 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
 }
 
 function stickHeld(): boolean {
-  return axisX !== 0 || axisY !== 0 || (buttons & 1) !== 0;
+  return axisX !== 0 || axisY !== 0 || heldBits !== 0 || pendingEdgeBits !== 0;
 }
 
 function flushFromTimer(): void {

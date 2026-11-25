@@ -19,7 +19,7 @@ export interface ControllerViewProps {
   slot: number;
   control: ControllerControl | null;
   onAxes: (x: number, y: number, timeStamp: number) => void;
-  onButton: (down: boolean, timeStamp: number) => void;
+  onButton: (down: boolean, timeStamp: number, buttonIndex?: number) => void;
 }
 
 export interface ControllerGame {
