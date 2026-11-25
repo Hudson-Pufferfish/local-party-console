@@ -7,6 +7,7 @@ This document records durable architectural decisions for `local-party-console`.
 | ID | Title | Status | Date |
 | :--- | :--- | :--- | :--- |
 | [ADR-001](#adr-001-local-only-lan-webrtc--sdp-filtering) | Local-Only LAN WebRTC & SDP Filtering | Accepted | 2026-11-24 |
+| [ADR-002](#adr-002-multi-button-input-loss-protection--toggle-bits) | Multi-Button Input Loss Protection: Toggle Bits vs Rolling Window | Accepted | 2026-11-25 |
 
 ---
 
@@ -68,3 +69,58 @@ This setup creates four networking constraints:
 - [screen/src/session.ts](../screen/src/session.ts)
 - [controller/src/peer.ts](../controller/src/peer.ts)
 - [AGENTS.md](../AGENTS.md)
+
+---
+
+## ADR-002: Multi-Button Input Loss Protection: Toggle Bits vs Rolling Window
+
+- **Status:** Accepted
+- **Date:** 2026-11-25
+
+### Context
+
+Games expanding beyond single-button mechanics (such as Cyber-Citadel Defense requiring up to 4 actions: Fire, Dash, Shield, Revive) place higher demands on input packet reliability over UDP-backed WebRTC DataChannels:
+
+1. **Unreliable UDP Transport:** WebRTC DataChannels run with `ordered: false, maxRetransmits: 0`. While out-of-order packets are discarded by the host's monotonic `seqAccepted()` sequence filter, lost UDP packets can drop short button taps entirely if only instantaneous state is transmitted.
+2. **Packet Constraint:** The platform uses an 8-byte binary input packet (`seq: u16`, `phoneTs: u16`, `touchLag: u8`, `buttons: u8`, `axisX: i8`, `axisY: i8`). Increasing the byte length is undesirable as it affects serialization across the entire network boundary.
+3. **Host Tick Latching:** Host physics steps at 120Hz (`STEP_MS = 8.33ms`). Quick taps landing between host ticks require host-side latching for all button bits (0..7), not merely bit 0.
+
+### Options Considered
+
+#### Option 1: Multi-Packet Rolling Edge Redundancy Window
+- **Description:** When a button is pressed or released, the phone keeps that button's active transition bit asserted across a rolling window of $N$ consecutive packets (e.g. 2 consecutive packets).
+- **Pros:**
+  - Conceptually straightforward: each packet duplicates recent transitions.
+  - Zero decoding state required on the host beyond standard bitmask reading.
+- **Cons:**
+  - **Vulnerable to burst loss:** A 2-packet window only tolerates a single dropped packet. Mobile Wi-Fi routinely drops packets in bursts of 2–3, which causes the tap to vanish.
+  - **Arbitrary window sizing:** Increasing window depth to 3 or 4 packets increases phantom hold duration on rapid releases, creating latency artifacts.
+
+#### Option 2: Split-Byte State + Alternating Toggle Bits
+- **Description:** Divide Byte 5 (`buttons: u8`) into two 4-bit nibbles:
+  - **Bits 0–3 (Held State):** Real-time held state of buttons A, B, X, Y (1 = down, 0 = up).
+  - **Bits 4–7 (Toggle Bits):** Dedicated 1-bit flip-flop counters for buttons A, B, X, Y. Every new rising-edge button press inverts its corresponding toggle bit (`0 -> 1 -> 0 -> 1`). The host detects a new press whenever the toggle bit differs from the previously received value.
+- **Pros:**
+  - **Burst-loss resilient:** The toggle bit remains in its flipped state across all subsequent packets until the next press. Even if 3 to 10 packets are lost in a burst, the next arriving packet immediately signals that a press occurred.
+  - **Separates continuous hold from discrete press:** Bits 0–3 provide smooth continuous holding (e.g. continuous beam fire or shield deploy), while Bits 4–7 guarantee edge detection.
+  - **Zero wire protocol growth:** Fits completely inside the existing 8-byte UDP packet without allocation.
+  - **Clean out-of-order interaction:** Stale packets arriving late are rejected by `seqAccepted()`, so they cannot corrupt or revert the toggle state.
+- **Cons:**
+  - Restricts the split-byte format to 4 distinct buttons (sufficient for all planned console games).
+  - Misses an edge only if the exact same button is tapped twice within a completely dropped packet window (<50ms), which is physically impossible for human finger input.
+
+### Decision
+
+**Choose Option 2 (Split-Byte State + Alternating Toggle Bits).**
+
+1. **Packet Encoding:** In `shared/src/codec/input-packet.ts` and `controller/src/send-input.ts`, allocate Bits 0–3 for held buttons and Bits 4–7 for press toggles.
+2. **Host-Side Latching:** In `screen/src/host-loop.ts`, update latching so the host detects toggle changes and latches all 8 button bits into the 120Hz simulation tick.
+3. **Stream Keep-Alive:** Update `send-input.ts`'s `stickHeld()` to keep streaming inputs while any button is held (`buttons !== 0`), preventing 100ms silence cutoffs on centered joysticks.
+4. **Backward Compatibility:** One-button games (Sumo Dash, Bomb Pass, Color Clash) default to Button 0 (`A`), remaining 100% compatible.
+
+### References
+
+- [shared/src/codec/input-packet.ts](../shared/src/codec/input-packet.ts)
+- [controller/src/send-input.ts](../controller/src/send-input.ts)
+- [screen/src/host-loop.ts](../screen/src/host-loop.ts)
+
