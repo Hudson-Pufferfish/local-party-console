@@ -260,7 +260,14 @@ export function connectPhone(
     sendText({ type: 'net:ping', payload: { t } });
   }
 
-  function ownPing(t: number): boolean {
+  function isGameControlMessage(type: string): boolean {
+  const colon = type.indexOf(':');
+  if (colon <= 0) return false;
+  const prefix = type.slice(0, colon);
+  return prefix !== 'room' && prefix !== 'viewport' && prefix !== 'signal' && prefix !== 'net' && prefix !== 'clock' && prefix !== 'game';
+}
+
+function ownPing(t: number): boolean {
     if (pingMarks > 0 && t === pingA) return true;
     return pingMarks > 1 && t === pingB;
   }
@@ -322,7 +329,7 @@ export function connectPhone(
       if (phase !== null) hooks.onPhase?.(phase);
       return;
     }
-    if (type.startsWith('sumo:')) {
+    if (isGameControlMessage(type)) {
       hooks.onControl?.(type, payload);
       return;
     }

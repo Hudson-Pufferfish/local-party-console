@@ -484,3 +484,77 @@ class OpenSocket extends EventTarget {
 }
 
 const openSockets: OpenSocket[] = [];
+
+test('onControl forwards game messages for sumo, bomb, color, and future games', () => {
+  const memory = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memory.set(key, value);
+    },
+    removeItem: (key: string) => {
+      memory.delete(key);
+    },
+  });
+  vi.stubGlobal('location', { host: '10.0.0.72:8443' });
+  globalThis.window = globalThis as unknown as Window & typeof globalThis;
+  openSockets.length = 0;
+  const previousSocket = globalThis.WebSocket;
+  const previousPeer = globalThis.RTCPeerConnection;
+  globalThis.WebSocket = OpenSocket as unknown as typeof WebSocket;
+  globalThis.RTCPeerConnection = class {
+    constructor() {
+      throw new Error('no pc');
+    }
+  } as unknown as typeof RTCPeerConnection;
+
+  const controls: Array<{ type: string; payload: unknown }> = [];
+  try {
+    const link = connectPhone('ABCD', {
+      onFull() {},
+      onJoined() {},
+      onMount() {},
+      onPong() {},
+      onControl(type, payload) {
+        controls.push({ type, payload });
+      },
+    });
+
+    const socket = openSockets[0];
+    if (!socket) throw new Error('missing socket');
+
+    // Send room:joined
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:joined',
+        payload: { room: 'ABCD', index: 0, sessionToken: 'tok', name: 'TEST', color: '#ff0000', phase: 'lobby' },
+      }),
+    }));
+
+    // Send game control messages from various games
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'sumo:round_start', payload: { scores: [0, 0] } }),
+    }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'bomb:holder', payload: { holderIndex: 0 } }),
+    }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'color:boost', payload: { playerIndex: 0 } }),
+    }));
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({ type: 'cyber:wave_start', payload: { wave: 1 } }),
+    }));
+
+    expect(controls).toHaveLength(4);
+    expect(controls.map((c) => c.type)).toEqual([
+      'sumo:round_start',
+      'bomb:holder',
+      'color:boost',
+      'cyber:wave_start',
+    ]);
+    link.close();
+  } finally {
+    globalThis.WebSocket = previousSocket;
+    globalThis.RTCPeerConnection = previousPeer;
+  }
+});

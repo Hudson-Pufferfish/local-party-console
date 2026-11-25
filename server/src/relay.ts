@@ -191,7 +191,7 @@ function handleText(
     handleKick(clients, room, message.payload);
     return;
   }
-  if (type === 'game:mount' || type === 'game:unmount' || type.startsWith('sumo:')) {
+  if (type === 'game:mount' || type === 'game:unmount' || isGameControlEvent(type)) {
     if (primaries.get(room) !== client) return;
     if (type === 'game:mount') mounts.set(room, raw);
     if (type === 'game:unmount') mounts.delete(room);
@@ -204,6 +204,13 @@ function handleText(
     return;
   }
   fanOut(clients, room, client, raw);
+}
+
+function isGameControlEvent(type: string): boolean {
+  const colon = type.indexOf(':');
+  if (colon <= 0) return false;
+  const prefix = type.slice(0, colon);
+  return prefix !== 'room' && prefix !== 'viewport' && prefix !== 'signal' && prefix !== 'net' && prefix !== 'clock';
 }
 
 function handleJoin(

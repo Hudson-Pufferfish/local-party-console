@@ -1056,3 +1056,43 @@ test('players who were AWAY at match start or new joiners are rejected mid-match
     await relay.close();
   }
 });
+
+test('relay forwards game control messages from primary screen to controllers for all games', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: { role: 'primary', view: 'holistic' } }));
+    phone.send(JSON.stringify({ type: 'room:join', payload: { name: 'ADA' } }));
+    await settle();
+
+    const phoneMessages: any[] = [];
+    phone.on('message', (data: RawData) => {
+      phoneMessages.push(JSON.parse(data.toString()));
+    });
+
+    // Send various game control messages from primary screen:
+    screen.send(JSON.stringify({ type: 'sumo:round_start', payload: { round: 1 } }));
+    screen.send(JSON.stringify({ type: 'bomb:holder', payload: { holderIndex: 0 } }));
+    screen.send(JSON.stringify({ type: 'color:boost', payload: { playerIndex: 0 } }));
+    screen.send(JSON.stringify({ type: 'cyber:wave_start', payload: { wave: 1 } }));
+
+    await settle();
+
+    const forwardedTypes = phoneMessages.map((m) => m.type);
+    expect(forwardedTypes).toContain('sumo:round_start');
+    expect(forwardedTypes).toContain('bomb:holder');
+    expect(forwardedTypes).toContain('color:boost');
+    expect(forwardedTypes).toContain('cyber:wave_start');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
