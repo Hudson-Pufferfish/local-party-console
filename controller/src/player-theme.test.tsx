@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { renderToString } from '@solidjs/web';
 import { expect, test } from 'vitest';
-import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
+import { formatSumoReadout, SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { HudModal } from '../../shared/src/ui/hud-modal.tsx';
 import { PlayerBadge } from '../../shared/src/ui/player-badge.tsx';
 import { PreflightStrip } from './preflight-strip.tsx';
@@ -21,7 +21,10 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
   expect(sumoHtml).toContain('--player-color:var(--player-7, #111111)');
   expect(sumoHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
   expect(sumoHtml).toContain('>CID<');
+  expect(sumoHtml).toContain('<p class="sumo-readout">ALIVE · 0 PTS</p>');
   expect(sumoHtml).toContain('controller-hands');
+  expect(formatSumoReadout(true, 0)).toBe('ALIVE · 0 PTS');
+  expect(formatSumoReadout(false, 2)).toBe('OUT · 2 PTS');
   expect(sumoHtml).not.toContain('var(--theme-yellow)');
   expect(sumoHtml).not.toContain('var(--accent');
 

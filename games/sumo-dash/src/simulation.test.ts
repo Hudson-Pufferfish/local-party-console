@@ -509,6 +509,52 @@ test('practice lets a puck move and dash, then countdown puts it back on the spa
   expect(sim.state[base + 3]).toBe(0);
 });
 
+test('practice keeps pucks inside r0 - puckRadius under full steer, dashes, and rim collisions', () => {
+  const maxRadius = SUMO_CONSTANTS.r0 - SUMO_CONSTANTS.puckRadius;
+  const sim = createSumoSimulation();
+  sim.startMatch([0, 1]);
+  expect(sim.state[PHASE]).toBe(4);
+
+  const base0 = slotBase(0);
+  const base1 = slotBase(1);
+  let sawBounce = false;
+
+  // Drive puck 0 straight east and puck 1 diagonally northwest with repeated dashes throughout practice.
+  for (let tick = 0; tick < 600 && sim.state[PHASE] === 4; tick += 1) {
+    const dashPulse = tick % 190 === 1 ? 1 : 0;
+    sim.applyInput(0, dashPulse, 127, 0);
+    sim.applyInput(1, dashPulse, -127, -127);
+    const prevVx0 = sim.state[base0 + 2] ?? 0;
+    sim.step(DT);
+
+    const r0 = Math.hypot(sim.state[base0] ?? 0, sim.state[base0 + 1] ?? 0);
+    const r1 = Math.hypot(sim.state[base1] ?? 0, sim.state[base1 + 1] ?? 0);
+    expect(Number.isFinite(r0)).toBe(true);
+    expect(Number.isFinite(r1)).toBe(true);
+    expect(r0).toBeLessThanOrEqual(maxRadius);
+    expect(r1).toBeLessThanOrEqual(maxRadius);
+    if (prevVx0 > 100 && (sim.state[base0 + 2] ?? 0) < 0) {
+      sawBounce = true;
+    }
+  }
+
+  expect(sawBounce).toBe(true);
+
+  // Also check rim collision between two pucks during practice does not push outer puck past maxRadius.
+  sim.state[base0] = maxRadius - 2;
+  sim.state[base0 + 1] = 0;
+  sim.state[base0 + 2] = 0;
+  sim.state[base0 + 3] = 0;
+  sim.state[base1] = maxRadius - SUMO_CONSTANTS.puckRadius * 2 + 10;
+  sim.state[base1 + 1] = 0;
+  sim.state[base1 + 2] = 920;
+  sim.state[base1 + 3] = 0;
+  sim.state[base1 + 6] = 0.18;
+  sim.step(DT);
+  expect(Math.hypot(sim.state[base0] ?? 0, sim.state[base0 + 1] ?? 0)).toBeLessThanOrEqual(maxRadius);
+  expect(Math.hypot(sim.state[base1] ?? 0, sim.state[base1 + 1] ?? 0)).toBeLessThanOrEqual(maxRadius);
+});
+
 test('three round wins end the match and the scoreboard follows the scores', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);

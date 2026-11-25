@@ -4,6 +4,10 @@ import { playerStyleVars } from '../../../shared/src/theme.ts';
 import { ArcadeButton, PlayerBadge, VirtualJoystick } from '../../../shared/src/ui/index.tsx';
 import './controller-view.css';
 
+export function formatSumoReadout(alive: boolean, score: number): string {
+  return `${alive ? 'ALIVE' : 'OUT'} · ${score} PTS`;
+}
+
 export const SumoController: VoidComponent<{
   color: string;
   name: string;
@@ -55,7 +59,7 @@ export const SumoController: VoidComponent<{
       <header class="sumo-bar">
         <PlayerBadge name={title()} label={label()} />
         <p class="sumo-readout">
-          {alive() ? 'ALIVE' : 'OUT'} {score()}
+          {formatSumoReadout(alive(), score())}
         </p>
       </header>
       <div class="controller-hands sumo-hands">

@@ -122,8 +122,34 @@ export function createSumoSimulation(): SumoSimulation {
     writeAliveMask();
   }
 
+  function clampPuckInside(base: number, maxR: number, maxRSq: number, restitution: number): void {
+    const x = state[base];
+    const y = state[base + 1];
+    const radiusSq = x * x + y * y;
+    if (radiusSq <= maxRSq || maxR <= 0) return;
+    const radius = Math.sqrt(radiusSq);
+    const nx = x / radius;
+    const ny = y / radius;
+    state[base] = nx * maxR;
+    state[base + 1] = ny * maxR;
+    if (state[base] * state[base] + state[base + 1] * state[base + 1] > maxRSq) {
+      const safe = maxR * (1 - 1e-6);
+      state[base] = nx * safe;
+      state[base + 1] = ny * safe;
+    }
+    const vx = state[base + 2];
+    const vy = state[base + 3];
+    const outward = vx * nx + vy * ny;
+    if (outward > 0) {
+      const impulse = (1 + restitution) * outward;
+      state[base + 2] = vx - impulse * nx;
+      state[base + 3] = vy - impulse * ny;
+    }
+  }
+
   function reviveForBreak(): void {
-    const keep = C.r0 * 0.98;
+    const keep = C.r0 - C.puckRadius;
+    const keepSq = keep * keep;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       if (joined[i] === 0) continue;
       inputs[i].edge = 0;
@@ -131,22 +157,7 @@ export function createSumoSimulation(): SumoSimulation {
       state[base + 6] = 0;
       state[base + 7] = 0;
       state[base + 8] = ALIVE;
-      const x = state[base];
-      const y = state[base + 1];
-      const radius = Math.hypot(x, y);
-      if (radius <= keep || radius === 0 || keep <= 0) continue;
-      const scale = keep / radius;
-      state[base] = x * scale;
-      state[base + 1] = y * scale;
-      const nx = state[base] / keep;
-      const ny = state[base + 1] / keep;
-      const vx = state[base + 2];
-      const vy = state[base + 3];
-      const outward = vx * nx + vy * ny;
-      if (outward > 0) {
-        state[base + 2] = vx - outward * nx;
-        state[base + 3] = vy - outward * ny;
-      }
+      clampPuckInside(base, keep, keepSq, 0);
     }
   }
 
@@ -347,6 +358,7 @@ export function createSumoSimulation(): SumoSimulation {
       state[ARENA] = C.r0;
       state[TARGET] = C.r0;
       simulateMotion(dt);
+      clampPracticeArena();
       state[TIMER] -= dt;
       if (state[TIMER] <= 0) beginCountdown();
       writeAliveMask();
@@ -461,6 +473,17 @@ export function createSumoSimulation(): SumoSimulation {
       if (points > 0) {
         state[baseI + 9] += points;
       }
+    }
+  }
+
+  function clampPracticeArena(): void {
+    const maxR = C.r0 - C.puckRadius;
+    const maxRSq = maxR * maxR;
+    if (maxR <= 0) return;
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      const base = PLAYER + i * STRIDE;
+      if ((state[base + 8] & ALIVE) === 0) continue;
+      clampPuckInside(base, maxR, maxRSq, C.restitution);
     }
   }
 
