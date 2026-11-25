@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./bot-difficulty": "./src/bot-difficulty.ts",
     "./name-service": "./src/name-service.ts",
+    "./physics-2d": "./src/physics-2d/index.ts",
     "./types": "./src/types/index.ts",
     "./registry": "./src/registry.ts",
     "./theme": "./src/theme.ts",

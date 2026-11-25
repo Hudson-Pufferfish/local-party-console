@@ -1,3 +1,11 @@
+import {
+  clampRadialBoundary,
+  integrateMotion,
+  resolveCircleBufferPairs,
+  type CircleBufferPairHooks,
+  type CirclePairModifier,
+  type PhysicsBody2D,
+} from '../../../shared/src/physics-2d';
 import { SUMO_CONSTANTS as C } from './constants';
 import { hasUniqueWinner, isSuddenDeath, maxScoreForState, targetScoreForCount } from './scoreboard';
 
@@ -63,6 +71,35 @@ export function createSumoSimulation(): SumoSimulation {
     createChannel(),
     createChannel(),
   ];
+  const scratchBody: PhysicsBody2D = { x: 0, y: 0, vx: 0, vy: 0 };
+  const pairHooks: CircleBufferPairHooks = {
+    isActive: (slot: number): boolean => (state[PLAYER + slot * STRIDE + 8] & ALIVE) !== 0,
+    onImpact: (i: number, j: number, modifier: CirclePairModifier): void => {
+      const baseI = PLAYER + i * STRIDE;
+      const baseJ = PLAYER + j * STRIDE;
+      const iDash = state[baseI + 6] > 0;
+      const jDash = state[baseJ + 6] > 0;
+      if (iDash && jDash) {
+        modifier.scaleI = C.mutualDash;
+        modifier.scaleJ = C.mutualDash;
+        state[HIT] = C.hitStopFrames;
+      } else if (iDash) {
+        modifier.scaleJ = C.ramMultiplier;
+        state[baseJ + 7] = C.stunTime;
+        state[HIT] = C.hitStopFrames;
+      } else if (jDash) {
+        modifier.scaleI = C.ramMultiplier;
+        state[baseI + 7] = C.stunTime;
+        state[HIT] = C.hitStopFrames;
+      }
+      if (state[baseI + 7] > 0) {
+        state[baseI + 8] = ALIVE + 2;
+      }
+      if (state[baseJ + 7] > 0) {
+        state[baseJ + 8] = ALIVE + 2;
+      }
+    },
+  };
   let joinedCount = 0;
   let matchTarget: number = C.minTargetScore;
   let roundTick = 0;
@@ -154,34 +191,25 @@ export function createSumoSimulation(): SumoSimulation {
     writeAliveMask();
   }
 
-  function clampPuckInside(base: number, maxR: number, maxRSq: number, restitution: number): void {
-    const x = state[base];
-    const y = state[base + 1];
-    const radiusSq = x * x + y * y;
-    if (radiusSq <= maxRSq || maxR <= 0) return;
-    const radius = Math.sqrt(radiusSq);
-    const nx = x / radius;
-    const ny = y / radius;
-    state[base] = nx * maxR;
-    state[base + 1] = ny * maxR;
-    if (state[base] * state[base] + state[base + 1] * state[base + 1] > maxRSq) {
-      const safe = maxR * (1 - 1e-6);
-      state[base] = nx * safe;
-      state[base + 1] = ny * safe;
-    }
-    const vx = state[base + 2];
-    const vy = state[base + 3];
-    const outward = vx * nx + vy * ny;
-    if (outward > 0) {
-      const impulse = (1 + restitution) * outward;
-      state[base + 2] = vx - impulse * nx;
-      state[base + 3] = vy - impulse * ny;
+  function clampPuckInside(
+    base: number,
+    arenaRadius: number,
+    bodyRadius: number,
+    restitution: number,
+  ): void {
+    scratchBody.x = state[base];
+    scratchBody.y = state[base + 1];
+    scratchBody.vx = state[base + 2];
+    scratchBody.vy = state[base + 3];
+    if (clampRadialBoundary(scratchBody, arenaRadius, bodyRadius, restitution)) {
+      state[base] = scratchBody.x;
+      state[base + 1] = scratchBody.y;
+      state[base + 2] = scratchBody.vx;
+      state[base + 3] = scratchBody.vy;
     }
   }
 
   function reviveForBreak(): void {
-    const keep = C.r0 - C.puckRadius;
-    const keepSq = keep * keep;
     const sudden = isSuddenDeath(state, matchTarget);
     const topScore = sudden ? maxScoreForState(state) : 0;
     for (let i = 0; i < C.maxPlayers; i += 1) {
@@ -195,7 +223,7 @@ export function createSumoSimulation(): SumoSimulation {
       state[base + 6] = 0;
       state[base + 7] = 0;
       state[base + 8] = ALIVE;
-      clampPuckInside(base, keep, keepSq, 0);
+      clampPuckInside(base, C.r0, C.puckRadius, 0);
     }
   }
 
@@ -240,84 +268,16 @@ export function createSumoSimulation(): SumoSimulation {
   }
 
   function resolvePairs(): void {
-    const minDist = C.puckRadius * 2;
-    const minDistSq = minDist * minDist;
-    for (let i = 0; i < C.maxPlayers; i += 1) {
-      const baseI = PLAYER + i * STRIDE;
-      if ((state[baseI + 8] & ALIVE) === 0) {
-        continue;
-      }
-      for (let j = i + 1; j < C.maxPlayers; j += 1) {
-        const baseJ = PLAYER + j * STRIDE;
-        if ((state[baseJ + 8] & ALIVE) === 0) {
-          continue;
-        }
-        let xi = state[baseI];
-        let yi = state[baseI + 1];
-        let xj = state[baseJ];
-        let yj = state[baseJ + 1];
-        const dx = xj - xi;
-        const dy = yj - yi;
-        const distSq = dx * dx + dy * dy;
-        if (distSq >= minDistSq) {
-          continue;
-        }
-        let nx = Math.cos(i);
-        let ny = Math.sin(i);
-        let dist = 0;
-        if (distSq !== 0) {
-          dist = Math.sqrt(distSq);
-          nx = dx / dist;
-          ny = dy / dist;
-        }
-        const half = (minDist - dist) * 0.5;
-        xi -= nx * half;
-        yi -= ny * half;
-        xj += nx * half;
-        yj += ny * half;
-        state[baseI] = xi;
-        state[baseI + 1] = yi;
-        state[baseJ] = xj;
-        state[baseJ + 1] = yj;
-
-        let vxi = state[baseI + 2];
-        let vyi = state[baseI + 3];
-        let vxj = state[baseJ + 2];
-        let vyj = state[baseJ + 3];
-        const vr = (vxj - vxi) * nx + (vyj - vyi) * ny;
-        if (vr >= 0) {
-          continue;
-        }
-        const impulse = -(1 + C.restitution) * vr / (1 / C.mass + 1 / C.mass);
-        const iDash = state[baseI + 6] > 0;
-        const jDash = state[baseJ + 6] > 0;
-        let scaleI = 1;
-        let scaleJ = 1;
-        if (iDash && jDash) {
-          scaleI = C.mutualDash;
-          scaleJ = C.mutualDash;
-          state[HIT] = C.hitStopFrames;
-        } else if (iDash) {
-          scaleJ = C.ramMultiplier;
-          state[baseJ + 7] = C.stunTime;
-          state[HIT] = C.hitStopFrames;
-        } else if (jDash) {
-          scaleI = C.ramMultiplier;
-          state[baseI + 7] = C.stunTime;
-          state[HIT] = C.hitStopFrames;
-        }
-        state[baseI + 2] = vxi - impulse * nx * scaleI;
-        state[baseI + 3] = vyi - impulse * ny * scaleI;
-        state[baseJ + 2] = vxj + impulse * nx * scaleJ;
-        state[baseJ + 3] = vyj + impulse * ny * scaleJ;
-        if (state[baseI + 7] > 0) {
-          state[baseI + 8] = ALIVE + 2;
-        }
-        if (state[baseJ + 7] > 0) {
-          state[baseJ + 8] = ALIVE + 2;
-        }
-      }
-    }
+    resolveCircleBufferPairs(
+      state,
+      C.maxPlayers,
+      STRIDE,
+      PLAYER,
+      PLAYER + 2,
+      C.puckRadius,
+      C.restitution,
+      pairHooks,
+    );
   }
 
   function applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void {
@@ -529,13 +489,10 @@ export function createSumoSimulation(): SumoSimulation {
   }
 
   function clampPracticeArena(): void {
-    const maxR = C.r0 - C.puckRadius;
-    const maxRSq = maxR * maxR;
-    if (maxR <= 0) return;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       if ((state[base + 8] & ALIVE) === 0) continue;
-      clampPuckInside(base, maxR, maxRSq, C.restitution);
+      clampPuckInside(base, C.r0, C.puckRadius, C.restitution);
     }
   }
 
@@ -545,22 +502,7 @@ export function createSumoSimulation(): SumoSimulation {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       if ((state[base + 8] & ALIVE) === 0) continue;
-      const x = state[base];
-      const y = state[base + 1];
-      const radius = Math.hypot(x, y);
-      if (radius <= keep || radius === 0) continue;
-      const scale = keep / radius;
-      state[base] = x * scale;
-      state[base + 1] = y * scale;
-      const nx = state[base] / keep;
-      const ny = state[base + 1] / keep;
-      const vx = state[base + 2];
-      const vy = state[base + 3];
-      const outward = vx * nx + vy * ny;
-      if (outward > 0) {
-        state[base + 2] = vx - outward * nx;
-        state[base + 3] = vy - outward * ny;
-      }
+      clampPuckInside(base, keep, 0, 0);
     }
   }
 
@@ -590,7 +532,6 @@ export function createSumoSimulation(): SumoSimulation {
       state[base + 7] = stun;
     }
 
-    const damp = Math.exp(-C.mu * dt);
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       const channel = inputs[i];
@@ -605,12 +546,15 @@ export function createSumoSimulation(): SumoSimulation {
       if (state[base + 7] > 0) {
         steer *= C.steerStun;
       }
-      let vx = state[base + 2] + C.aMove * steer * channel.axisX * dt;
-      let vy = state[base + 3] + C.aMove * steer * channel.axisY * dt;
-      vx *= damp;
-      vy *= damp;
-      state[base] = state[base] + vx * dt;
-      state[base + 1] = state[base + 1] + vy * dt;
+      scratchBody.x = state[base];
+      scratchBody.y = state[base + 1];
+      scratchBody.vx = state[base + 2] + C.aMove * steer * channel.axisX * dt;
+      scratchBody.vy = state[base + 3] + C.aMove * steer * channel.axisY * dt;
+      integrateMotion(scratchBody, dt, C.mu);
+      state[base] = scratchBody.x;
+      state[base + 1] = scratchBody.y;
+      let vx = scratchBody.vx;
+      let vy = scratchBody.vy;
       let angle = state[base + 4];
       const axisX = channel.axisX;
       const axisY = channel.axisY;
