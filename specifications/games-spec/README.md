@@ -10,9 +10,11 @@
 
 | ID | Game Title | Spec File | Status | Engine | Players / Bots | View Mode | Input Buffer Mode |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `sumo-dash` | **Sumo Dash** | [`./sumo-dash.md`](./sumo-dash.md) | **v1.1** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
+| `sumo-dash` | **Sumo Dash** | [`./sumo-dash.md`](./sumo-dash.md) | **Live** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
+| `bomb-pass` | **Bomb Pass** | [`./bomb-pass.md`](./bomb-pass.md) | **Live** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
+| `color-clash` | **Color Clash** | [`./color-clash.md`](./color-clash.md) | **Live** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
 
-*(Additional game specification files will be added to this folder and registered in this index as the platform expands.)*
+All active games are registered in the desktop host lobby carousel (`screen/src/register-games.ts`) and mount into the universal `<HolisticMatchShell>`.
 
 ---
 

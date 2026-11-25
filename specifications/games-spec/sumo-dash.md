@@ -6,7 +6,7 @@
 
 ## 1. Overview & `GameManifest` Contract
 
-**Sumo Dash** is a fast-paced, 2-to-8 player top-down 2D arena brawler where chunky Neo-Brutalist pucks steer and dash to knock opponents off a shrinking circular steel platform. Rounds last 15–30 seconds; first player to **5 round wins** takes the match. v1 is human players only. v1.1 fills empty slots with the heuristic bot.
+**Sumo Dash** is a fast-paced, 2-to-8 player top-down 2D arena brawler where chunky Neo-Brutalist pucks steer and dash to knock opponents off a shrinking circular steel platform. Rounds last 15–30 seconds; first player to **3 round wins** takes the match. v1 is human players only. v1.1 fills empty slots with the heuristic bot. Consumes the universal `@shared/physics-2d` primitives (`circle-collision`, `boundary`, `motion`) and mounts seamlessly into `<HolisticMatchShell>`.
 
 ### Declarative Manifest (`manifest.ts`)
 ```typescript
@@ -113,7 +113,15 @@ Curves use $\text{share} = \text{skill}/100$ and $\text{nerf}(\text{base}, \text
 4. Fire `DASH` when the opponent is inside $\text{dashRange} = \text{nerf}(60, 260, \text{share})$, alignment clears $\text{nerf}(0.96, -0.10, \text{share})$, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. A missed dash stays inside the ring, and the next steer turns back at the safe radius. The outer bot still yields and does not dash through that yield.
 
 ### Scoreboard and practice
-The holistic screen lists everyone in the match in the cream to the right of the arena, in slot order, not ranked, with each player's puck color circle before their tag and score: `hu 1/3` then `da 0/3`. The tag is the first two letters of the name, or `pN` when the slot has none. It follows the score fields. First to 3 round wins ends the match. The match, and every later round, opens with 10s of practice (move and dash, full ring, no points). `BREAK` and the seconds left, the countdown digit, `POINT`, and `<TAG> WINS` sit in the cream above the arena, not on the ring. `POINT` is the short flash when a non-final round scores; the match-winning round switches straight to `<TAG> WINS` and holds it through match over. The opening break places everyone on the spawn ring. After a scored round the break does not: the eliminated puck is revived just inside the full ring and everyone else stays put. When that timer hits zero, spawn resets once into the 3-2-1 countdown. That lineup is the only teleport during a live break, and `BREAK` is on screen before it.
+The holistic screen lists everyone in the match in the cream to the right of the arena inside `<HolisticMatchShell>`, in slot order, rendered as a responsive CSS grid with dedicated columns:
+1. **Player puck color circle**: 20px filled circle with `2.5px #111111` border.
+2. **Player name/tag (`.score-name`)**: Takes the first up to 6 alphanumeric characters (`shortTag`), e.g., `HUDSON` or `HUJON`, preventing tag collisions, with `overflow: hidden; text-overflow: ellipsis`.
+3. **Score (`.score-value`)**: Current points, right-aligned with `font-variant-numeric: tabular-nums`.
+4. **Status pill (`.score-status`)**: `LIVE` or `AWAY` indicator.
+
+First to **3 round wins** (or scaled threshold) ends the match. If tied leaders cross the threshold simultaneously, the match enters decisive **Sudden Death** (+1 instant win duel among contenders).
+
+The match, and every later round, opens with 10s of practice (move and dash, full ring, no points). `BREAK` and the seconds left, the countdown digit, `POINT`, and `<TAG> WINS` sit in the cream above the arena in the HUD banner. `POINT` is the short flash when a non-final round scores; the match-winning round switches straight to `<TAG> WINS` (using the 6-character tag) and holds it through match over. The opening break places everyone on the spawn ring. After a scored round the break does not: the eliminated puck is revived just inside the full ring and everyone else stays put. When that timer hits zero, spawn resets once into the 3-2-1 countdown. That lineup is the only teleport during a live break, and `BREAK` is on screen before it.
 
 ---
 
