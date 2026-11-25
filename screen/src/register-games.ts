@@ -4,7 +4,13 @@ import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import { GameRegistry } from '../../shared/src/registry.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
-import type { ArenaRenderer, BotLevels, ScreenSim, WriteBotInput } from './types.ts';
+import type { BotLevels, WriteBotInput } from './bot-fill.ts';
+import type { ScreenSim } from './host-loop.ts';
+
+export interface ArenaRenderer {
+  draw(): void;
+  destroy(): void;
+}
 
 export interface ScoreRow {
   readonly slot: number;
