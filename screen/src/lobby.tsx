@@ -41,6 +41,7 @@ export const Lobby: VoidComponent<{
         height={280}
       />
       <p class="url">{props.qrUrl}</p>
+      <p class="hint">PHONE // TURN ON ROTATION LOCK FOR LANDSCAPE</p>
       <section class="panel">
         <h2>PLAYERS</h2>
         <ul class="players">

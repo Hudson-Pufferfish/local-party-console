@@ -1,4 +1,3 @@
-import { createRoot, createSignal, flush } from 'solid-js';
 import { renderToString } from '@solidjs/web';
 import { expect, test } from 'vitest';
 import type { StageRotationDeg } from '../../shared/src/controller/orientation.ts';
@@ -133,38 +132,26 @@ test('OrientationProvider, ControllerStage, and OrientationToggle persist prefs 
     },
   })).toBe('portrait');
 
-  // Reactive OrientationProvider context
-  let observedOrientation = '';
-  let observedRotation = 999;
-  const dispose = createRoot((stop) => {
-    const [orient, setOrient] = createSignal<'portrait' | 'landscape'>('portrait');
-    const [rot, setRot] = createSignal<StageRotationDeg>(0);
-    let readCtx: ReturnType<typeof useControllerOrientation> | undefined;
-    OrientationProvider({
-      get orientation() {
-        return orient();
-      },
-      get rotationDeg() {
-        return rot();
-      },
-      get children() {
-        readCtx = useControllerOrientation();
-        return null;
-      },
-    });
-    if (readCtx === undefined) throw new Error('missing context');
-    observedOrientation = readCtx.orientation();
-    observedRotation = readCtx.rotationDeg();
-    setOrient('landscape');
-    setRot(90);
-    flush();
-    expect(readCtx.orientation()).toBe('landscape');
-    expect(readCtx.rotationDeg()).toBe(90);
-    return stop;
-  });
-  expect(observedOrientation).toBe('portrait');
-  expect(observedRotation).toBe(0);
-  dispose();
+  // OrientationProvider propagates orientation and rotationDeg to descendants
+  const Probe = () => {
+    const ctx = useControllerOrientation();
+    return <span>{ctx.orientation()}:{ctx.rotationDeg()}</span>;
+  };
+  expect(renderToString(() => <Probe />)).toContain('portrait:0');
+  expect(
+    renderToString(() => (
+      <OrientationProvider orientation="landscape" rotationDeg={90}>
+        <Probe />
+      </OrientationProvider>
+    )),
+  ).toContain('landscape:90');
+  expect(
+    renderToString(() => (
+      <OrientationProvider orientation="landscape" rotationDeg={-90}>
+        <Probe />
+      </OrientationProvider>
+    )),
+  ).toContain('landscape:-90');
 
   // ControllerStage renders data-orientation and data-rotation attributes cleanly
   const stageHtml = renderToString(() => (

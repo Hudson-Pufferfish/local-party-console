@@ -101,10 +101,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
   margin: 0;
   padding: 12px;
   background: #ffffff;
   color: var(--ink, #111111);
+  overflow: hidden;
 }
 
 .swatch {
@@ -120,6 +122,13 @@
   font-size: 22px;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.badge-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .game-card {

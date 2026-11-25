@@ -54,7 +54,7 @@ export const SumoController: VoidComponent<{
           {alive() ? 'ALIVE' : 'OUT'} {score()}
         </p>
       </header>
-      <div class="sumo-hands">
+      <div class="controller-hands sumo-hands">
         <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
         <div class="dash-dock">
           <span

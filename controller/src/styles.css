@@ -115,9 +115,9 @@ input {
 }
 
 .mast {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -133,15 +133,20 @@ input {
 }
 
 .room-code {
-  font-size: 28px;
-  line-height: 0.9;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  font-size: 24px;
+  line-height: 1;
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
 .rev {
-  display: block;
-  margin-top: 4px;
+  display: inline;
+  margin-top: 0;
   font-size: 11px;
   letter-spacing: 0.12em;
 }
@@ -204,10 +209,10 @@ input {
 
 .notice {
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: #111111;
   color: var(--warn, var(--theme-yellow));
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -216,19 +221,20 @@ input {
 .strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .pill {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   margin: 0;
-  padding: 8px;
+  padding: 6px;
   border: 2.5px solid #111111;
   background: #ffffff;
   font-family: "JetBrains Mono";
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -237,14 +243,13 @@ input {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .pill[data-warn='true'] {
   background: var(--warn, var(--theme-yellow));
 }
 
-.lobby-body {
+.lobby-board {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -252,29 +257,46 @@ input {
   gap: 8px;
 }
 
-.lobby-meta {
+.lobby-status {
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.join-row,
-.actions {
+.lobby-status .player-badge {
+  padding: 10px 12px;
+}
+
+.lobby-status .game-card {
+  align-items: center;
+  padding: 12px 14px;
+  box-shadow: 0px 4px 0px #111111, inset 0px 2px 0px rgba(255, 255, 255, 0.35);
+  cursor: default;
+}
+
+.lobby-status .game-card-title {
+  font-size: 18px;
+}
+
+.join-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
   gap: 8px;
+  min-width: 0;
 }
 
 .name-field {
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 20px 14px;
+  padding: 12px;
   border: 2.5px solid #111111;
   background: #ffffff;
   color: #111111;
-  font-size: 20px;
+  font-size: 18px;
+  line-height: 1;
   text-transform: uppercase;
   user-select: text;
   -webkit-user-select: text;
@@ -284,9 +306,9 @@ input {
   background: #f4f1ea;
 }
 
-.lobby-meta .arcade-button,
-.lobby-meta .game-card {
-  padding: 18px 20px;
+.join-row .arcade-button {
+  padding: 12px 18px;
+  font-size: 18px;
 }
 
 .arcade-button:focus-visible,
@@ -296,21 +318,36 @@ input {
   outline-offset: 3px;
 }
 
-.pad {
-  flex: 1;
-  min-height: 120px;
-  display: grid;
-  grid-template-columns: 1.3fr 0.7fr;
-  gap: 8px;
+.stage[data-orientation='portrait'] .lobby-hands {
+  grid-template-rows: minmax(0, 1.1fr) minmax(136px, 0.9fr);
 }
 
-.pad .joystick,
-.pad .swipe-zone {
-  height: 100%;
+.lobby-hands .joystick,
+.lobby-hands .swipe-zone {
+  padding: 16px;
+}
+
+.lobby-right {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
   min-height: 0;
 }
 
-/* Compact landscape layout fits cleanly inside 390x844 soft-rotated stage (772x318 inner) */
+.lobby-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.lobby-actions .arcade-button {
+  padding: 16px 12px;
+  font-size: 16px;
+}
+
+/* Compact landscape layout fits cleanly inside 390x844 and 390x664 soft-rotated stage */
 .stage[data-orientation='landscape'] {
   gap: 6px;
 }
@@ -319,60 +356,59 @@ input {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .stage[data-orientation='landscape'] .mast {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .stage[data-orientation='landscape'] .room-code {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 18px;
+  width: auto;
+  justify-content: flex-start;
+  gap: 5px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .stage[data-orientation='landscape'] .rev {
-  display: inline;
-  margin-top: 0;
-  font-size: 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
 }
 
-.stage[data-orientation='landscape'] .mast .player-badge {
-  padding: 4px 8px;
-  gap: 6px;
-}
-
-.stage[data-orientation='landscape'] .mast .swatch {
-  width: 14px;
-  height: 14px;
-}
-
-.stage[data-orientation='landscape'] .mast .badge-name {
-  font-size: 14px;
+.stage[data-orientation='landscape'] .orient-toggle {
+  grid-template-columns: repeat(3, auto);
+  gap: 4px;
 }
 
 .stage[data-orientation='landscape'] .orient-btn {
-  padding: 6px 8px;
-  font-size: 10px;
+  padding: 5px 6px;
+  font-size: 9.5px;
 }
 
 .stage[data-orientation='landscape'] .strip {
-  gap: 6px;
+  display: flex;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
 }
 
 .stage[data-orientation='landscape'] .pill {
+  flex: 1 1 auto;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 5px 6px;
-  font-size: 10px;
+  padding: 5px;
+  font-size: 9.5px;
   line-height: 1;
+}
+
+.stage[data-orientation='landscape'] .pill > span {
+  flex-shrink: 0;
 }
 
 .stage[data-orientation='landscape'] .notice {
@@ -380,39 +416,54 @@ input {
   font-size: 14px;
 }
 
-.stage[data-orientation='landscape'] .lobby-body {
+.stage[data-orientation='landscape'] .lobby-board {
+  gap: 6px;
+}
+
+.stage[data-orientation='landscape'] .lobby-status {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
   gap: 8px;
 }
 
-.stage[data-orientation='landscape'] .lobby-meta {
-  justify-content: space-between;
-  min-height: 0;
-  gap: 6px;
+.stage[data-orientation='landscape'] .lobby-status .player-badge {
+  padding: 7px 10px;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.stage[data-orientation='landscape'] .lobby-status .swatch {
+  width: 18px;
+  height: 18px;
+}
+
+.stage[data-orientation='landscape'] .lobby-status .badge-name {
+  font-size: 16px;
+}
+
+.stage[data-orientation='landscape'] .lobby-status .game-card {
+  padding: 7px 12px;
+  min-height: 36px;
+  box-shadow: 0px 3px 0px #111111, inset 0px 2px 0px rgba(255, 255, 255, 0.35);
+}
+
+.stage[data-orientation='landscape'] .lobby-status .game-card-title {
+  font-size: 16px;
 }
 
 .stage[data-orientation='landscape'] .name-field {
-  padding: 10px 12px;
-  font-size: 16px;
+  padding: 6px 10px;
+  font-size: 14px;
 }
 
-.stage[data-orientation='landscape'] .lobby-meta .arcade-button,
-.stage[data-orientation='landscape'] .lobby-meta .game-card {
-  padding: 10px 14px;
+.stage[data-orientation='landscape'] .join-row .arcade-button {
+  padding: 7px 14px;
+  font-size: 14px;
+  box-shadow: 0px 3px 0px #111111, inset 0px 2px 0px rgba(255, 255, 255, 0.35);
 }
 
-.stage[data-orientation='landscape'] .lobby-meta .game-card-title {
-  font-size: 16px;
-}
-
-.stage[data-orientation='landscape'] .pad {
-  min-height: 0;
-  height: 100%;
-}
-
-.stage[data-orientation='landscape'] .pad .joystick,
-.stage[data-orientation='landscape'] .pad .swipe-zone {
-  padding: 16px;
+.stage[data-orientation='landscape'] .lobby-actions .arcade-button {
+  padding: 14px 10px;
+  font-size: 15px;
 }

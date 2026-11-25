@@ -125,8 +125,18 @@ h2 {
 }
 
 .url {
-  margin: 12px 0 28px;
+  margin: 12px 0 8px;
   font-size: 18px;
+}
+
+.hint {
+  margin: 0 0 28px;
+  font-family: "JetBrains Mono";
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .notice {

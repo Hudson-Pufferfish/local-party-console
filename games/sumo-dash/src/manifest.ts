@@ -14,6 +14,7 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
     mode: 'holistic',
     inputBufferMode: 'zero-buffer',
   },
+  supportedOrientations: ['portrait', 'landscape'],
   themeTokens: {
     '--bg-surface': '#EAE6DF',
     '--ink-primary': '#111111',

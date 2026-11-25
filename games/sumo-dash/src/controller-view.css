@@ -29,14 +29,6 @@
   text-transform: uppercase;
 }
 
-.sumo-hands {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
 .sumo-hands .joystick,
 .dash-dock {
   height: 100%;

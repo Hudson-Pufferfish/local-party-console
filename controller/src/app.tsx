@@ -260,12 +260,6 @@ export const App: VoidComponent = () => {
             {room === '' ? '----' : room}
             <span class="rev">REV {CONTROLLER_REV}</span>
           </p>
-          <Show when={view() === null}>
-            <PlayerBadge
-              name={name().trim() === '' ? 'OPEN' : name().trim()}
-              label={slot() < 0 ? 'P-' : `P${slot() + 1}`}
-            />
-          </Show>
         </header>
         <OrientationToggle
           value={layoutPref()}
@@ -285,9 +279,16 @@ export const App: VoidComponent = () => {
         <p class="notice">{notice()}</p>
       </Show>
       <Show when={view() === null}>
-        <div class="lobby-body">
-          <div class="lobby-meta">
-            <Show when={!joined() && room !== ''}>
+        <section class="lobby-board">
+          <header class="lobby-status">
+            <PlayerBadge
+              name={name().trim() === '' ? 'OPEN' : name().trim()}
+              label={slot() < 0 ? 'P-' : `P${slot() + 1}`}
+            />
+            <Show
+              when={!joined() && room !== ''}
+              fallback={<GameCard title="NO GAME" detail="WAITING" />}
+            >
               <div class="join-row">
                 <input
                   class="name-field"
@@ -303,22 +304,23 @@ export const App: VoidComponent = () => {
                 />
               </div>
             </Show>
-            <GameCard title="NO GAME" detail="WAITING" />
-            <div class="actions">
-              <ArcadeButton label="BUTTON" onPressedChange={sendButton} />
-              <ArcadeButton
-                label="STATUS"
-                onPressedChange={(pressed) => {
-                  if (!pressed) setModal(true);
-                }}
-              />
+          </header>
+          <div class="controller-hands lobby-hands">
+            <VirtualJoystick label="MOVE" onAxes={sendAxes} />
+            <div class="lobby-right">
+              <SwipeZone label="SWIPE" />
+              <div class="lobby-actions">
+                <ArcadeButton label="BUTTON" onPressedChange={sendButton} />
+                <ArcadeButton
+                  label="STATUS"
+                  onPressedChange={(pressed) => {
+                    if (!pressed) setModal(true);
+                  }}
+                />
+              </div>
             </div>
           </div>
-          <div class="pad">
-            <VirtualJoystick label="MOVE" onAxes={sendAxes} />
-            <SwipeZone label="SWIPE" />
-          </div>
-        </div>
+        </section>
       </Show>
       <Show when={view()} keyed>
         {(Active) => (
