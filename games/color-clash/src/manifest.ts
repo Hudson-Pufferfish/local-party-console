@@ -15,6 +15,18 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
     inputBufferMode: 'zero-buffer',
   },
   supportedOrientations: ['portrait', 'landscape'],
+  controllerLayout: {
+    preset: 'stick-single',
+    buttons: [
+      {
+        bit: 0,
+        glyph: 'A',
+        label: 'BOOST',
+        kind: 'tap',
+        cooldownMs: 8000,
+      },
+    ],
+  },
   themeTokens: {
     '--bg-surface': '#F4F1EA',
     '--ink-primary': '#111111',
