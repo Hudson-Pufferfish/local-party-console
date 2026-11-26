@@ -85,6 +85,7 @@ export interface CyberWorld {
   readonly ePendingDamage: Float32Array;
   readonly eKnockX: Float32Array;
   readonly eKnockY: Float32Array;
+  readonly eHitRailTick: Uint32Array;
 
   // Projectile / tracer SoA (256 cap)
   readonly projTtl: Uint8Array;
@@ -213,6 +214,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
     ePendingDamage: new Float32Array(maxE),
     eKnockX: new Float32Array(maxE),
     eKnockY: new Float32Array(maxE),
+    eHitRailTick: new Uint32Array(maxE),
 
     projTtl: new Uint8Array(maxP),
     projX: new Float32Array(maxP),

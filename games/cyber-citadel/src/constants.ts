@@ -54,6 +54,7 @@ export const CYBER_CITADEL_CONSTANTS = {
   railHalfWidth: 24,
   railKnockback: 140,
   railSnapCosHalfSq: 0.8213938048432697, // cos^2(25 deg) for 50 deg priority snap cone
+  railFanHalfAngle: 0.174532925, // 10 deg spread for V-shape beams (3 rays: -10 deg, 0, +10 deg)
   railTracerTicks: 18,
   bruteShieldBreakSec: 3.0,
 
@@ -116,7 +117,7 @@ export const CYBER_CITADEL_CONSTANTS = {
   bossArmorDamageScale: 0.35,
   bossPhase2Threshold: 0.66,
   bossPhase3Threshold: 0.33,
-  bossCarrierCooldownSec: 9.0,
+  bossCarrierCooldownSec: 14.0,
 } as const;
 
 export const CYBER_HEADER = {

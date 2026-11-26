@@ -3,6 +3,7 @@ import {
   BUTTON_BIT,
   CYBER_CITADEL_CONSTANTS as C,
   CYBER_FLAG,
+  CYBER_HEADER,
   CYBER_PLAYER_OFFSET,
   ENEMY_STATE_FLAG,
   ENEMY_TYPE,
@@ -147,46 +148,63 @@ export function processRailStage(w: CyberWorld): void {
     const heading = state[base + CYBER_PLAYER_OFFSET.heading]!;
 
     selectRailSnapDirection(w, px, py, heading, dir);
-    computeRayToArenaEdge(px, py, dir.x, dir.y, end);
+    const baseAngle = Math.atan2(dir.y, dir.x);
+    const spreadAngle = C.railFanHalfAngle;
 
-    const hitPad = C.bossRadius + C.railHalfWidth;
-    const count = w.gridHash.queryRay(px, py, end.x, end.y, w.queryBuf, hitPad);
+    // V-shape spread: left wing (-spread), center (0), right wing (+spread)
+    const angles = [baseAngle, baseAngle - spreadAngle, baseAngle + spreadAngle];
 
-    for (let i = 0; i < count; i += 1) {
-      const eid = w.queryBuf[i]!;
-      if (!w.enemyPool.isActive(eid) || w.eHp[eid]! <= 0) continue;
-      const hitRadius = w.eRadius[eid]! + C.railHalfWidth;
-      const distSq = pointToSegmentDistSq(w.eX[eid]!, w.eY[eid]!, px, py, end.x, end.y);
-      if (distSq > hitRadius * hitRadius) continue;
+    for (let r = 0; r < angles.length; r += 1) {
+      const ang = angles[r]!;
+      const rdx = Math.cos(ang);
+      const rdy = Math.sin(ang);
+      computeRayToArenaEdge(px, py, rdx, rdy, end);
 
-      // RAIL unconditionally pierces brute frontal shields, breaks SHIELD_UP, and applies knockback
-      const type = w.eType[eid]!;
-      let dmg = C.railDamage;
-      if (type === ENEMY_TYPE.BRUTE) {
-        w.eStateFlags[eid] = (w.eStateFlags[eid]! & ~ENEMY_STATE_FLAG.SHIELD_UP) & 0x3f;
-        w.eShieldBreakTimer[eid] = C.bruteShieldBreakSec;
-      } else if (type === ENEMY_TYPE.BOSS && w.bossVulnerableTimer <= 0) {
-        dmg *= 0.6; // Rail deals stronger damage even vs boss armor
+      const hitPad = C.bossRadius + C.railHalfWidth;
+      const count = w.gridHash.queryRay(px, py, end.x, end.y, w.queryBuf, hitPad);
+
+      for (let i = 0; i < count; i += 1) {
+        const eid = w.queryBuf[i]!;
+        if (!w.enemyPool.isActive(eid) || w.eHp[eid]! <= 0) continue;
+        const hitRadius = w.eRadius[eid]! + C.railHalfWidth;
+        const distSq = pointToSegmentDistSq(w.eX[eid]!, w.eY[eid]!, px, py, end.x, end.y);
+        if (distSq > hitRadius * hitRadius) continue;
+
+        // Prevent multi-hit on same enemy in a single V-beam shot
+        const curTick = (w.state[CYBER_HEADER.tickId]! | 0) + 1;
+        if (w.eHitRailTick[eid] === curTick) continue;
+        w.eHitRailTick[eid] = curTick;
+
+        // RAIL unconditionally pierces brute frontal shields, breaks SHIELD_UP, and applies knockback
+        const type = w.eType[eid]!;
+        let dmg = C.railDamage;
+        if (type === ENEMY_TYPE.BRUTE) {
+          w.eStateFlags[eid] = (w.eStateFlags[eid]! & ~ENEMY_STATE_FLAG.SHIELD_UP) & 0x3f;
+          w.eShieldBreakTimer[eid] = C.bruteShieldBreakSec;
+        } else if (type === ENEMY_TYPE.BOSS && w.bossVulnerableTimer <= 0) {
+          dmg *= 0.6; // Rail deals stronger damage even vs boss armor
+        }
+
+        w.ePendingDamage[eid] = w.ePendingDamage[eid]! + dmg;
+        w.squadDamageDealt += dmg;
+        if (type === ENEMY_TYPE.BOSS) {
+          w.pBossThreat[s] = w.pBossThreat[s]! + dmg;
+        } else {
+          w.eKnockX[eid] = w.eKnockX[eid]! + rdx * C.railKnockback;
+          w.eKnockY[eid] = w.eKnockY[eid]! + rdy * C.railKnockback;
+        }
       }
 
-      w.ePendingDamage[eid] = w.ePendingDamage[eid]! + dmg;
-      w.squadDamageDealt += dmg;
-      if (type === ENEMY_TYPE.BOSS) {
-        w.pBossThreat[s] = w.pBossThreat[s]! + dmg;
-      } else {
-        w.eKnockX[eid] = w.eKnockX[eid]! + dir.x * C.railKnockback;
-        w.eKnockY[eid] = w.eKnockY[eid]! + dir.y * C.railKnockback;
-      }
+      spawnTracer(
+        w,
+        end.x,
+        end.y,
+        s,
+        PROJECTILE_FLAG.ACTIVE | PROJECTILE_FLAG.RAIL_BEAM,
+        C.railTracerTicks,
+      );
     }
 
     state[base + CYBER_PLAYER_OFFSET.railCooldown] = C.railCooldownSec;
-    spawnTracer(
-      w,
-      end.x,
-      end.y,
-      s,
-      PROJECTILE_FLAG.ACTIVE | PROJECTILE_FLAG.RAIL_BEAM,
-      C.railTracerTicks,
-    );
   }
 }
