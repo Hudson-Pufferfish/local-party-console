@@ -467,14 +467,6 @@ function processStage6DamageAndLifecycle(w: CyberWorld, dt: number): void {
           resetBossState(w);
         }
         w.enemyPool.release(i);
-      } else if (w.bossEnemyIdx === i) {
-        const hpRatio = w.eHp[i]! / w.eMaxHp[i]!;
-        let nextBossPhase = 1;
-        if (hpRatio <= C.bossPhase3Threshold) nextBossPhase = 3;
-        else if (hpRatio <= C.bossPhase2Threshold) nextBossPhase = 2;
-        if (nextBossPhase > state[CYBER_HEADER.bossPhase]!) {
-          state[CYBER_HEADER.bossPhase] = nextBossPhase;
-        }
       }
     }
   }
@@ -545,7 +537,23 @@ export function createCyberCitadelSimulation(
 ): CyberCitadelSimulation {
   const w = createCyberWorld(options.debugFlowField === true);
 
-  function startMatch(slots: number[], seed?: number, roster?: CyberRosterMeta): void {
+  function startMatch(
+    slots: number[],
+    seedOrRoster?: number | CyberRosterMeta,
+    rosterOrSeed?: CyberRosterMeta | number,
+  ): void {
+    const seed =
+      typeof seedOrRoster === 'number'
+        ? seedOrRoster
+        : typeof rosterOrSeed === 'number'
+          ? rosterOrSeed
+          : undefined;
+    const roster =
+      typeof seedOrRoster === 'object' && seedOrRoster !== null
+        ? seedOrRoster
+        : typeof rosterOrSeed === 'object' && rosterOrSeed !== null
+          ? rosterOrSeed
+          : undefined;
     w.rngState = (seed ?? C.defaultSeed) >>> 0;
     w.state.fill(0);
     w.auxState.fill(0);
@@ -652,6 +660,13 @@ export function createCyberCitadelSimulation(
         flags = (flags | CYBER_FLAG.DISCONNECTED) & ~CYBER_FLAG.EMP_JOINED;
         cancelReviveChannelForReviver(w, s);
         w.pDisconnectTimer[s] = 0;
+        // Clear buffered manual inputs on disconnect to prevent drifting
+        w.pInputAxisX[s] = 0;
+        w.pInputAxisY[s] = 0;
+        w.pInputButtons[s] = 0;
+        w.pInputPrevButtons[s] = 0;
+        w.pInputEdge[s] = 0;
+        w.pDashTimer[s] = 0;
         state[pb + CYBER_PLAYER_OFFSET.flags] = flags;
       } else if (nowConnected && wasDisconnected) {
         // Human rejoined: hand back immediately from standby bot (FR-6 / FR-9.14)

@@ -76,7 +76,9 @@ export function buildCyberRehydrateEvents(
   const flags = state[base + CYBER_PLAYER_OFFSET.flags] ?? 0;
   if ((flags & CYBER_FLAG.JOINED) === 0) return [];
 
-  const ctx = computeSlotPadContext(state, slot, false);
+  const wave = Math.trunc(state[CYBER_HEADER.wave] ?? 1);
+  const empFired = (state[CYBER_HEADER.empFiredCount] ?? 0) > 0;
+  const ctx = computeSlotPadContext(state, slot, empFired);
   const railCd = state[base + CYBER_PLAYER_OFFSET.railCooldown] ?? 0;
   const dashCd = state[base + CYBER_PLAYER_OFFSET.dashCooldown] ?? 0;
   const payload: PadStatePayload = {
@@ -90,7 +92,12 @@ export function buildCyberRehydrateEvents(
       0,
     ],
   };
-  return [envelope(PAD_STATE_TYPE, payload)];
+  const events: Envelope[] = [envelope(PAD_STATE_TYPE, payload)];
+  events.push(envelope('cyber:wave_start', { wave }));
+  if ((flags & CYBER_FLAG.DOWNED) !== 0) {
+    events.push(envelope('cyber:downed', { slot }));
+  }
+  return events;
 }
 
 export function createCyberEventsDiff(): (prev: Float32Array, next: Float32Array) => Envelope[] {
@@ -100,6 +107,8 @@ export function createCyberEventsDiff(): (prev: Float32Array, next: Float32Array
   let lastWaveSeen = 0;
 
   return (prev: Float32Array, next: Float32Array): Envelope[] => {
+    const prevTick = prev[CYBER_HEADER.tickId] ?? 0;
+    const nextTick = next[CYBER_HEADER.tickId] ?? 0;
     const events: Envelope[] = [];
     const prevPhase = prev[CYBER_HEADER.phaseEnum] ?? 0;
     const nextPhase = next[CYBER_HEADER.phaseEnum] ?? 0;
@@ -108,8 +117,12 @@ export function createCyberEventsDiff(): (prev: Float32Array, next: Float32Array
     const prevEmp = Math.trunc(prev[CYBER_HEADER.empFiredCount] ?? 0);
     const nextEmp = Math.trunc(next[CYBER_HEADER.empFiredCount] ?? 0);
 
-    // Reset per-match / per-wave cache when a fresh match or wave starts
-    if (nextPhase === CYBER_PHASE.COUNTDOWN && prevPhase !== CYBER_PHASE.COUNTDOWN) {
+    // Reset per-match / per-wave cache when a fresh match or wave starts or simulation resets
+    if (
+      prevTick === 0 ||
+      nextTick <= prevTick ||
+      (nextPhase === CYBER_PHASE.COUNTDOWN && prevPhase !== CYBER_PHASE.COUNTDOWN)
+    ) {
       empFiredThisWave = false;
       lastWaveSeen = nextWave;
       lastDisabled.fill(-1);
@@ -150,12 +163,13 @@ export function createCyberEventsDiff(): (prev: Float32Array, next: Float32Array
       if ((nextFlags & CYBER_FLAG.JOINED) === 0) continue;
 
       const wasDowned = (prevFlags & CYBER_FLAG.DOWNED) !== 0;
+      const wasRespawning = (prevFlags & CYBER_FLAG.RESPAWNING) !== 0;
       const isDowned = (nextFlags & CYBER_FLAG.DOWNED) !== 0;
       const isActive = (nextFlags & CYBER_FLAG.ACTIVE) !== 0;
 
       if (!wasDowned && isDowned) {
         events.push(envelope('cyber:downed', { slot: s }));
-      } else if (wasDowned && !isDowned && isActive) {
+      } else if ((wasDowned || wasRespawning) && !isDowned && isActive) {
         events.push(envelope('cyber:revived', { slot: s }));
       }
 

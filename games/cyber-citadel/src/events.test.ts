@@ -104,9 +104,10 @@ test('buildCyberRehydrateEvents emits slot-scoped pad:state with remaining coold
 
   const now = 100000;
   const events = buildCyberRehydrateEvents(s, 0, now);
-  expect(events).toHaveLength(1);
-  expect(events[0]?.type).toBe(PAD_STATE_TYPE);
-  const payload = events[0]?.payload as {
+  expect(events.length).toBeGreaterThanOrEqual(1);
+  const padEvent = events.find((e) => e.type === PAD_STATE_TYPE);
+  expect(padEvent).toBeDefined();
+  const payload = padEvent?.payload as {
     slot: number;
     labels: string[];
     disabled: number;

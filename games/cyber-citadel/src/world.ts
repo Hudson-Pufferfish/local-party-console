@@ -161,7 +161,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
       height: C.arenaSize,
       cellSize: C.cellSize,
       maxEntities: maxE,
-      maxNodes: maxE * 9,
+      maxNodes: maxE * 25,
     }),
     flowField: createFlowField(),
     queryBuf: new Int32Array(maxE),

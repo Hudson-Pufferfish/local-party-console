@@ -12,7 +12,11 @@ export interface CyberRosterMeta {
 export interface CyberCitadelSimulation extends ScreenSim {
   readonly state: Float32Array;
   readonly auxState: Uint8Array;
-  startMatch(slots: number[], seed?: number, roster?: CyberRosterMeta): void;
+  startMatch(
+    slots: number[],
+    seedOrRoster?: number | CyberRosterMeta,
+    rosterOrSeed?: CyberRosterMeta | number,
+  ): void;
   setConnectedMask(mask: number): void;
   getSquadWeight(): number;
   getMatchWon(): boolean;

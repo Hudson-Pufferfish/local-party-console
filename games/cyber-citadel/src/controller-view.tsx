@@ -71,7 +71,12 @@ export const CyberCitadelController: VoidComponent<{
       if (message === null) return;
       if (message.type === 'cyber:wave_start') {
         setWave(readNum(message.payload, 'wave', wave()));
+        setDowned(false);
         triggerVibrate(20);
+        return;
+      }
+      if (message.type === 'cyber:rematch' || message.type === 'game:mount') {
+        setDowned(false);
         return;
       }
       if (message.type === 'cyber:wave_end') {

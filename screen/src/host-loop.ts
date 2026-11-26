@@ -15,7 +15,7 @@ export interface ScreenSim {
   readonly auxState?: Uint8Array;
   applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void;
   step(dt: number): void;
-  startMatch(slots: number[]): void;
+  startMatch(slots: number[], ...args: any[]): void;
   setConnectedMask?(mask: number): void;
   getMatchTarget?(): number;
 }
@@ -27,7 +27,7 @@ export interface HostLoop {
   readonly state: Float32Array;
   readonly snapshot: Float32Array;
   readonly auxSnapshot: Uint8Array | null;
-  startMatch(slots: readonly number[]): void;
+  startMatch(slots: readonly number[], roster?: { botMask?: Uint8Array; botLevels?: Uint8Array }): void;
   release(): void;
   accept(slot: number, seq: number, buttons: number, axisX: number, axisY: number, now: number): boolean;
   clearSeq(slot: number): void;
@@ -79,7 +79,10 @@ export function createHostLoop(
     }
   }
 
-  function startMatch(slots: readonly number[]): void {
+  function startMatch(
+    slots: readonly number[],
+    roster?: { botMask?: Uint8Array; botLevels?: Uint8Array },
+  ): void {
     lastSeq.fill(-1);
     lastButtons.fill(0);
     lastToggles.fill(0);
@@ -96,7 +99,7 @@ export function createHostLoop(
       joined[slot] = 1;
       list.push(slot);
     }
-    sim.startMatch(list);
+    sim.startMatch(list, roster);
     epoch += 1;
     inMatch = true;
     accumulator = 0;
