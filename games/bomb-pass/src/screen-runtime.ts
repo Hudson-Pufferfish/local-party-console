@@ -4,6 +4,7 @@ import { bannerCopy } from './banner.ts';
 import { eventsFromHeaderDiff } from './events.ts';
 import { levelsForMask, writeHeuristic } from './heuristic.ts';
 import { createBombPassRenderer } from './renderer.ts';
+import { createBombPassRoundRanking } from './round-ranking.ts';
 import { scoreboardHeader, scoreboardRows, scoreRules } from './scoreboard.ts';
 import { createBombPassSimulation } from './simulation.ts';
 
@@ -23,5 +24,6 @@ export function createBombPassScreenRuntime() {
     scoreRules: (state: Float32Array) => scoreRules(state),
     bannerCopy: (state: Float32Array, names: readonly string[]) => bannerCopy(state, names),
     rematchEventType: 'bomb:rematch',
+    createRoundRanking: createBombPassRoundRanking,
   };
 }

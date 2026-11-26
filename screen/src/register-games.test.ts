@@ -152,5 +152,6 @@ test('screenGames registers bomb-pass with lazy runtime and holistic config', as
   expect(typeof runtime.scoreboardRows).toBe('function');
   expect(typeof runtime.scoreRules).toBe('function');
   expect(typeof runtime.bannerCopy).toBe('function');
+  expect(typeof runtime.createRoundRanking).toBe('function');
   expect(runtime.rematchEventType).toBe('bomb:rematch');
 });

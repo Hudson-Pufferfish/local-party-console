@@ -34,23 +34,54 @@ export interface ScoreRuleRow {
 }
 
 export interface ScoreRules {
+  readonly guide?: readonly string[];
   readonly rows: readonly ScoreRuleRow[];
 }
+
+export type RoundStage = 'idle' | 'live' | 'final';
+
+export interface RoundRankRow {
+  readonly slot: number;
+  readonly color: string;
+  readonly name: string;
+  readonly value: string;
+  readonly place: number | null;
+  readonly finalized: boolean;
+  readonly preview: number | null;
+  readonly status?: 'LIVE' | 'AWAY';
+  readonly marker?: string;
+}
+
+export interface RoundRankingView {
+  readonly stage: RoundStage;
+  readonly rows: readonly RoundRankRow[];
+}
+
+const BOMB_GUIDE: readonly string[] = [
+  'TOUCH A PLAYER TO PASS THE BOMB',
+  'DASH, 1.5S RECHARGE',
+  'THE HOLDER BLOWS UP WHEN THE FUSE ENDS',
+  'LAST ONE ALIVE WINS THE ROUND',
+];
 
 export function targetScoreForCount(playerCount: number): number {
   const scaled = (playerCount - 1) * C.targetMultiplier;
   return scaled > C.minTargetScore ? scaled : C.minTargetScore;
 }
 
+export function shouldIncludeSlot(state: Float32Array, index: number): boolean {
+  const base = PLAYER + index * STRIDE;
+  const flags = state[base + 8] ?? 0;
+  const score = state[base + 9] ?? 0;
+  const x = state[base] ?? 0;
+  const y = state[base + 1] ?? 0;
+  return !((flags & ACTIVE_FLAGS) === 0 && score === 0 && x === 0 && y === 0);
+}
+
 export function activePlayerCount(state: Float32Array): number {
   let count = 0;
   for (let index = 0; index < SLOTS; index += 1) {
-    const base = PLAYER + index * STRIDE;
-    const flags = state[base + 8] ?? 0;
-    const score = state[base + 9] ?? 0;
-    const x = state[base] ?? 0;
-    const y = state[base + 1] ?? 0;
-    if ((flags & ACTIVE_FLAGS) === 0 && score === 0 && x === 0 && y === 0) continue;
+    if (!shouldIncludeSlot(state, index)) continue;
     count += 1;
   }
   return count;
@@ -116,7 +147,7 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
   if (count < 2) return null;
   const target = targetScoreForCount(count);
   if (isMatchSuddenDeath(state, target)) {
-    return { rows: [{ label: ORDINALS[0], value: '+1 PTS' }] };
+    return { guide: BOMB_GUIDE, rows: [{ label: ORDINALS[0], value: '+1 PTS' }] };
   }
   const rows: ScoreRuleRow[] = [];
   for (let rank = 1; rank <= count; rank += 1) {
@@ -125,7 +156,7 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
       value: `+${count - rank} PTS`,
     });
   }
-  return { rows };
+  return { guide: BOMB_GUIDE, rows };
 }
 
 export function shortTag(name: string, slot: number): string {
@@ -150,12 +181,9 @@ export function scoreboardRows(
 ): ScoreRow[] {
   const rows: ScoreRow[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
+    if (!shouldIncludeSlot(state, index)) continue;
     const base = PLAYER + index * STRIDE;
-    const flags = state[base + 8] ?? 0;
     const score = state[base + 9] ?? 0;
-    const x = state[base] ?? 0;
-    const y = state[base + 1] ?? 0;
-    if ((flags & ACTIVE_FLAGS) === 0 && score === 0 && x === 0 && y === 0) continue;
     const tag = shortTag(names[index] ?? '', index);
     const player = players?.find((entry) => entry.index === index);
     if (player === undefined) {
