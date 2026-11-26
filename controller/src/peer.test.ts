@@ -513,6 +513,7 @@ test('onControl forwards game messages for sumo, bomb, color, and future games',
     const link = connectPhone('ABCD', {
       onFull() {},
       onJoined() {},
+      onLink() {},
       onMount() {},
       onPong() {},
       onControl(type, payload) {
