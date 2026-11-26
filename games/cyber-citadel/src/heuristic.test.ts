@@ -150,8 +150,8 @@ test('bot deploys kinetic barricade (Button X / WALL) when facing encroaching en
   sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
   sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = 0; // facing +X
 
-  // Spawn an encroaching brute at x=260, y=0 (dist=80, facing directly)
-  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 260, 0, 1, 9999);
+  // Spawn an encroaching brute at x=320, y=0 (dist=140, facing directly in intercept range)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 320, 0, 1, 9999);
 
   const axisX = new Int8Array(8);
   const axisY = new Int8Array(8);
@@ -159,4 +159,34 @@ test('bot deploys kinetic barricade (Button X / WALL) when facing encroaching en
 
   writeHeuristic(sim.state, 1, axisX, axisY, buttons, 50, sim.auxState);
   expect(buttons[1]! & BUTTON_BIT.SHIELD).not.toBe(0);
+});
+
+test('bot prioritizes enemy near ring (<180u) over distant heavy enemy', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 60, 0, 0, 0, 0, 0, 0]);
+  sim.startMatch([0, 1], 1010, { botMask, botLevels });
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  // Distant brute at (x=240, y=0)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 240, 0, 1, 9999);
+  // Immediate ring threat (drone) right at (x=0, y=140)
+  sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, 0, 140, 2, 9999);
+
+  const b1 = playerBase(1);
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 200;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = -Math.PI * 0.5; // facing -Y toward drone
+  sim.state[CYBER_HEADER.tickId] = 100;
+
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 60, sim.auxState);
+  // Drone at (0, 140) is closer to bot (0, 200) and closest to Core (140u <= 180u);
+  // bot should steer toward drone (Y dominant) rather than toward distant brute (+X dominant)
+  expect(Math.abs(axisX[1]!)).toBeLessThan(15);
+  expect(axisY[1]).toBeGreaterThan(50);
 });

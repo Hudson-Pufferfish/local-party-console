@@ -35,6 +35,7 @@ const roleTargetSlot = new Int8Array(SLOTS).fill(-1);
 const roleTargetEnemy = new Int16Array(SLOTS).fill(-1);
 const lastEvalTick = new Float64Array(SLOTS).fill(-1000);
 const lastButtonPulse = new Uint8Array(SLOTS);
+let lastGlobalBotWallTick = -1000;
 
 export type LevelRng = () => number;
 
@@ -160,7 +161,9 @@ function findPriorityEnemies(
     return;
   }
 
-  // Core danger threshold: 280 units (beyond this, heavy enemies are not an immediate Core breach threat)
+  // Ring Breach Danger threshold: 180 units from Core (outer perimeter of 130u EMP ring)
+  const RING_DANGER_THRESHOLD_SQ = 180 * 180;
+  // Core heavy defense threshold: 280 units
   const HEAVY_INTERCEPT_MAX_CORE_SQ = 280 * 280;
 
   for (let i = 0; i < AUX_LAYOUT.MAX_ENEMIES; i += 1) {
@@ -182,13 +185,19 @@ function findPriorityEnemies(
     const dSq = dx * dx + dy * dy;
     if (dSq < 140 * 140) nearCluster += 1;
 
-    // Only intercept Brutes or Bosses if they are encroaching on the Core
+    // Heavy (Brute/Boss) candidate
     if (type === ENEMY_TYPE.BRUTE || type === ENEMY_TYPE.BOSS) {
       if (coreDistSq <= HEAVY_INTERCEPT_MAX_CORE_SQ && dSq < bestHeavyDistSq) {
         bestHeavyDistSq = dSq;
         bestHeavy = i;
       }
     }
+  }
+
+  // Ring Defense First: If any enemy (small drone, fast drone, brute) has encroached <= 180u of the Core,
+  // cancel bestHeavy intercept so all defenders prioritize eliminating the immediate ring breach threat!
+  if (bestCoreDistSq <= RING_DANGER_THRESHOLD_SQ) {
+    bestHeavy = -1;
   }
 
   outResult[0] = bestHeavy;
@@ -385,23 +394,40 @@ export function writeHeuristic(
           steerY = uy * 0.45 + ux * 0.45 * side;
         }
 
-        // Deploy kinetic barricade (Button X / WALL) to protect Core choke points:
-        // Placed outside Core ring when enemies are closing in and bot is facing the threat
+        // Deploy kinetic barricade (Button X / WALL) with squad budget & global pacing:
+        // 1. Max 3 active walls across all bot teammates
+        // 2. Minimum 2.5s (150 ticks) spacing between any bot placing a wall
+        // 3. Wall cell must be safely outside Core ring
+        // 4. Enemy column in prime intercept range (110u - 240u)
         const placeDist = C.playerRadius + C.cellSize * 1.1;
         const targetCellX = px + Math.cos(heading) * placeDist;
         const targetCellY = py + Math.sin(heading) * placeDist;
         const targetCellDistSq = targetCellX * targetCellX + targetCellY * targetCellY;
         const empRingOuterSq = (C.empRingRadius + 4) * (C.empRingRadius + 4);
 
+        let squadBotBarricades = 0;
+        for (let s = 0; s < SLOTS; s += 1) {
+          const sFlags = state[playerBase(s) + CYBER_PLAYER_OFFSET.flags] ?? 0;
+          if ((sFlags & (CYBER_FLAG.IS_BOT | CYBER_FLAG.STANDBY_BOT)) !== 0) {
+            squadBotBarricades += state[playerBase(s) + CYBER_PLAYER_OFFSET.barricades] ?? 0;
+          }
+        }
+
+        const canSquadPlaceWall =
+          squadBotBarricades < 3 &&
+          (tick < lastGlobalBotWallTick || tick - lastGlobalBotWallTick >= 150);
+
         if (
+          canSquadPlaceWall &&
           barricades < C.barricadeMaxPerPlayer &&
           targetCellDistSq > empRingOuterSq &&
-          dist < 260 &&
-          dist > 50 &&
-          aimDot > 0.65 &&
+          dist < 240 &&
+          dist > 110 &&
+          aimDot > 0.72 &&
           (enemyScanScratch[2]! >= 1 || eType === ENEMY_TYPE.BRUTE || eType === ENEMY_TYPE.BOSS)
         ) {
           wantButtons |= BUTTON_BIT.SHIELD;
+          lastGlobalBotWallTick = tick;
         }
       }
     } else {
