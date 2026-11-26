@@ -97,6 +97,7 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
   if (nextPhase === PHASE_MATCH_OVER && prevPhase !== PHASE_MATCH_OVER) {
     events.push(envelope('color:match_end', {
       winnerIndex: Math.trunc(next[WINNER] ?? -1),
+      percents: percentList(next),
       scores: scoreList(next),
       overtime: prevPhase === PHASE_OVERTIME,
     }));

@@ -168,8 +168,9 @@ describe('ColorClashSimulation', () => {
     sim.state[baseOf(1) + 1] = -350;
     sim.step(DT);
     const normalPct = sim.state[baseOf(0) + 7];
-    expect(normalPct).toBeGreaterThan(0.2);
-    expect(normalPct).toBeLessThan(1.0);
+    // Radius 24 covers 4 to 9 cells -> (4 * 100 / 1600 = 0.25%, 9 * 100 / 1600 = 0.5625%)
+    expect(normalPct).toBeGreaterThanOrEqual(0.25);
+    expect(normalPct).toBeLessThanOrEqual(0.60);
 
     // Rising edge BOOST expands stamp footprint to radius 54 (~21 cells) and gives high velocity impulse
     sim.applyInput(0, 1, 127, 0);
@@ -258,7 +259,19 @@ describe('ColorClashSimulation', () => {
   test('BOOST held through countdown does not fire on the first ROUND_ACTIVE frame; a fresh press still does (issue #23)', () => {
     const sim = createColorClashSimulation();
     sim.startMatch([0, 1]);
+    expect(sim.state[1]).toBe(PHASE_PRACTICE);
+
+    // Step through practice WITHOUT holding BOOST
     let guard = 0;
+    while (sim.state[1] === PHASE_PRACTICE && guard < 120 * 35) {
+      sim.applyInput(0, 0, 0, 0);
+      sim.step(DT);
+      guard += 1;
+    }
+    expect(sim.state[1]).toBe(PHASE_COUNTDOWN);
+
+    // Hold BOOST only during countdown
+    guard = 0;
     while (sim.state[1] === PHASE_COUNTDOWN && guard < 1000) {
       sim.applyInput(0, 1, 0, 0);
       sim.step(DT);
@@ -266,11 +279,13 @@ describe('ColorClashSimulation', () => {
     }
     expect(sim.state[1]).toBe(PHASE_ROUND_ACTIVE);
 
+    // Assert no boost on first ROUND_ACTIVE frame
     sim.applyInput(0, 1, 0, 0);
     sim.step(DT);
     expect(sim.state[baseOf(0) + 6]).toBe(0);
     expect(sim.state[baseOf(0) + 8] & 2).toBe(0);
 
+    // Release and press after that should still give a 3s boost
     sim.applyInput(0, 0, 0, 0);
     sim.step(DT);
     sim.applyInput(0, 1, 0, 0);
@@ -283,7 +298,7 @@ describe('ColorClashSimulation', () => {
     const sim = createColorClashSimulation();
     sim.startMatch([0, 1]);
     let guard = 0;
-    while (sim.state[1] !== PHASE_OVERTIME && guard < 120 * 50) {
+    while (sim.state[1] !== PHASE_OVERTIME && guard < 120 * 85) {
       sim.applyInput(0, 1, 0, 0);
       sim.applyInput(1, 1, 0, 0);
       sim.step(DT);
@@ -303,6 +318,69 @@ describe('ColorClashSimulation', () => {
     sim.step(DT);
     expect(sim.state[baseOf(0) + 6]).toBeCloseTo(C.boostActive, 2);
     expect(sim.state[baseOf(0) + 8] & 2).toBe(2);
+  });
+
+  test('reaches target score across rounds and ends match at PHASE_MATCH_OVER', () => {
+    const sim = createColorClashSimulation();
+    sim.startMatch([0, 1]); // 2 players -> target = 3 pts
+    expect(sim.state[1]).toBe(PHASE_PRACTICE);
+
+    // Fast forward rounds where slot 0 wins
+    for (let round = 0; round < 3; round += 1) {
+      advanceToActive(sim);
+      // Let slot 0 paint and win round
+      sim.applyInput(0, 1, 127, 0);
+      for (let i = 0; i < 120 * 46; i += 1) {
+        if (sim.state[1] === PHASE_ROUND_END) break;
+        sim.step(DT);
+      }
+      expect(sim.state[1]).toBe(PHASE_ROUND_END);
+      expect(sim.state[7]).toBe(0); // slot 0 won round
+      // Step past ROUND_END
+      for (let i = 0; i < 120 * 1; i += 1) {
+        if (sim.state[1] === PHASE_MATCH_OVER || sim.state[1] === PHASE_PRACTICE) break;
+        sim.step(DT);
+      }
+    }
+
+    expect(sim.state[1]).toBe(PHASE_MATCH_OVER);
+    expect(sim.state[baseOf(0) + 9]).toBe(3); // 3 pts reached
+    expect(sim.state[baseOf(1) + 9]).toBe(0);
+    expect(sim.state[7]).toBe(0); // match winner slot 0
+  });
+
+  test('enters sudden death when leaders tie at or above threshold and resolves with sole winner', () => {
+    const sim = createColorClashSimulation();
+    sim.startMatch([0, 1]); // Target = 3 pts
+
+    // Manually set both players to 3 pts (tied at threshold -> sudden death)
+    sim.state[baseOf(0) + 9] = 3;
+    sim.state[baseOf(1) + 9] = 3;
+
+    advanceToActive(sim);
+
+    // Let slot 1 paint and win the round
+    sim.applyInput(1, 1, 127, 0);
+    for (let i = 0; i < 120 * 46; i += 1) {
+      if (sim.state[1] === PHASE_ROUND_END) break;
+      sim.step(DT);
+    }
+    expect(sim.state[1]).toBe(PHASE_ROUND_END);
+    expect(sim.state[7]).toBe(1); // slot 1 won round
+
+    // In sudden death, only the round winner (slot 1) receives +1 pt
+    expect(sim.state[baseOf(0) + 9]).toBe(3);
+    expect(sim.state[baseOf(1) + 9]).toBe(4);
+
+    // Step through ROUND_END (0.8s)
+    for (let i = 0; i < 120 * 1; i += 1) {
+      sim.step(DT);
+    }
+
+    // Unique winner (4 vs 3) -> PHASE_MATCH_OVER
+    expect(sim.state[1]).toBe(PHASE_MATCH_OVER);
+    expect(sim.state[7]).toBe(1);
+  });
   });
 
   test('10,000-tick fuzz holds invariants INV-1..6 and replay is bit-exact (INV-8)', () => {

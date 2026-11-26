@@ -113,24 +113,34 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
     * Write `grid[c] = newOwner`.
     * Sync `paintCells = cellCounts[i]` and `paintPct = (cellCounts[i] * 100) / 1600` into each player's state stride at the end of the tick.
 
-### FR-4: Timed Match Flow, Scoring, Tiebreak Sudden Death & Podium
-* **Match Structure:**
-  1. **`COUNTDOWN` (`3.0s`):** Pucks stand locked on the spawn circle. The $40 \times 40$ grid is blank. The top banner displays `3`, `2`, `1`.
-  2. **`ROUND_ACTIVE` (`45.0s`):** Physics, paint stamping, and `BOOST` are live. The scoreboard updates each player's real-time percentage ownership every frame. During the final `10.0s`, the timer header pulses with `--accent-hazard`.
-  3. **End-of-Timer Evaluation (`phaseTimer <= 0`):**
+### FR-4: Multi-Round Match Flow, Scoring, Tiebreak Sudden Death & Podium
+* **Multi-Round Match Structure:**
+  1. **`PRACTICE` (`phaseEnum = 4`):**
+     * Matches open with `30.0s` (`practiceInitial`) of practice on the arena (move and boost freely; zero points awarded).
+     * After a scored round where no player reached the match target, play enters a `20.0s` (`practiceBreak`) break before the next countdown.
+     * When the practice timer expires, all players reset onto the spawn circle and enter `COUNTDOWN`.
+  2. **`COUNTDOWN` (`phaseEnum = 0`, `3.0s`):** Pucks stand locked on the spawn circle. The $40 \times 40$ grid is blank. The top banner displays `3`, `2`, `1`.
+  3. **`ROUND_ACTIVE` (`phaseEnum = 1`, `45.0s`):** Physics, paint stamping, and `BOOST` are live. The scoreboard displays each player's points and match threshold.
+  4. **End-of-Round Evaluation (`phaseTimer <= 0`):**
      * Find `maxCells = max(paintCells[i])` across joined slots.
      * Count how many joined slots hold `paintCells[i] === maxCells`.
-     * **Unique Leader (`leaderCount === 1`):** Set `winnerSlot` to the leader and transition to `FINAL_REVEAL` (`3.0s`).
+     * **Unique Leader (`leaderCount === 1`):** Set `winnerSlot` to the leader and transition to `ROUND_END` (`0.8s`).
      * **Tie for First Place (`leaderCount >= 2`):** Transition directly to **Tiebreak Sudden Death (`OVERTIME`, `30.0s`)**.
-  4. **Tiebreak Sudden Death (`OVERTIME`, `30.0s`):**
+  5. **Tiebreak Sudden Death (`OVERTIME`, `phaseEnum = 5`, `30.0s`):**
      * Set `CONTENDER` (`Bit 3`) on every tied leader and keep them active.
      * Park all non-tied players off-arena (`ACTIVE = 0`, `CONTENDER = 0`) so non-contenders cannot kingmake. Their existing painted cells stay frozen on the grid (contenders can paint over them).
      * Keep all painted territory on the grid. Reset contender `boostCooldown = 0` and `boostActiveTimer = 0` so tied leaders enter overtime on equal footing.
      * **Golden Tile Spawn:** Deterministically choose one `goldenCell` index $\in [0, 1599]$ inside the inner arena (`col ∈ [6, 33]`, `row ∈ [6, 33]`) that maximizes minimum distance to all contender pucks, breaking ties deterministically by `(tickId + cellIndex) % 1600`. Store `goldenCell` in header `[4]`.
-     * **Instant Win (Golden Tile):** The first contender puck whose normal or boosted stamp disc covers `goldenCell` claims it immediately, sets `winnerSlot = i`, sets `hitStopFrames = 2`, and transitions to `FINAL_REVEAL`.
-     * **Overtime Expiry (`phaseTimer <= 0`):** If no contender claimed the Golden Tile in `30.0s`, compare `paintCells` among contenders only. The contender with the most painted cells wins. If contenders still tie on exact `paintCells`, the contender who reached that cell count earliest (`lastPeakTick`) wins; if still tied, the lower slot index wins. Set `winnerSlot` and transition to `FINAL_REVEAL`.
-  5. **`FINAL_REVEAL` (`3.0s`):** Freeze all puck movement and paint stamping. Lock final grid and percentage bars on screen. Display `<TAG> WINS · <PCT>%` in the banner.
-  6. **`MATCH_OVER`:** Present final podium standings (`1ST`, `2ND`, `3RD`, and all remaining slots with exact `%` and cell counts) alongside host **PLAY AGAIN** and **RETURN TO LOBBY** controls.
+     * **Instant Win (Golden Tile):** The first contender puck whose normal or boosted stamp disc covers `goldenCell` claims it immediately, sets `winnerSlot = i`, sets `hitStopFrames = 2`, and transitions to `ROUND_END`.
+     * **Overtime Expiry (`phaseTimer <= 0`):** If no contender claimed the Golden Tile in `30.0s`, compare `paintCells` among contenders only. The contender with the most painted cells wins. If contenders still tie on exact `paintCells`, the contender who reached that cell count earliest (`lastPeakTick`) wins; if still tied, the lower slot index wins. Set `winnerSlot` and transition to `ROUND_END`.
+  6. **`ROUND_END` (`phaseEnum = 2`, `0.8s`):**
+     * Freeze puck velocities and award round points.
+     * **Point Allocation:** For $N$ joined players, 1st place (`winnerSlot`) receives $N - 1$ points. Other players receive points ranked by cell coverage ($N - 1 - \text{better}$).
+     * **Match Target:** `targetScore = max(3, (N - 1) * 3)`.
+     * **Decisive Sudden Death:** If multiple players tie at or above the threshold (`score >= targetScore`), the match enters Sudden Death: each subsequent round awards `+1` point exclusively to the round winner (`winnerSlot`) until one unique leader emerges.
+     * If one unique player satisfies `score >= targetScore`, transition to `MATCH_OVER`.
+     * Otherwise, transition to `PRACTICE` (`20.0s` break) before the next round.
+  7. **`MATCH_OVER` (`phaseEnum = 3`):** Present final match results and standings alongside host **PLAY AGAIN** and **RETURN TO LOBBY** controls.
 
 ### FR-5: Phone Controller Layout & Feedback
 * **Orientation:** Supports both `portrait` and `landscape` via the platform controller stage.
@@ -179,11 +189,11 @@ An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz in
 3. **Steering & Wall Margin:** Clamp the chosen sector center to `[-350, +350]` to prevent wall grinding. Turn the steer angle by a small slot-sided wobble of $\text{nerf}(0.26, -0.22, \text{share})$ radians. Scale stick magnitude to $\text{nerf}(0.55, 0.45, \text{share})$ of full `127`.
 4. **Dense-Cluster `BOOST` Trigger:** Sample the $5 \times 5$ cell cluster (`25` cells) centered `80` units ahead along the bot's steering vector. Count non-owned cells (`grid[c] !== botIndex + 1`). Fire `BOOST` (`Bit 0 = 1`) when `boostCooldown <= 0`, non-owned count $\ge \text{Math.round}(\text{nerf}(18, -6, \text{share}))$ (`12..18` cells), and alignment clears $\text{nerf}(0.92, -0.12, \text{share})$.
 
-### Scoreboard, Final Reveal & Podium
-* **Scoreboard Header:** Displays the live match clock (`TIME 00:45` during `ROUND_ACTIVE`, `OVERTIME 00:30` during sudden death, `FINAL SCORES` during `FINAL_REVEAL` / `MATCH_OVER`).
-* **Real-Time Ownership Rows:** Lists every joined player sorted by highest `paintCells` first (tie-broken by lower slot index). Each row renders the player's color dot, 2-letter tag, live percentage to one decimal (`HU 34.2%`), solid proportional coverage bar (`ratio = paintCells / 1600`), and `LIVE` / `AWAY` connection badge for human slots.
-* **Rules Card (`ScoreRulesPanel`):** Displays compact Neo-Brutalist rules (`MATCH: 45S`, `BOOST: 3S WIDE`, `TIE: 30S GOLDEN TILE`).
-* **Top Banner (`bannerCopy`):** Shows `3`, `2`, `1` during `COUNTDOWN`, `OVERTIME — CLAIM GOLDEN TILE` on overtime start, `<TAG> WINS · <PCT>%` during `FINAL_REVEAL`, and `<TAG> WINS` on `MATCH_OVER` podium.
+### Scoreboard, Round End & Match Over
+* **Scoreboard Header:** Displays `THRESHOLD: X` or `SUDDEN DEATH` (or `OVERTIME MM:SS` during golden tile sudden death).
+* **Real-Time Scoreboard Rows:** Lists joined players with their player puck color circle, short tag, current match score, and connection status (`LIVE` / `AWAY`).
+* **Rules Card (`ScoreRulesPanel`):** Displays rank payout rules (`1ST: +(N-1) PTS`, `2ND: +(N-2) PTS`, etc.) or `+1 PTS` during sudden death.
+* **Top Banner (`bannerCopy`):** Shows `BREAK X` during practice, `3`, `2`, `1` during `COUNTDOWN`, `OVERTIME — CLAIM GOLDEN TILE` on overtime start, `POINT` during `ROUND_END`, and `<TAG> WINS` on `MATCH_OVER`.
 
 ---
 
@@ -237,7 +247,7 @@ Pre-allocated once on game mount (`MAX_PLAYERS = 8`). Uses the exact 88-float pr
 * **Global Arena Header (Indices `0..7` — 32 bytes):**
   ```text
   [0] tickId            (monotonic fixed-step counter)
-  [1] phaseEnum         (0=COUNTDOWN, 1=ROUND_ACTIVE, 2=FINAL_REVEAL, 3=MATCH_OVER, 4=OVERTIME)
+  [1] phaseEnum         (0=COUNTDOWN, 1=ROUND_ACTIVE, 2=ROUND_END, 3=MATCH_OVER, 4=PRACTICE, 5=OVERTIME)
   [2] phaseTimer        (seconds remaining in current phase)
   [3] arenaSize         (800.0 world units, square side length)
   [4] goldenCell        (-1 when inactive; 0..1599 linear cell index during OVERTIME)

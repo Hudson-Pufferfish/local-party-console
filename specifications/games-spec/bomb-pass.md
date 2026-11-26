@@ -105,8 +105,8 @@ export const BOMB_PASS_MANIFEST: GameManifest = {
 
 ### FR-4: Round Flow, Scoring & Match Win Condition
 * **Practice / Break (`PRACTICE`, `phaseEnum = 4`):**
-  * Matches open with `10.0s` of practice on the full circular arena (move, dash, and wall-bounce freely; `bombHolder = -1`; zero eliminations; zero points).
-  * After a scored non-final round, play enters a `5.0s` break before the next countdown. All contenders revive inside the solid boundary without teleporting surviving pucks; eliminated pucks revive on the spawn circle.
+  * Matches open with `30.0s` (`practiceInitial`) of practice on the full circular arena (move, dash, and wall-bounce freely; `bombHolder = -1`; zero eliminations; zero points).
+  * After a scored non-final round, play enters a `20.0s` (`practiceBreak`) break before the next countdown. All contenders revive inside the solid boundary without teleporting surviving pucks; eliminated pucks revive on the spawn circle.
   * When the break timer hits `0`, all contenders reset onto the spawn ring and enter `COUNTDOWN`.
 * **Countdown (`COUNTDOWN`, `phaseEnum = 0`):**
   * Lasts `3.0s`. Pucks hold position on $R_{\text{spawn}} = 240$. Joystick updates nose-wedge facing only. Held `DASH` does not fire on tick 0.

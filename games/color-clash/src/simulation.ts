@@ -479,17 +479,12 @@ export function createColorClashSimulation(): ColorClashSimulation {
     state[GOLDEN] = pickGoldenCell(tick);
   }
 
-  function awardRoundPoints(): void {
+  function awardRoundPoints(winnerSlot: number): void {
     const count = joinedCount;
     if (count < 2) return;
     if (isSuddenDeath(state, matchTarget)) {
-      const topScore = maxScoreForState(state);
-      for (let i = 0; i < C.maxPlayers; i += 1) {
-        if (joined[i] === 0) continue;
-        const baseI = PLAYER + i * STRIDE;
-        if (state[baseI + 9] === topScore) {
-          state[baseI + 9] += 1;
-        }
+      if (winnerSlot >= 0 && winnerSlot < C.maxPlayers && joined[winnerSlot] === 1) {
+        state[PLAYER + winnerSlot * STRIDE + 9] += 1;
       }
       return;
     }
@@ -497,10 +492,15 @@ export function createColorClashSimulation(): ColorClashSimulation {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       if (joined[i] === 0) continue;
       const baseI = PLAYER + i * STRIDE;
+      if (i === winnerSlot) {
+        // Round winner gets 1st place points (N - 1)
+        state[baseI + 9] += count - 1;
+        continue;
+      }
       const cellsI = cellCounts[i];
-      let better = 0;
+      let better = 1; // Round winner is ahead
       for (let j = 0; j < C.maxPlayers; j += 1) {
-        if (joined[j] === 0 || j === i) continue;
+        if (joined[j] === 0 || j === i || j === winnerSlot) continue;
         const cellsJ = cellCounts[j];
         if (cellsJ > cellsI) {
           better += 1;
@@ -516,7 +516,7 @@ export function createColorClashSimulation(): ColorClashSimulation {
   function enterRoundEnd(winnerSlot: number): void {
     state[WINNER] = winnerSlot;
     state[GOLDEN] = -1;
-    awardRoundPoints();
+    awardRoundPoints(winnerSlot);
     state[PHASE] = PHASE_ROUND_END;
     state[TIMER] = C.roundEnd;
     for (let i = 0; i < C.maxPlayers; i += 1) {
