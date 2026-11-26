@@ -42,7 +42,15 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   expect(isSuddenDeath(state)).toBe(true);
   expect(hasUniqueWinner(state)).toBe(false);
   expect(scoreboardHeader(state)).toBe('SUDDEN DEATH');
-  expect(scoreRules(state)).toEqual({ rows: [{ label: '1ST', value: '+1 PTS' }] });
+  expect(scoreRules(state)).toEqual({
+    guide: [
+      'STEER TO STAY IN THE RING',
+      'DASH TO RAM, 1.5S RECHARGE',
+      'THE RING SHRINKS',
+      'LAST ONE IN WINS THE ROUND',
+    ],
+    rows: [{ label: '1ST', value: '+1 PTS' }],
+  });
   expect(scoreboardLine(state, ['Hudson', 'Dash', 'Ada', ''])).toBe('HUDSON 9  DASH 2  ADA 9  P4 0');
 
   state[17] = 10;
@@ -50,6 +58,12 @@ test('scoreboard keeps slot order, shows clean scores without slash, and formats
   expect(hasUniqueWinner(state)).toBe(true);
   expect(scoreboardHeader(state)).toBe('THRESHOLD: 9');
   expect(scoreRules(state)).toEqual({
+    guide: [
+      'STEER TO STAY IN THE RING',
+      'DASH TO RAM, 1.5S RECHARGE',
+      'THE RING SHRINKS',
+      'LAST ONE IN WINS THE ROUND',
+    ],
     rows: [
       { label: '1ST', value: '+3 PTS' },
       { label: '2ND', value: '+2 PTS' },
@@ -93,6 +107,12 @@ test('scoreboard rows carry puck colors and scoreRules formats rank payouts for 
 
   const rules = scoreRules(state);
   expect(rules).toEqual({
+    guide: [
+      'STEER TO STAY IN THE RING',
+      'DASH TO RAM, 1.5S RECHARGE',
+      'THE RING SHRINKS',
+      'LAST ONE IN WINS THE ROUND',
+    ],
     rows: [
       { label: '1ST', value: '+7 PTS' },
       { label: '2ND', value: '+6 PTS' },

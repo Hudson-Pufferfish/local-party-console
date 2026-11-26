@@ -157,3 +157,27 @@ test('round panel updates LIVE/AWAY status in real time during freeze and break'
   expect(breakChanged.totalRows.find((r) => r.slot === 0)?.status).toBe('LIVE');
   expect(breakChanged.totalRows.find((r) => r.slot === 1)?.status).toBe('AWAY');
 });
+
+test('round panel sorts unplaced ALIVE rows above locked knockouts and parked OUT rows at the bottom', () => {
+  const model = createRoundPanelModel();
+  const out = model.update(
+    {
+      stage: 'live',
+      rows: [
+        { slot: 0, color: '#FF4D00', name: 'P1', value: 'OUT', place: 3, finalized: true, preview: 1 },
+        { slot: 1, color: '#00C853', name: 'P2', value: 'ALIVE', place: null, finalized: false, preview: null },
+        { slot: 2, color: '#2979FF', name: 'P3', value: 'OUT', place: null, finalized: true, preview: 0 },
+        { slot: 3, color: '#AA00FF', name: 'P4', value: 'OUT', place: 4, finalized: true, preview: 0 },
+      ],
+    },
+    [
+      { slot: 0, color: '#FF4D00', name: 'P1', score: 2 },
+      { slot: 1, color: '#00C853', name: 'P2', score: 2 },
+      { slot: 2, color: '#2979FF', name: 'P3', score: 0 },
+      { slot: 3, color: '#AA00FF', name: 'P4', score: 1 },
+    ],
+    1000,
+  );
+
+  expect(out.rankRows.map((r) => r.slot)).toEqual([1, 0, 3, 2]);
+});
