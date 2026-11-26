@@ -10,7 +10,7 @@ import { PreflightStrip } from './preflight-strip.tsx';
 test('joined controller binds player CSS vars on gameplay controls while keeping preflight warnings on --warn', () => {
   const sumoHtml = renderToString(() => (
     <SumoController
-      color="#111111"
+      color="#651FFF"
       name="Cid"
       slot={6}
       control={null}
@@ -18,7 +18,7 @@ test('joined controller binds player CSS vars on gameplay controls while keeping
       onButton={() => {}}
     />
   ));
-  expect(sumoHtml).toContain('--player-color:var(--player-7, #111111)');
+  expect(sumoHtml).toContain('--player-color:var(--player-7, #651FFF)');
   expect(sumoHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
   expect(sumoHtml).toContain('>CID<');
   expect(sumoHtml).toContain('<p class="sumo-readout">ALIVE · 0 PTS</p>');
