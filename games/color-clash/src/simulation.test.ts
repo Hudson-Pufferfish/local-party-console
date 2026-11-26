@@ -19,18 +19,20 @@ function advanceToActive(sim: ColorClashSimulation): void {
   expect(sim.state[1]).toBe(PHASE_ROUND_ACTIVE);
 }
 
-function assertInvariants(sim: ColorClashSimulation): void {
+// Plain comparisons keep this fast enough for the 10,000-tick fuzz (issue #16).
+// One expect at the end still reports every broken invariant by cell or slot.
+function assertInvariants(sim: ColorClashSimulation, where = 'final'): void {
   const { state, auxState } = sim;
-  expect(state.length).toBe(88);
-  expect(auxState.length).toBe(1600);
+  const bad: string[] = [];
+  if (state.length !== 88) bad.push(`state.length ${state.length} !== 88`);
+  if (auxState.length !== 1600) bad.push(`auxState.length ${auxState.length} !== 1600`);
   for (let k = 0; k < 88; k += 1) {
-    expect(Number.isFinite(state[k])).toBe(true);
+    if (!Number.isFinite(state[k])) bad.push(`state[${k}] ${state[k]} not finite`);
   }
   const counts = new Uint16Array(8);
   for (let c = 0; c < 1600; c += 1) {
     const owner = auxState[c];
-    expect(owner).toBeGreaterThanOrEqual(0);
-    expect(owner).toBeLessThanOrEqual(8);
+    if (!(owner >= 0 && owner <= 8)) bad.push(`cell ${c} owner ${owner} not in [0, 8]`);
     if (owner > 0) counts[owner - 1] += 1;
   }
   let total = 0;
@@ -38,23 +40,22 @@ function assertInvariants(sim: ColorClashSimulation): void {
     const b = baseOf(slot);
     const flags = state[b + 8];
     if ((flags & 1) !== 0) {
-      expect(Math.abs(state[b])).toBeLessThanOrEqual(C.maxCoord + 1e-4);
-      expect(Math.abs(state[b + 1])).toBeLessThanOrEqual(C.maxCoord + 1e-4);
+      if (!(Math.abs(state[b]) <= C.maxCoord + 1e-4)) bad.push(`slot ${slot} x ${state[b]} out of bounds`);
+      if (!(Math.abs(state[b + 1]) <= C.maxCoord + 1e-4)) bad.push(`slot ${slot} y ${state[b + 1]} out of bounds`);
     }
     const cd = state[b + 5];
     const active = state[b + 6];
-    expect(cd).toBeGreaterThanOrEqual(0);
-    expect(cd).toBeLessThanOrEqual(C.boostCooldown + 1e-4);
-    expect(active).toBeGreaterThanOrEqual(0);
-    expect(active).toBeLessThanOrEqual(C.boostActive + 1e-4);
-    if (active > 0) {
-      expect(cd + 1e-4).toBeGreaterThanOrEqual(active);
-    }
-    expect(state[b + 9]).toBe(counts[slot]);
-    expect(state[b + 7]).toBeCloseTo((counts[slot] * 100) / 1600, 4);
+    if (!(cd >= 0 && cd <= C.boostCooldown + 1e-4)) bad.push(`slot ${slot} cooldown ${cd} not in [0, ${C.boostCooldown}]`);
+    if (!(active >= 0 && active <= C.boostActive + 1e-4)) bad.push(`slot ${slot} boostActive ${active} not in [0, ${C.boostActive}]`);
+    if (active > 0 && !(cd + 1e-4 >= active)) bad.push(`slot ${slot} cooldown ${cd} < boostActive ${active}`);
+    if (state[b + 9] !== counts[slot]) bad.push(`slot ${slot} cell count ${state[b + 9]} !== ${counts[slot]}`);
+    // Same tolerance as toBeCloseTo(x, 4): |diff| < 10^-4 / 2.
+    const pct = (counts[slot] * 100) / 1600;
+    if (!(Math.abs(state[b + 7] - pct) < 5e-5)) bad.push(`slot ${slot} coverage ${state[b + 7]} !== ${pct}`);
     total += counts[slot];
   }
-  expect(total).toBeLessThanOrEqual(1600);
+  if (total > 1600) bad.push(`total cells ${total} > 1600`);
+  expect(bad, `invariants at ${where}`).toEqual([]);
 }
 
 describe('ColorClashSimulation', () => {
@@ -289,7 +290,7 @@ describe('ColorClashSimulation', () => {
           sim.applyInput(slot, btn, ax, ay);
         }
         sim.step(DT);
-        if (t % 50 === 0) assertInvariants(sim);
+        if (t % 50 === 0) assertInvariants(sim, `tick ${t}`);
       }
       assertInvariants(sim);
       return {
@@ -302,5 +303,5 @@ describe('ColorClashSimulation', () => {
     const run2 = runScripted(10000);
     expect(Array.from(run1.state)).toEqual(Array.from(run2.state));
     expect(Array.from(run1.aux)).toEqual(Array.from(run2.aux));
-  });
+  }, 15_000);
 });

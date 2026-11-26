@@ -377,6 +377,12 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+// Vitest expect() is too slow for about 150 checks per step over 10,000 steps (issue #16).
+// The message names the step, so a failure still points at the exact frame.
+function check(ok: boolean, what: string, step: number): void {
+  if (!ok) throw new Error(`step ${step}: ${what}`);
+}
+
 test('fuzz holds the sim invariants for 10000 steps', () => {
   const sim = createSumoSimulation();
   const state = sim.state;
@@ -398,22 +404,21 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
     }
     const wasSuddenDeath = isSuddenDeath(state);
     sim.step(DT);
-    expect(sim.state).toBe(state);
+    check(sim.state === state, 'sim.state is the same array', step);
 
     for (let index = 0; index < state.length; index += 1) {
-      expect(Number.isFinite(state[index]), `index ${index} step ${step}`).toBe(true);
+      check(Number.isFinite(state[index]), `state[${index}] ${state[index]} is finite`, step);
     }
 
     const phase = state[PHASE];
     const radius = state[ARENA_RADIUS];
-    expect(radius).toBeGreaterThanOrEqual(RFLOOR);
-    expect(radius).toBeLessThanOrEqual(400);
+    check(radius >= RFLOOR && radius <= 400, `radius ${radius} in [${RFLOOR}, 400]`, step);
     if (phase === 1) {
       if (!trackingRadius) {
         trackingRadius = true;
         previousRadius = radius;
       }
-      expect(radius).toBeLessThanOrEqual(previousRadius);
+      check(radius <= previousRadius, `radius ${radius} <= previous ${previousRadius}`, step);
       previousRadius = radius;
     } else {
       trackingRadius = false;
@@ -421,17 +426,14 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
 
     for (let slot = 0; slot < 8; slot += 1) {
       const base = slotBase(slot);
-      expect(state[base + 5]).toBeGreaterThanOrEqual(0);
-      expect(state[base + 5]).toBeLessThanOrEqual(1.5);
-      expect(state[base + 6]).toBeGreaterThanOrEqual(0);
-      expect(state[base + 6]).toBeLessThanOrEqual(Math.fround(0.18));
-      expect(state[base + 7]).toBeGreaterThanOrEqual(0);
-      expect(state[base + 7]).toBeLessThanOrEqual(Math.fround(0.22));
-      expect(state[base + 8] & 4).toBe(0);
+      check(state[base + 5] >= 0 && state[base + 5] <= 1.5, `slot ${slot} [5] ${state[base + 5]} in [0, 1.5]`, step);
+      check(state[base + 6] >= 0 && state[base + 6] <= Math.fround(0.18), `slot ${slot} [6] ${state[base + 6]} in [0, 0.18]`, step);
+      check(state[base + 7] >= 0 && state[base + 7] <= Math.fround(0.22), `slot ${slot} [7] ${state[base + 7]} in [0, 0.22]`, step);
+      check((state[base + 8] & 4) === 0, `slot ${slot} flag bit 4 is clear`, step);
       const alive = (state[base + 8] & 1) !== 0;
       if (phase === 1 || phase === 2) {
         if (dead[slot]) {
-          expect(alive).toBe(false);
+          check(!alive, `slot ${slot} stays dead`, step);
         }
         if (!alive) {
           dead[slot] = true;
@@ -447,20 +449,19 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
       const nextScore = scoreSum(sim);
       const gained = nextScore - score;
       if (countAlive(sim) === 0) {
-        expect(gained).toBe(0);
+        check(gained === 0, `gained ${gained} === 0 with no survivors`, step);
       } else if (wasSuddenDeath) {
-        expect(gained).toBe(1);
+        check(gained === 1, `gained ${gained} === 1 in sudden death`, step);
       } else {
         // 8 players: min sum without ties = 8*7/2 = 28, max with all losers tied 2nd = 7*7 = 49
-        expect(gained).toBeGreaterThanOrEqual(28);
-        expect(gained).toBeLessThanOrEqual(49);
+        check(gained >= 28 && gained <= 49, `gained ${gained} in [28, 49]`, step);
       }
       score = nextScore;
     }
-    expect(scoreSum(sim)).toBeLessThanOrEqual(completed * 49);
+    check(scoreSum(sim) <= completed * 49, `score sum <= ${completed * 49}`, step);
     previousPhase = phase;
   }
-});
+}, 15_000);
 
 test('the same input log replays to the same float bytes', () => {
   const frames = 30 * 120;
