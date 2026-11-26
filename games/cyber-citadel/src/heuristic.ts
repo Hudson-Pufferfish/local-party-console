@@ -267,7 +267,22 @@ export function writeHeuristic(
       roleTargetEnemy[botIndex] = -1;
     } else if (auxState !== undefined) {
       findPriorityEnemies(auxState, px, py, enemyScanScratch);
-      if (enemyScanScratch[0]! >= 0) {
+
+      // At most 1/3 of the bots (rounded up) may take ROLE_INTERCEPT for distant heavies
+      let totalBots = 0;
+      let activeInterceptors = 0;
+      for (let s = 0; s < SLOTS; s += 1) {
+        const sFlags = state[playerBase(s) + CYBER_PLAYER_OFFSET.flags] ?? 0;
+        if ((sFlags & (CYBER_FLAG.IS_BOT | CYBER_FLAG.STANDBY_BOT)) !== 0 && (sFlags & CYBER_FLAG.ACTIVE) !== 0) {
+          totalBots += 1;
+          if (s !== botIndex && roleBySlot[s] === ROLE_INTERCEPT) {
+            activeInterceptors += 1;
+          }
+        }
+      }
+      const maxInterceptors = Math.max(1, Math.ceil(totalBots / 3));
+
+      if (enemyScanScratch[0]! >= 0 && activeInterceptors < maxInterceptors) {
         roleBySlot[botIndex] = ROLE_INTERCEPT;
         roleTargetEnemy[botIndex] = enemyScanScratch[0]!;
         roleTargetSlot[botIndex] = -1;
