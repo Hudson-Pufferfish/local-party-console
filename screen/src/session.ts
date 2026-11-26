@@ -144,6 +144,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
   let lastScoreRules: ScoreRules | null = null;
   let lastRoundPanel: RoundPanelOutput | null = null;
   let roundAdapter: RoundRankingAdapter | null = null;
+  let roundAdapterRuntime: ScreenGameRuntime | null = null;
   let roundModel: RoundPanelModel = createRoundPanelModel();
   let seenEpoch = -1;
   const snapMessage: { epoch: number; bytes: ArrayBuffer; auxBytes?: ArrayBuffer } = {
@@ -231,7 +232,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     void toCanvas(canvas, qrUrl, {
       margin: 1,
       width: 280,
-      color: { dark: '#111111', light: '#F4F1EA' },
+      color: { dark: '#111111', light: '#00000000' },
     }).then(() => {
       canvas.style.width = '';
       canvas.style.height = '';
@@ -310,6 +311,11 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     if (!sameScoreRules(lastScoreRules, rules)) {
       lastScoreRules = rules;
       handlers.setScoreRules?.(rules);
+    }
+    if (roundAdapterRuntime !== runtime) {
+      roundAdapterRuntime = runtime;
+      roundAdapter = runtime.createRoundRanking?.() ?? null;
+      roundModel.reset();
     }
     const view = roundAdapter?.read(state, names, players) ?? null;
     const panel = roundAdapter === null ? null : roundModel.update(view, rows, performance.now());
@@ -496,6 +502,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     lastRoundPanel = null;
     handlers.setRoundPanel?.(null);
     roundAdapter = null;
+    roundAdapterRuntime = null;
     roundModel.reset();
     handlers.setBanner('');
   }
@@ -505,11 +512,9 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     selectGame(id: string): void {
       selectedId = id;
       activeRuntime = screenGames.getLoaded(id) ?? null;
-      if (activeRuntime !== null && activeRuntime.createRoundRanking !== undefined) {
-        roundAdapter = activeRuntime.createRoundRanking();
-      } else {
-        roundAdapter = null;
-      }
+      roundAdapter = null;
+      roundAdapterRuntime = null;
+      roundModel.reset();
       handlers.setSelectedId(id);
       const entry = screenGames.get(id);
       if (entry === undefined) return;
@@ -538,11 +543,9 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           const roster = rosterForStart(players, entry.manifest, botLobby.botCount);
           if (roster === null) return;
           activeRuntime = runtime;
-          if (runtime.createRoundRanking !== undefined) {
-            roundAdapter = runtime.createRoundRanking();
-          } else {
-            roundAdapter = null;
-          }
+          roundAdapterRuntime = runtime;
+          roundAdapter = runtime.createRoundRanking?.() ?? null;
+          roundModel.reset();
           botLobby = lockBotCount(botLobby);
           handlers.setBotLobby(botLobby);
           openLoop(targetId, runtime);
@@ -991,8 +994,11 @@ function sameRoundPanel(a: RoundPanelOutput | null, b: RoundPanelOutput | null):
     if (left === undefined || right === undefined) return false;
     if (
       left.slot !== right.slot
+      || left.color !== right.color
+      || left.name !== right.name
       || left.place !== right.place
       || left.value !== right.value
+      || left.finalized !== right.finalized
       || left.preview !== right.preview
       || left.earned !== right.earned
       || left.status !== right.status
@@ -1008,7 +1014,11 @@ function sameRoundPanel(a: RoundPanelOutput | null, b: RoundPanelOutput | null):
     if (left === undefined || right === undefined) return false;
     if (
       left.slot !== right.slot
+      || left.color !== right.color
+      || left.name !== right.name
       || left.score !== right.score
+      || left.ratio !== right.ratio
+      || left.status !== right.status
       || left.incoming !== right.incoming
     ) {
       return false;

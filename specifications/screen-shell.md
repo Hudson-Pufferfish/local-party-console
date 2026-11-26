@@ -20,7 +20,7 @@ The platform bundles that shared match UI into one SolidJS component: **`<Holist
 
 | # | Element | Source | Placement | Behavior |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | **`MatchRejoinQr`** | `screen/src/score-rules.tsx` | Top-left fixed card | Displays the room QR canvas with label `SCAN TO REJOIN`. Calls `onQr(canvas)` to reuse the lobby QR target. |
+| 1 | **`MatchRejoinQr`** | `screen/src/score-rules.tsx` | Right column above `ScoreboardPanel` | Displays the borderless `128x128` room QR canvas with label `SCAN TO REJOIN`. Calls `onQr(canvas)` to reuse the lobby QR target. |
 | 2 | **`MatchExitControl`** | `screen/src/match-exit.tsx` | Top-right `×` button | Visible when `canShowMatchExit(primary, match, manifest)` is true. Opens `ConfirmModal`, then calls `onExit()`. |
 | 3 | **HUD banner** | `<p class="match-banner">` | Top row above arena | Renders game-authored status text (`props.banner`), such as countdowns, timers, or winner callouts. |
 | 4 | **`ScoreRulesPanel` (guide lines and payout table) and `RoundRanking`** | `screen/src/score-rules.tsx` | Left column: `ScoreRulesPanel` (guide lines and payout table) and `RoundRanking` (live round ranking) under it | Mounted only when `props.scoreRules !== null` or `props.roundPanel !== null`. When the game provides `createRoundRanking`, both the guide and the live ranking appear. |

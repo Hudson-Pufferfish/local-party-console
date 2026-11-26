@@ -51,6 +51,7 @@ test('HolisticMatchShell renders holistic match frame and gates exit, score rule
   ));
 
   expect(activePrimaryHtml).toContain('<section class="match" data-game="sumo-dash">');
+  expect(activePrimaryHtml).toContain('class="match-rejoin"');
   expect(activePrimaryHtml).toContain('class="match-exit"');
   expect(activePrimaryHtml).toContain('<p class="match-banner">ROUND 1</p>');
   expect(activePrimaryHtml).toContain('class="score-rules"');
@@ -221,6 +222,180 @@ test('session.playAgain() emits runtime rematchEventType only when the game runt
 
     const sentTypes = socket.sent.map((raw) => (JSON.parse(raw) as { type: string }).type);
     expect(sentTypes).toEqual(['game:mount', 'room:phase']);
+  } finally {
+    session.stop();
+  }
+});
+
+test('session updates roundPanel LIVE/AWAY status immediately when room:players changes during break', async () => {
+  class MockSocket extends EventTarget {
+    static OPEN = 1;
+    binaryType = 'arraybuffer';
+    readyState = MockSocket.OPEN;
+    constructor(_url: string) {
+      super();
+      sockets.push(this);
+    }
+    send(): void {}
+    close(): void {}
+  }
+
+  class MockChannel {
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    postMessage(): void {}
+    close(): void {}
+  }
+
+  const sockets: MockSocket[] = [];
+  const memory = new Map<string, string>([['party-host-ROOM', 'secret']]);
+  const win = Object.assign(new EventTarget(), {
+    requestAnimationFrame: () => 1,
+    cancelAnimationFrame: () => {},
+    setInterval: () => 1,
+    clearInterval: () => {},
+  });
+
+  globalThis.window = win as unknown as Window & typeof globalThis;
+  vi.stubGlobal('location', {
+    search: '?room=ROOM&view=holistic',
+    host: '10.0.0.1:8443',
+    pathname: '/screen',
+  });
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memory.set(key, value);
+    },
+  });
+  vi.stubGlobal('navigator', {
+    locks: {
+      request: (
+        _name: string,
+        _options: LockOptions,
+        cb: (lock: Lock | null) => Promise<void> | void,
+      ) => Promise.resolve(cb({ name: _name, mode: 'exclusive' } as Lock)),
+    },
+  });
+  vi.stubGlobal('WebSocket', MockSocket);
+  vi.stubGlobal('BroadcastChannel', MockChannel);
+  vi.stubGlobal('fetch', async () => ({ ok: false, json: async () => ({}) }));
+
+  const simState = new Float32Array(88);
+  let stage: 'idle' | 'live' | 'final' = 'live';
+  const runtime: ScreenGameRuntime = {
+    createSim: () => ({
+      state: simState,
+      applyInput() {},
+      step() {},
+      startMatch() {
+        simState[1] = 1;
+      },
+    }),
+    scoreboardRows: (_state, _names, players) => [
+      {
+        slot: 0,
+        color: '#FF4D00',
+        name: 'ADA',
+        score: simState[8 + 9] ?? 0,
+        status: players?.find((p) => p.index === 0)?.connected ? 'LIVE' : 'AWAY',
+      },
+    ],
+    createRoundRanking: () => ({
+      read: (_state, _names, players) => ({
+        stage,
+        rows: [
+          {
+            slot: 0,
+            color: '#FF4D00',
+            name: 'ADA',
+            value: '55.0%',
+            place: 1,
+            finalized: stage === 'final',
+            preview: stage === 'live' ? 1 : null,
+            status: players?.find((p) => p.index === 0)?.connected ? 'LIVE' : 'AWAY',
+          },
+        ],
+      }),
+    }),
+  };
+
+  vi.spyOn(screenGames, 'load').mockResolvedValue(runtime);
+  vi.spyOn(screenGames, 'getLoaded').mockReturnValue(runtime);
+
+  let now = 1000;
+  vi.spyOn(performance, 'now').mockImplementation(() => now);
+
+  const panels: Array<import('../../round-panel-model.ts').RoundPanelOutput | null> = [];
+  const latestPanel = () => panels[panels.length - 1] ?? null;
+  const session = startSession({
+    setRoomId() {},
+    setQrUrl() {},
+    setPlayers() {},
+    setPrimary() {},
+    setSdpWarning() {},
+    setStandby() {},
+    setMatch() {},
+    setMatchOver() {},
+    setScoreRows() {},
+    setRoundPanel(panel) {
+      panels.push(panel);
+    },
+    setBanner() {},
+    setNotice() {},
+    setSelectedId() {},
+    setBotLobby() {},
+  });
+
+  try {
+    const socket = sockets[0];
+    if (socket === undefined) throw new Error('missing socket');
+    socket.dispatchEvent(new Event('open'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:players',
+        payload: {
+          players: [{ index: 0, name: 'ADA', color: '#FF4D00', teamId: null, connected: true }],
+        },
+      }),
+    }));
+
+    session.selectGame('color-clash');
+    session.setBotCount(1);
+    session.start();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const fakeCanvas = { getContext: () => null, width: 800, height: 800 } as unknown as HTMLCanvasElement;
+    session.attachMatch(fakeCanvas);
+
+    // Finish round and move past freeze into break (result mode)
+    stage = 'final';
+    simState[8 + 9] = 1;
+    now = 2000;
+    session.attachMatch(fakeCanvas);
+
+    stage = 'idle';
+    now = 5000;
+    session.attachMatch(fakeCanvas);
+    expect(latestPanel()?.mode).toBe('result');
+    expect(latestPanel()?.rankRows[0]?.status).toBe('LIVE');
+    expect(latestPanel()?.totalRows[0]?.status).toBe('LIVE');
+
+    // Player disconnects during break -> room:players updates both left & right panels immediately
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'room:players',
+        payload: {
+          players: [{ index: 0, name: 'ADA', color: '#FF4D00', teamId: null, connected: false }],
+        },
+      }),
+    }));
+
+    expect(latestPanel()?.rankRows[0]?.status).toBe('AWAY');
+    expect(latestPanel()?.totalRows[0]?.status).toBe('AWAY');
   } finally {
     session.stop();
   }

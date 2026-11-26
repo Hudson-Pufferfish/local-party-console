@@ -91,3 +91,69 @@ test('round panel walks through live, freeze, result, and reset on new match', (
   expect(emptyOutput.totalRows).toHaveLength(2);
   expect(emptyOutput.totalRows[0]?.score).toBe(0);
 });
+
+test('round panel updates LIVE/AWAY status in real time during freeze and break', () => {
+  const model = createRoundPanelModel();
+
+  const liveView: RoundRankingView = {
+    stage: 'live',
+    rows: [
+      { slot: 0, color: '#FF4D00', name: 'P1', value: '60.0%', place: 1, finalized: false, preview: 1, status: 'LIVE' },
+      { slot: 1, color: '#00C853', name: 'P2', value: '40.0%', place: 2, finalized: false, preview: 0, status: 'AWAY' },
+    ],
+  };
+  model.update(
+    liveView,
+    [
+      { slot: 0, color: '#FF4D00', name: 'P1', score: 0, status: 'LIVE' },
+      { slot: 1, color: '#00C853', name: 'P2', score: 0, status: 'AWAY' },
+    ],
+    500,
+  );
+
+  const finalView: RoundRankingView = {
+    stage: 'final',
+    rows: [
+      { slot: 0, color: '#FF4D00', name: 'P1', value: '60.0%', place: 1, finalized: true, preview: null, status: 'LIVE' },
+      { slot: 1, color: '#00C853', name: 'P2', value: '40.0%', place: 2, finalized: true, preview: null, status: 'AWAY' },
+    ],
+  };
+  model.update(
+    finalView,
+    [
+      { slot: 0, color: '#FF4D00', name: 'P1', score: 1, status: 'LIVE' },
+      { slot: 1, color: '#00C853', name: 'P2', score: 0, status: 'AWAY' },
+    ],
+    1000,
+  );
+
+  // During freeze: P1 disconnects, P2 reconnects
+  const frozenChanged = model.update(
+    { stage: 'idle', rows: [] },
+    [
+      { slot: 0, color: '#FF4D00', name: 'P1', score: 1, status: 'AWAY' },
+      { slot: 1, color: '#00C853', name: 'P2', score: 0, status: 'LIVE' },
+    ],
+    2000,
+  );
+  expect(frozenChanged.mode).toBe('frozen');
+  expect(frozenChanged.rankRows.find((r) => r.slot === 0)?.status).toBe('AWAY');
+  expect(frozenChanged.rankRows.find((r) => r.slot === 1)?.status).toBe('LIVE');
+  expect(frozenChanged.totalRows.find((r) => r.slot === 0)?.status).toBe('AWAY');
+  expect(frozenChanged.totalRows.find((r) => r.slot === 1)?.status).toBe('LIVE');
+
+  // During break (result mode): status continues to track live changes
+  const breakChanged = model.update(
+    { stage: 'idle', rows: [] },
+    [
+      { slot: 0, color: '#FF4D00', name: 'P1', score: 1, status: 'LIVE' },
+      { slot: 1, color: '#00C853', name: 'P2', score: 0, status: 'AWAY' },
+    ],
+    3500,
+  );
+  expect(breakChanged.mode).toBe('result');
+  expect(breakChanged.rankRows.find((r) => r.slot === 0)?.status).toBe('LIVE');
+  expect(breakChanged.rankRows.find((r) => r.slot === 1)?.status).toBe('AWAY');
+  expect(breakChanged.totalRows.find((r) => r.slot === 0)?.status).toBe('LIVE');
+  expect(breakChanged.totalRows.find((r) => r.slot === 1)?.status).toBe('AWAY');
+});
