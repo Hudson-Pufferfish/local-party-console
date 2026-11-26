@@ -5,7 +5,8 @@
 import type { Server, IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
-import type { RoomPhase } from '@shared/types';
+import type { RoomPhase } from '../../shared/src/types/envelope.ts';
+import { isGameControlMessageType } from '../../shared/src/types/game-control.ts';
 import {
   hostTokenMatches,
   joinRoom,
@@ -191,7 +192,7 @@ function handleText(
     handleKick(clients, room, message.payload);
     return;
   }
-  if (type === 'game:mount' || type === 'game:unmount' || isGameControlEvent(type)) {
+  if (type === 'game:mount' || type === 'game:unmount' || isGameControlMessageType(type)) {
     if (primaries.get(room) !== client) return;
     if (type === 'game:mount') mounts.set(room, raw);
     if (type === 'game:unmount') mounts.delete(room);
@@ -204,13 +205,6 @@ function handleText(
     return;
   }
   fanOut(clients, room, client, raw);
-}
-
-function isGameControlEvent(type: string): boolean {
-  const colon = type.indexOf(':');
-  if (colon <= 0) return false;
-  const prefix = type.slice(0, colon);
-  return prefix !== 'room' && prefix !== 'viewport' && prefix !== 'signal' && prefix !== 'net' && prefix !== 'clock';
 }
 
 function handleJoin(

@@ -131,7 +131,7 @@ export const ColorClashController: VoidComponent<{
       color={props.color}
       name={props.name}
       slot={props.slot}
-      layout={COLOR_CLASH_MANIFEST.controllerLayout!}
+      layout={COLOR_CLASH_MANIFEST.controllerLayout}
       onAxes={props.onAxes}
       onButton={onBoost}
       customBoardClass="color-board"

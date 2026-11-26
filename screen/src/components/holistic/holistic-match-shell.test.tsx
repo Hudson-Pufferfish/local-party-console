@@ -16,6 +16,10 @@ const SUMO_MANIFEST: GameManifest = {
   supportsBots: true,
   rendererType: 'phaser-2d',
   viewConfig: { mode: 'holistic', inputBufferMode: 'zero-buffer' },
+  controllerLayout: {
+    preset: 'stick-single',
+    buttons: [{ bit: 0, glyph: 'A', label: 'DASH', kind: 'tap' }],
+  },
   themeTokens: {},
 };
 

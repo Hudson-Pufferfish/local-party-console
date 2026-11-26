@@ -76,4 +76,65 @@ describe('ControllerShell', () => {
     expect(html).toContain('X SHIELD');
     expect(html).toContain('Y REVIVE');
   });
+
+  test('renders alert slot only when non-empty, and avoids rendering empty container', () => {
+    // When alert is undefined
+    const htmlNoAlert = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={singleLayout}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    expect(htmlNoAlert).not.toContain('controller-shell-alert');
+
+    // When alert is a Show with false condition
+    const htmlFalseAlert = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={singleLayout}
+        onAxes={() => {}}
+        onButton={() => {}}
+        alert={null}
+      />
+    ));
+    expect(htmlFalseAlert).not.toContain('controller-shell-alert');
+
+    // When alert is provided with content
+    const htmlWithAlert = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={singleLayout}
+        onAxes={() => {}}
+        onButton={() => {}}
+        alert={<div class="bomb-alert">HOLDING BOMB</div>}
+      />
+    ));
+    expect(htmlWithAlert).toContain('controller-shell-alert');
+    expect(htmlWithAlert).toContain('HOLDING BOMB');
+  });
+
+  test('button cooldown meter applies 0ms transition duration when inactive', () => {
+    const html = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={singleLayout}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    // When initially rendered (inactive), data-active is false and transition-duration is 0ms
+    expect(html).toContain('button-cooldown-meter');
+    expect(html).toContain('data-active="false"');
+    expect(html).toContain('transition-duration:0ms');
+  });
 });

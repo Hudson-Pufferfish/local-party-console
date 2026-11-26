@@ -1,4 +1,5 @@
-import { createSignal, For, onCleanup, Show, type JSX, type VoidComponent } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { children, createSignal, For, onCleanup, Show, type VoidComponent } from 'solid-js';
 import type { ButtonBit, ButtonSpec, ControllerLayout } from '../controller/layout.ts';
 import { normalizeName } from '../name-service.ts';
 import { playerStyleVars } from '../theme.ts';
@@ -15,6 +16,7 @@ export interface ControllerShellProps {
   readonly onAxes: (x: number, y: number, timeStamp: number) => void;
   readonly onButton: (down: boolean, timeStamp: number, bit: number) => void;
   readonly hud?: JSX.Element;
+  readonly alert?: JSX.Element;
   readonly customBoardClass?: string;
   readonly customBoardAttrs?: Record<string, string | boolean | undefined>;
 }
@@ -88,6 +90,9 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
     return props.customBoardClass ? `${base} ${props.customBoardClass}` : base;
   };
 
+  const resolvedHud = children(() => props.hud);
+  const resolvedAlert = children(() => props.alert);
+
   return (
     <section
       class={boardClass()}
@@ -96,10 +101,14 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
     >
       <header class="controller-shell-bar">
         <PlayerBadge name={title()} label={label()} />
-        <Show when={props.hud}>
-          <div class="controller-shell-hud">{props.hud}</div>
+        <Show when={resolvedHud()}>
+          <div class="controller-shell-hud">{resolvedHud()}</div>
         </Show>
       </header>
+
+      <Show when={resolvedAlert()}>
+        <div class="controller-shell-alert">{resolvedAlert()}</div>
+      </Show>
 
       <div class="controller-hands">
         <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
@@ -109,6 +118,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
             {(() => {
               const spec = props.layout.buttons[0];
               const bit = spec.bit;
+              const active = () => cooldowns()[bit];
               return (
                 <div class="dock-preset-single">
                   <ArcadeButton
@@ -118,9 +128,9 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                   <Show when={spec.cooldownMs && spec.cooldownMs > 0}>
                     <div
                       class="button-cooldown-meter"
-                      data-active={cooldowns()[bit]}
+                      data-active={active() ? 'true' : 'false'}
                       style={{
-                        'transition-duration': `${spec.cooldownMs}ms`,
+                        'transition-duration': active() ? `${spec.cooldownMs}ms` : '0ms',
                         'transition-property': 'transform',
                         'transition-timing-function': 'linear',
                       }}
@@ -143,6 +153,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                         : spec.glyph === 'B'
                           ? 'diamond-right'
                           : 'diamond-bottom'; // 'A'
+                  const active = () => cooldowns()[spec.bit];
 
                   return (
                     <div class={`diamond-slot ${glyphClass}`}>
@@ -153,9 +164,9 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                       <Show when={spec.cooldownMs && spec.cooldownMs > 0}>
                         <div
                           class="button-cooldown-meter"
-                          data-active={cooldowns()[spec.bit]}
+                          data-active={active() ? 'true' : 'false'}
                           style={{
-                            'transition-duration': `${spec.cooldownMs}ms`,
+                            'transition-duration': active() ? `${spec.cooldownMs}ms` : '0ms',
                             'transition-property': 'transform',
                             'transition-timing-function': 'linear',
                           }}

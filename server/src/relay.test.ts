@@ -1096,3 +1096,45 @@ test('relay forwards game control messages from primary screen to controllers fo
     await relay.close();
   }
 });
+
+test('relay forwards phone:tier and phone:longtask telemetry from phone to screen', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: { role: 'primary', view: 'holistic' } }));
+    phone.send(JSON.stringify({ type: 'room:join', payload: { name: 'ADA' } }));
+    await settle();
+
+    const screenMessages: any[] = [];
+    screen.on('message', (data: RawData) => {
+      screenMessages.push(JSON.parse(data.toString()));
+    });
+
+    // Send telemetry from phone
+    phone.send(JSON.stringify({
+      type: 'phone:tier',
+      payload: { slot: 0, tier: 60, lowPower: false, cores: 8 },
+    }));
+    phone.send(JSON.stringify({
+      type: 'phone:longtask',
+      payload: { slot: 0, n: 1 },
+    }));
+
+    await settle();
+
+    const forwardedTypes = screenMessages.map((m) => m.type);
+    expect(forwardedTypes).toContain('phone:tier');
+    expect(forwardedTypes).toContain('phone:longtask');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});

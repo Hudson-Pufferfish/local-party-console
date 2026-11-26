@@ -142,37 +142,3 @@
   font-family: "JetBrains Mono", monospace;
   font-variant-numeric: tabular-nums;
 }
-
-.bomb-hands .joystick,
-.bomb-dash-dock {
-  height: 100%;
-  min-height: 0;
-}
-
-.bomb-dash-dock {
-  position: relative;
-  display: grid;
-}
-
-.bomb-dash-dock .arcade-button {
-  height: 100%;
-  padding: 16px;
-}
-
-.bomb-dash-meter {
-  position: absolute;
-  z-index: 1;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 10px;
-  background: var(--player-ink, var(--ink, #111111));
-  transform: scaleX(0);
-  transform-origin: left center;
-  pointer-events: none;
-}
-
-.bomb-dash-meter[data-cool='true'] {
-  transform: scaleX(1);
-  transition: transform 1.5s linear;
-}

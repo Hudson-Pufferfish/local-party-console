@@ -22,3 +22,9 @@ export type {
   ButtonSpec,
   ControllerLayout,
 } from '../controller/layout.ts';
+export {
+  ALLOWED_GAME_PREFIXES,
+  isGameControlMessageType,
+  isGameControlPrefix,
+  type AllowedGamePrefix,
+} from './game-control.ts';

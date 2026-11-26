@@ -31,6 +31,10 @@ const HOLISTIC_MANIFEST: GameManifest = {
   supportsBots: true,
   rendererType: 'phaser-2d',
   viewConfig: { mode: 'holistic', inputBufferMode: 'zero-buffer' },
+  controllerLayout: {
+    preset: 'stick-single',
+    buttons: [{ bit: 0, glyph: 'A', label: 'DASH', kind: 'tap' }],
+  },
   themeTokens: {},
 };
 
@@ -48,6 +52,10 @@ const MULTISCREEN_MANIFEST: GameManifest = {
     requiredTeams: 2,
     allowHolisticSpectator: false,
     inputBufferMode: 'zero-buffer',
+  },
+  controllerLayout: {
+    preset: 'stick-single',
+    buttons: [{ bit: 0, glyph: 'A', label: 'DUEL', kind: 'tap' }],
   },
   themeTokens: {},
 };
