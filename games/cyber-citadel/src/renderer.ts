@@ -408,9 +408,11 @@ export function createCyberCitadelRenderer(
 
         if ((ownerByte & PROJECTILE_FLAG.RAIL_BEAM) !== 0) {
           const alpha = Math.min(1, ttl / C.railTracerTicks);
-          g.lineStyle(9 * scale, CYBER_PALETTE.ink, alpha * 0.85);
+          g.lineStyle(16 * scale, CYBER_PALETTE.ink, alpha * 0.9);
           g.lineBetween(px, py, tx, ty);
-          g.lineStyle(4 * scale, PLAYER_HEX[owner] ?? CYBER_PALETTE.railBeam, alpha);
+          g.lineStyle(10 * scale, PLAYER_HEX[owner] ?? CYBER_PALETTE.railBeam, alpha);
+          g.lineBetween(px, py, tx, ty);
+          g.lineStyle(4 * scale, 0xffffff, alpha * 0.8);
           g.lineBetween(px, py, tx, ty);
         } else if ((ownerByte & PROJECTILE_FLAG.SHIELD_SPARK) !== 0) {
           g.lineStyle(2, CYBER_PALETTE.hazardOrange, 0.9);

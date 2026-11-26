@@ -83,7 +83,7 @@ Tactical controls follow these explicit rules:
 | Input | Rule |
 | :--- | :--- |
 | **Auto-fire** | Automatic. Targets the enemy closest to the Core inside player weapon range and within a 120° forward cone (±60°) along heading. Range and damage: TBD (tune in playtest). Default implementation uses hitscan with a short tracer line without bullet heap allocations. |
-| **A (bit 0) LASER** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 15° priority snap onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Zero energy meter and zero spread. |
+| **A (bit 0) LASER** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 50° priority snap (±25°) onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Thick 48px hitbox beam with zero energy meter and zero spread. |
 | **B (bit 1) DASH** | Tap. Repulsor thrust providing crowd stagger and mobility. Colliding with a shielded brute body-checks it, spinning it for 1.0s to expose its unshielded rear to auto-fire. DASH does not pierce frontal shields. Dash distance, speed, and cooldown: TBD (tune in playtest). |
 | **X (bit 2) WALL** | Tap. Deploys a stationary kinetic barricade. Each player can maintain at most 2 concurrent active barricades, each lasting 8.0s and blocking traversal cells on the $40 \times 40$ path grid. |
 | **Y (bit 3) BOMB / REVIVE** | Tap. Context-sensitive action driven by the Button Y State Machine (below). Displays dynamic label (`BOMB`, `JOINED`, `REVIVE`) sent via slot-scoped `pad:state` events. |

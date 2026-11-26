@@ -48,12 +48,12 @@ export const CYBER_CITADEL_CONSTANTS = {
   autoFireStickinessRatioSq: 0.81, // 0.9^2 for 10% closer Core distance
   autoFireTracerTicks: 8,
 
-  // Button A: RAIL
+  // Button A: RAIL (LASER)
   railCooldownSec: 2.5,
   railDamage: 90,
-  railHalfWidth: 12,
+  railHalfWidth: 24,
   railKnockback: 140,
-  railSnapCosHalfSq: 0.9330127018922193, // cos^2(15 deg)
+  railSnapCosHalfSq: 0.8213938048432697, // cos^2(25 deg) for 50 deg priority snap cone
   railTracerTicks: 18,
   bruteShieldBreakSec: 3.0,
 
