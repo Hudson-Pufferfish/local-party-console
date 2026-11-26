@@ -17,7 +17,7 @@ test('bannerCopy formats countdown, wave active, wave break, and win/loss banner
 
   s[CYBER_HEADER.phaseEnum] = CYBER_PHASE.WAVE_ACTIVE;
   s[CYBER_HEADER.wave] = 4;
-  expect(bannerCopy(s)).toBe('WAVE 4');
+  expect(bannerCopy(s)).toBe('WAVE 4/8');
 
   s[CYBER_HEADER.phaseEnum] = CYBER_PHASE.WAVE_BREAK;
   s[CYBER_HEADER.phaseTimer] = 11.2;

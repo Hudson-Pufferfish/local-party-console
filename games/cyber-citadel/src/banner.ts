@@ -19,5 +19,5 @@ export function bannerCopy(state: Float32Array, _names?: readonly string[]): str
   if (phase === CYBER_PHASE.WAVE_BREAK) {
     return `BREAK ${Math.max(1, Math.ceil(timer))}`;
   }
-  return `WAVE ${wave}`;
+  return `WAVE ${wave}/${C.totalWaves}`;
 }
