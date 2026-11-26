@@ -74,7 +74,7 @@ The `stick-diamond` preset and `ButtonSpec` definition exist in `shared/src/cont
 * **Bleed-Out & Respawn:** If bleed-out completes without revive, the player enters respawn with an 8-second timer before reappearing at the Core. Each respawn subtracts 3% of Core max HP.
 * **Respawn Protection:** Respawn costs are capped at 12% of Core max HP per wave, and respawn penalties can never reduce Core HP below 1 HP. Only enemy attacks can deliver the final blow to destroy the Core.
 * **Wave Break Resupply:** When a wave concludes, all dead or downed players respawn immediately, and the Core automatically recovers 10% of its max HP.
-* **Solo Rule:** When the weighted squad size $W < 1.5$, bleed-out is shortened to 5 seconds and respawn delay is reduced to 4 seconds, while preserving the 3% Core HP cost.
+* **Solo & Light Squad Rule:** When the weighted squad size $W < 1.5$ (e.g., solo human or solo human with 1 light bot), bleed-out is shortened to 5 seconds and respawn delay is reduced to 4 seconds, while preserving the 3% Core HP cost. Bot weight contribution is calibrated to $0.15 + \text{level}/500$ ($0.17 \dots 0.28$) so bot allies do not excessively inflate enemy spawn counts or enemy HP.
 
 ### FR-3: Auto-Fire & Buttons (LASER, DASH, WALL, BOMB/REVIVE)
 

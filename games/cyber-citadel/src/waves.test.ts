@@ -30,12 +30,18 @@ test('weighted squad scaling computes exact W, multipliers, and solo timers', ()
   expect(bleedOutDurationForWeight(w1)).toBe(5.0);
   expect(respawnDurationForWeight(w1)).toBe(4.0);
 
-  // 1 Human + 1 Easy Bot (level 15) -> 1 + 0.5 + 15/200 = 1.575
+  // 1 Human + 1 Easy Bot (level 15) -> 1 + 0.15 + 15/500 = 1.18
   const w1h1b = computeSquadWeight(1, [15]);
-  expect(w1h1b).toBeCloseTo(1.575, 5);
-  expect(isSoloWeight(w1h1b)).toBe(false);
-  expect(bleedOutDurationForWeight(w1h1b)).toBe(15.0);
-  expect(respawnDurationForWeight(w1h1b)).toBe(8.0);
+  expect(w1h1b).toBeCloseTo(1.18, 5);
+  expect(isSoloWeight(w1h1b)).toBe(true);
+  expect(bleedOutDurationForWeight(w1h1b)).toBe(5.0);
+  expect(respawnDurationForWeight(w1h1b)).toBe(4.0);
+
+  // 1 Human + 6 Hard Bots (level 65) -> 1 + 6 * (0.15 + 65/500) = 1 + 6 * 0.28 = 2.68
+  const w1h6b = computeSquadWeight(1, [65, 65, 65, 65, 65, 65]);
+  expect(w1h6b).toBeCloseTo(2.68, 5);
+  expect(waveCountMultiplier(w1h6b)).toBeCloseTo(1.136, 3);
+  expect(waveHpMultiplier(w1h6b)).toBeCloseTo(1.268, 3);
 
   // 4 Humans
   const w4 = computeSquadWeight(4, []);
