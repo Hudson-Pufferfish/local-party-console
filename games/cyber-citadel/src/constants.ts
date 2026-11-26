@@ -25,7 +25,7 @@ export const CYBER_CITADEL_CONSTANTS = {
   // Player stats & lifecycle
   playerRadius: 24,
   playerMaxHp: 100,
-  playerSpeed: 220,
+  playerSpeed: 300,
   downedCrawlFactor: 0.25,
   bleedOutSec: 15.0,
   soloBleedOutSec: 5.0,
