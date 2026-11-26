@@ -179,6 +179,69 @@ function processStage1Inputs(w: CyberWorld, dt: number): void {
       }
     }
   }
+
+  // Soft Separation between living players (FR-2 / NOTES(@agents))
+  // Prevents ships from stacking on top of each other, while allowing 100% pass-through over downed allies.
+  const minPlayerDist = C.playerRadius * 2;
+  const minPlayerDistSq = minPlayerDist * minPlayerDist;
+  const halfArena = C.halfArena - C.playerRadius;
+
+  for (let i = 0; i < C.maxPlayers; i += 1) {
+    if (w.pJoined[i] === 0) continue;
+    const baseI = playerBase(i);
+    const flagsI = state[baseI + CYBER_PLAYER_OFFSET.flags]!;
+    if ((flagsI & CYBER_FLAG.JOINED) === 0) continue;
+    if ((flagsI & (CYBER_FLAG.DOWNED | CYBER_FLAG.RESPAWNING)) !== 0) continue;
+
+    let xi = state[baseI + CYBER_PLAYER_OFFSET.x]!;
+    let yi = state[baseI + CYBER_PLAYER_OFFSET.y]!;
+
+    for (let j = i + 1; j < C.maxPlayers; j += 1) {
+      if (w.pJoined[j] === 0) continue;
+      const baseJ = playerBase(j);
+      const flagsJ = state[baseJ + CYBER_PLAYER_OFFSET.flags]!;
+      if ((flagsJ & CYBER_FLAG.JOINED) === 0) continue;
+      if ((flagsJ & (CYBER_FLAG.DOWNED | CYBER_FLAG.RESPAWNING)) !== 0) continue;
+
+      let xj = state[baseJ + CYBER_PLAYER_OFFSET.x]!;
+      let yj = state[baseJ + CYBER_PLAYER_OFFSET.y]!;
+
+      const dx = xj - xi;
+      const dy = yj - yi;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq < minPlayerDistSq) {
+        let nx = Math.cos(i);
+        let ny = Math.sin(i);
+        let dist = 0;
+        if (distSq > 1e-6) {
+          dist = Math.sqrt(distSq);
+          nx = dx / dist;
+          ny = dy / dist;
+        }
+
+        const overlap = minPlayerDist - dist;
+        // Soft separation push: 50% on each, relaxed over frames so motion stays smooth
+        const push = overlap * 0.5;
+
+        xi -= nx * push;
+        yi -= ny * push;
+        xj += nx * push;
+        yj += ny * push;
+
+        // Ensure separated positions stay inside arena boundaries
+        xj = Math.max(-halfArena, Math.min(halfArena, xj));
+        yj = Math.max(-halfArena, Math.min(halfArena, yj));
+        state[baseJ + CYBER_PLAYER_OFFSET.x] = xj;
+        state[baseJ + CYBER_PLAYER_OFFSET.y] = yj;
+      }
+    }
+
+    xi = Math.max(-halfArena, Math.min(halfArena, xi));
+    yi = Math.max(-halfArena, Math.min(halfArena, yi));
+    state[baseI + CYBER_PLAYER_OFFSET.x] = xi;
+    state[baseI + CYBER_PLAYER_OFFSET.y] = yi;
+  }
 }
 
 function processStage5Enemies(w: CyberWorld, dt: number): void {

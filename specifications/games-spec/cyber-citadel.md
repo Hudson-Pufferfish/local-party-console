@@ -62,7 +62,13 @@ The `stick-diamond` preset and `ButtonSpec` definition exist in `shared/src/cont
 ### FR-2: Player Movement, Downed State, Revive & Respawn
 
 * **Movement:** Analog joystick input (packet bytes 6 and 7) drives velocity up to a maximum run speed. Player orientation follows the velocity heading vector. Player movement speed is TBD (tune in playtest).
-* **Collision & Friendly Fire:** Friendly fire is disabled. Players pass through each other with no mutual collision stagger.
+* **Collision & Friendly Fire:**
+  * **Friendly Fire:** Strictly disabled across all weapons and abilities. Auto-fire tracers, Button A (Piercing Laser / RAIL), Button B (DASH), and Super Bomb (EMP) never deal damage or apply knockback to teammates.
+  * **Player-to-Player Collision (Soft Separation):**
+    * **Live vs. Live (Healthy):** Mutual soft separation ($2 \times r_{\text{player}} = 48\text{px}$). When two living players overlap, a gentle position separation slides them apart without blocking velocity or causing hard bounces, preventing ships from stacking into a single point.
+    * **Live vs. Downed (Any):** 100% pass-through (zero collision). Active living players can walk directly over and stand on downed allies to channel revive without physics resistance or tether breaks.
+    * **Away Players:** Follows physiological state: living Away players softly separate living teammates; downed Away players allow 100% pass-through.
+  * **NOTES(@agents):** Keep friendly fire disabled permanently. Enforce soft separation strictly between `isLive` players (`flags & CYBER_FLAG.JOINED !== 0` and `(flags & (CYBER_FLAG.DOWNED | CYBER_FLAG.RESPAWNING)) === 0`). Downed or respawning slots must be excluded from circle collision so revivers never get displaced.
 * **Downed State:** When player HP drops to 0, the player becomes downed, crawling at 25% speed with a 15-second bleed-out timer. Player max HP is TBD (tune in playtest).
 * **Revive Action:** An active teammate inside revive range can channel a revive by tapping Button Y. Revive requires a 2.5-second channel during which the reviver must remain in proximity. Revive range is TBD (tune in playtest).
 * **Bleed-Out & Respawn:** If bleed-out completes without revive, the player enters respawn with an 8-second timer before reappearing at the Core. Each respawn subtracts 3% of Core max HP.

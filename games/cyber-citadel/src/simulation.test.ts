@@ -373,3 +373,40 @@ test('INV-9 static hot-path guard ensures zero Math.random or Date.now inside si
     expect(src).not.toContain('Date.now(');
   }
 });
+
+test('living players softly separate and never stack, while living players pass through downed teammates', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 101);
+  advanceCountdown(sim);
+
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+
+  // Place both players in collision overlap: dist = 10px (less than minPlayerDist = 48px)
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 100;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 100;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 110;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 100;
+
+  // Step simulation -> soft separation pushes them apart to at least 48px
+  sim.step(C.dt);
+
+  const dx = sim.state[b1 + CYBER_PLAYER_OFFSET.x]! - sim.state[b0 + CYBER_PLAYER_OFFSET.x]!;
+  const dy = sim.state[b1 + CYBER_PLAYER_OFFSET.y]! - sim.state[b0 + CYBER_PLAYER_OFFSET.y]!;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  expect(dist).toBeGreaterThanOrEqual(48 - 1e-4);
+
+  // Now down player 1: living player 0 can overlap directly over them with zero separation
+  sim.state[b1 + CYBER_PLAYER_OFFSET.flags] =
+    sim.state[b1 + CYBER_PLAYER_OFFSET.flags]! | CYBER_FLAG.DOWNED;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 100;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 100;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 100;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 100;
+
+  sim.step(C.dt);
+
+  // Positions remain directly on top of each other because downed ally allows 100% pass-through
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.x]).toBe(100);
+  expect(sim.state[b1 + CYBER_PLAYER_OFFSET.x]).toBe(100);
+});
