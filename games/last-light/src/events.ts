@@ -62,7 +62,7 @@ export function createLastLightEventsDiff(): (
   ): Envelope[] {
     const prevTick = prev[H.tick] ?? 0;
     const nextTick = next[H.tick] ?? 0;
-    if (nextTick <= prevTick) {
+    if (prevTick === 0 || nextTick <= prevTick) {
       breakNumber = 0;
       roundNumber = 0;
     }
@@ -124,6 +124,17 @@ export function createLastLightEventsDiff(): (
           practice: (lampFlags & LAMP_FLAG.practiceBlowout) !== 0,
         }),
       );
+    }
+
+    // 4b. Practice blowout reset: when lamp transitions from blown back to lit during practice
+    const prevLamp = (prev[H.lampFlags] ?? 0) | 0;
+    const nextLamp = (next[H.lampFlags] ?? 0) | 0;
+    if (
+      nextPhase === P.practice &&
+      (prevLamp & LAMP_FLAG.blown) !== 0 &&
+      (nextLamp & LAMP_FLAG.blown) === 0
+    ) {
+      events.push(buildLightStateEnvelope(next));
     }
 
     // 5. Entering ROUND_END

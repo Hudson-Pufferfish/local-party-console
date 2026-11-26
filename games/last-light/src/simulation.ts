@@ -452,7 +452,12 @@ export function createLastLightSimulation(): LastLightSimulation {
     flickerTicksLeft = 0;
     nextFlickerTick = 0;
 
-    const baseSeed = (seed ?? C.defaultSeed) >>> 0;
+    const baseSeed =
+      (seed !== undefined
+        ? seed
+        : typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
+          ? crypto.getRandomValues(new Uint32Array(1))[0]!
+          : C.defaultSeed) >>> 0;
     blowoutRngState = baseSeed;
     flickerRngState = (baseSeed ^ 0x9e3779b9) >>> 0;
 

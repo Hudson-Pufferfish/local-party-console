@@ -150,6 +150,7 @@ export const LastLightController: VoidComponent<{
   let flashTimer: ReturnType<typeof setTimeout> | null = null;
   let iosHapticLabel: HTMLLabelElement | undefined;
   let lastFlashSeq = hud().flashSeq;
+  let prevControl: LightControlMessage | null = props.control;
 
   onCleanup(() => {
     if (flashTimer !== null) clearTimeout(flashTimer);
@@ -181,7 +182,8 @@ export const LastLightController: VoidComponent<{
   createEffect(
     () => props.control,
     (message) => {
-      if (message === null) return;
+      if (message === null || message === prevControl) return;
+      prevControl = message;
       setHud((current) => reduceLightControl(current, message, props.slot));
       const seq = hud().flashSeq;
       if (seq > lastFlashSeq) {
