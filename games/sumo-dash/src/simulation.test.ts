@@ -21,6 +21,9 @@ const ARENA_RADIUS = 3;
 const DT = 1 / 120;
 const R0 = 400;
 const RFLOOR = SUMO_CONSTANTS.rFloor;
+const DASH_COOLDOWN = SUMO_CONSTANTS.dashCooldown;
+const DASH_ACTIVE = Math.fround(SUMO_CONSTANTS.dashActive);
+const STUN_TIME = Math.fround(SUMO_CONSTANTS.stunTime);
 
 test('arena radius stays inside the ring and never grows during a round', () => {
   const sim = createSumoSimulation();
@@ -412,7 +415,7 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
 
     const phase = state[PHASE];
     const radius = state[ARENA_RADIUS];
-    check(radius >= RFLOOR && radius <= 400, `radius ${radius} in [${RFLOOR}, 400]`, step);
+    check(radius >= RFLOOR && radius <= R0, `radius ${radius} in [${RFLOOR}, ${R0}]`, step);
     if (phase === 1) {
       if (!trackingRadius) {
         trackingRadius = true;
@@ -426,9 +429,9 @@ test('fuzz holds the sim invariants for 10000 steps', () => {
 
     for (let slot = 0; slot < 8; slot += 1) {
       const base = slotBase(slot);
-      check(state[base + 5] >= 0 && state[base + 5] <= 1.5, `slot ${slot} [5] ${state[base + 5]} in [0, 1.5]`, step);
-      check(state[base + 6] >= 0 && state[base + 6] <= Math.fround(0.18), `slot ${slot} [6] ${state[base + 6]} in [0, 0.18]`, step);
-      check(state[base + 7] >= 0 && state[base + 7] <= Math.fround(0.22), `slot ${slot} [7] ${state[base + 7]} in [0, 0.22]`, step);
+      check(state[base + 5] >= 0 && state[base + 5] <= DASH_COOLDOWN, `slot ${slot} [5] ${state[base + 5]} in [0, ${DASH_COOLDOWN}]`, step);
+      check(state[base + 6] >= 0 && state[base + 6] <= DASH_ACTIVE, `slot ${slot} [6] ${state[base + 6]} in [0, ${DASH_ACTIVE}]`, step);
+      check(state[base + 7] >= 0 && state[base + 7] <= STUN_TIME, `slot ${slot} [7] ${state[base + 7]} in [0, ${STUN_TIME}]`, step);
       check((state[base + 8] & 4) === 0, `slot ${slot} flag bit 4 is clear`, step);
       const alive = (state[base + 8] & 1) !== 0;
       if (phase === 1 || phase === 2) {
