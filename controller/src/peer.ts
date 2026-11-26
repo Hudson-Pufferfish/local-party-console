@@ -7,6 +7,7 @@ import { HEARTBEAT_MS } from '../../shared/src/sync/heartbeat.ts';
 import { WINDOW_MS, nextDelayMs } from '../../shared/src/sync/tdma.ts';
 import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
 import type { RoomPhase, RoomRejectReason } from '../../shared/src/types/envelope.ts';
+import { isGameControlMessageType } from '../../shared/src/types/index.ts';
 import {
   bindTransport,
   flushHeartbeat,
@@ -260,16 +261,7 @@ export function connectPhone(
     sendText({ type: 'net:ping', payload: { t } });
   }
 
-  const ALLOWED_GAME_PREFIXES = new Set(['sumo', 'bomb', 'color', 'cyber', 'pad']);
-
-  function isGameControlMessage(type: string): boolean {
-    const colon = type.indexOf(':');
-    if (colon <= 0) return false;
-    const prefix = type.slice(0, colon);
-    return ALLOWED_GAME_PREFIXES.has(prefix);
-  }
-
-function ownPing(t: number): boolean {
+  function ownPing(t: number): boolean {
     if (pingMarks > 0 && t === pingA) return true;
     return pingMarks > 1 && t === pingB;
   }
@@ -331,7 +323,7 @@ function ownPing(t: number): boolean {
       if (phase !== null) hooks.onPhase?.(phase);
       return;
     }
-    if (isGameControlMessage(type)) {
+    if (isGameControlMessageType(type)) {
       hooks.onControl?.(type, payload);
       return;
     }
