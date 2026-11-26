@@ -113,3 +113,17 @@ test('ScoreboardPanel renders optional solid coverage bar only when row.ratio is
   ));
   expect(noBarHtml).not.toContain('class="score-bar"');
 });
+
+test('left column pushes guide to top, wraps payouts into 2 columns, and pins round status badge column for 8-player fit', () => {
+  const matchCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/match.css'), 'utf8');
+  const sideLeftBlock = matchCss.match(/\.match-side-left\s*\{[^}]*\}/)?.[0] ?? '';
+  const rulesListBlock = matchCss.match(/\.score-rules-list\s*\{[^}]*\}/)?.[0] ?? '';
+  const rankStatusBlock = matchCss.match(/\.round-rank-status\s*\{[^}]*\}/)?.[0] ?? '';
+
+  expect(sideLeftBlock).toContain('grid-column: 1');
+  expect(sideLeftBlock).toContain('grid-row: 1 / -1');
+  expect(sideLeftBlock).toContain('align-self: start');
+  expect(rulesListBlock).toContain('display: grid');
+  expect(rulesListBlock).toContain('repeat(2,');
+  expect(rankStatusBlock).toContain('grid-column: 6');
+});
