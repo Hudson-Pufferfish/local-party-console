@@ -19,7 +19,7 @@ declare const Buffer: {
 const PHASE = 1;
 const ARENA_RADIUS = 3;
 const DT = 1 / 120;
-const R0 = 400;
+const R0 = SUMO_CONSTANTS.r0;
 const RFLOOR = SUMO_CONSTANTS.rFloor;
 const DASH_COOLDOWN = SUMO_CONSTANTS.dashCooldown;
 const DASH_ACTIVE = Math.fround(SUMO_CONSTANTS.dashActive);
@@ -102,7 +102,7 @@ test('holding dash fires one rising edge and keeps cooldown in range', () => {
     sim.step(DT);
     expect(sim.state[active]).toBe(0);
     expect(sim.state[cooldown]).toBeGreaterThanOrEqual(0);
-    expect(sim.state[cooldown]).toBeLessThanOrEqual(1.5);
+    expect(sim.state[cooldown]).toBeLessThanOrEqual(DASH_COOLDOWN);
   }
 
   let fires = 0;
@@ -116,9 +116,9 @@ test('holding dash fires one rising edge and keeps cooldown in range', () => {
     }
     previousActive = now;
     expect(sim.state[cooldown]).toBeGreaterThanOrEqual(0);
-    expect(sim.state[cooldown]).toBeLessThanOrEqual(1.5);
+    expect(sim.state[cooldown]).toBeLessThanOrEqual(DASH_COOLDOWN);
     expect(now).toBeGreaterThanOrEqual(0);
-    expect(now).toBeLessThanOrEqual(Math.fround(0.18));
+    expect(now).toBeLessThanOrEqual(DASH_ACTIVE);
   }
   expect(fires).toBe(0);
 
@@ -140,9 +140,9 @@ test('holding dash fires one rising edge and keeps cooldown in range', () => {
     }
     previousActive = now;
     expect(sim.state[cooldown]).toBeGreaterThanOrEqual(0);
-    expect(sim.state[cooldown]).toBeLessThanOrEqual(1.5);
+    expect(sim.state[cooldown]).toBeLessThanOrEqual(DASH_COOLDOWN);
     expect(now).toBeGreaterThanOrEqual(0);
-    expect(now).toBeLessThanOrEqual(Math.fround(0.18));
+    expect(now).toBeLessThanOrEqual(DASH_ACTIVE);
   }
 
   expect(fires).toBe(1);
@@ -313,14 +313,14 @@ test('overlap stays finite and dash ram scales only the victim', () => {
   ram.startMatch([0, 1]);
   reachActive(ram);
   placeHeadOn(ram);
-  ram.state[slotBase(0) + 6] = 0.18;
+  ram.state[slotBase(0) + 6] = DASH_ACTIVE;
   ram.step(DT);
 
   const victimDelta = ram.state[slotBase(1) + 2] - (-approach);
   const controlVictimDelta = control.state[slotBase(1) + 2] - (-approach);
   expect(victimDelta).toBeCloseTo(controlVictimDelta * 1.75, 3);
   expect(ram.state[slotBase(0) + 2]).toBeCloseTo(control.state[slotBase(0) + 2], 3);
-  expect(ram.state[slotBase(1) + 7]).toBeCloseTo(0.22, 3);
+  expect(ram.state[slotBase(1) + 7]).toBeCloseTo(STUN_TIME, 3);
 });
 
 test('ring-out stays dead when more input arrives', () => {
@@ -563,7 +563,7 @@ test('practice keeps pucks inside r0 - puckRadius under full steer, dashes, and 
   sim.state[base1 + 1] = 0;
   sim.state[base1 + 2] = 920;
   sim.state[base1 + 3] = 0;
-  sim.state[base1 + 6] = 0.18;
+  sim.state[base1 + 6] = DASH_ACTIVE;
   sim.step(DT);
   expect(Math.hypot(sim.state[base0] ?? 0, sim.state[base0 + 1] ?? 0)).toBeLessThanOrEqual(maxRadius);
   expect(Math.hypot(sim.state[base1] ?? 0, sim.state[base1 + 1] ?? 0)).toBeLessThanOrEqual(maxRadius);
@@ -655,7 +655,7 @@ test('ranked elimination awards N-1..0, ties share the higher rank, and match en
     }
   };
   const pushOut = (sim: ReturnType<typeof createSumoSimulation>, slots: readonly number[]): void => {
-    const out = (sim.state[ARENA_RADIUS] ?? 400) + 50;
+    const out = (sim.state[ARENA_RADIUS] ?? R0) + 50;
     for (let i = 0; i < slots.length; i += 1) {
       const slot = slots[i]!;
       const base = slotBase(slot);
@@ -757,7 +757,7 @@ test('tied leaders at threshold trigger sudden death overtime until a sole leade
     }
   };
   const pushOut = (slots: readonly number[]): void => {
-    const out = (sim.state[ARENA_RADIUS] ?? 400) + 50;
+    const out = (sim.state[ARENA_RADIUS] ?? R0) + 50;
     for (let i = 0; i < slots.length; i += 1) {
       const slot = slots[i]!;
       const base = slotBase(slot);
@@ -885,7 +885,7 @@ test('3-way tie at threshold enters sudden death and ends only when one leader s
     }
   };
   const pushOut = (slots: readonly number[]): void => {
-    const out = (sim.state[ARENA_RADIUS] ?? 400) + 50;
+    const out = (sim.state[ARENA_RADIUS] ?? R0) + 50;
     for (let i = 0; i < slots.length; i += 1) {
       const slot = slots[i]!;
       const base = slotBase(slot);
