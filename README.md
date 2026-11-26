@@ -8,6 +8,10 @@ Screen and controller are SolidJS. The relay is Fastify on port 8443.
 
 Durable platform choices, network protocols, and trade-offs are documented in [docs/architecture-decision.md](docs/architecture-decision.md).
 
+## CI
+
+Pushes to `main` and every pull request run GitHub Actions. The workflow installs with the frozen lockfile, typechecks and tests every workspace package, then Vite-builds the controller and screen apps. It does not start the HTTPS relay, so it does not need mkcert or `certs/*.pem`. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
 ## Quick Start / Setup
 
 From the repo root. Node 22 (`/.nvmrc`). Use corepack's pnpm.
