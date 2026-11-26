@@ -42,6 +42,7 @@ test('HolisticMatchShell renders holistic match frame and gates exit, score rule
       scoreHeader="THRESHOLD: 9"
       scoreRows={[{ slot: 0, color: '#FF4D00', name: 'HUDSON', score: 3, status: 'LIVE' }]}
       scoreRules={{ rows: [{ label: '1ST', value: '+3 PTS' }] }}
+      roundPanel={null}
       onQr={() => {}}
       onMatchCanvas={() => {}}
       onPlayAgain={() => {}}
@@ -71,6 +72,7 @@ test('HolisticMatchShell renders holistic match frame and gates exit, score rule
       scoreHeader="THRESHOLD: 9"
       scoreRows={[{ slot: 0, color: '#FF4D00', name: 'HUDSON', score: 9, status: 'LIVE' }]}
       scoreRules={null}
+      roundPanel={null}
       onQr={() => {}}
       onMatchCanvas={() => {}}
       onPlayAgain={() => {}}
@@ -94,6 +96,7 @@ test('HolisticMatchShell renders holistic match frame and gates exit, score rule
       scoreHeader="THRESHOLD: 9"
       scoreRows={[{ slot: 0, color: '#FF4D00', name: 'HUDSON', score: 9 }]}
       scoreRules={null}
+      roundPanel={null}
       onQr={() => {}}
       onMatchCanvas={() => {}}
       onPlayAgain={() => {}}

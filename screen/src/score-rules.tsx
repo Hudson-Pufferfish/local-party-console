@@ -1,9 +1,22 @@
 import { For, Show, type VoidComponent } from 'solid-js';
+import type { RoundPanelMode, RoundPanelRankRow } from './round-panel-model.ts';
 import type { ScoreRow, ScoreRules } from './register-games.ts';
 
 export const ScoreRulesPanel: VoidComponent<{ rules: ScoreRules }> = (props) => {
   return (
     <aside class="score-rules" aria-label="Scoring rules">
+      <Show when={props.rules.guide}>
+        {(guide) => (
+          <>
+            <p class="score-rules-heading">HOW TO PLAY</p>
+            <ol class="score-guide-list">
+              <For each={guide()}>
+                {(line) => <li class="score-guide-item">{line}</li>}
+              </For>
+            </ol>
+          </>
+        )}
+      </Show>
       <ol class="score-rules-list">
         <For each={props.rules.rows} keyed={(row) => row.label}>
           {(row) => (
@@ -54,6 +67,9 @@ export const ScoreboardPanel: VoidComponent<{
               />
               <span class="score-name">{row().name}</span>
               <span class="score-value">{row().score}</span>
+              <Show when={row().incoming !== undefined}>
+                <span class="score-incoming">+{row().incoming}</span>
+              </Show>
               <Show when={row().status !== undefined}>
                 <span class="score-status" data-status={row().status?.toLowerCase()}>
                   {row().status}
@@ -77,6 +93,68 @@ export const ScoreboardPanel: VoidComponent<{
     </div>
   );
 };
+
+export const RoundRanking: VoidComponent<{
+  mode: RoundPanelMode;
+  rows: readonly RoundPanelRankRow[];
+}> = (props) => {
+  const heading = () => {
+    const mode = props.mode;
+    if (mode === 'live' || mode === 'empty') return 'THIS ROUND';
+    if (mode === 'frozen' || mode === 'transfer') return 'THIS ROUND - FINAL';
+    return 'LAST ROUND';
+  };
+
+  return (
+    <aside class="round-ranking" aria-label="Round ranking" data-mode={props.mode}>
+      <p class="round-ranking-heading">{heading()}</p>
+      <ol class="round-ranking-list">
+        <For each={props.rows}>
+          {(row) => (
+            <li class="round-rank-row" data-finalized={row.finalized}>
+              <Show when={row.place !== null}>
+                <span class="round-rank-place">{ordinalLabel(row.place ?? 0)}</span>
+              </Show>
+              <Show when={row.place === null}>
+                <span class="round-rank-place" />
+              </Show>
+              <span
+                class="round-rank-dot"
+                aria-hidden="true"
+                style={{ 'background-color': row.color }}
+              />
+              <span class="round-rank-name">{row.name}</span>
+              <span class="round-rank-value">{row.value}</span>
+              <Show when={row.earned !== undefined && props.mode !== 'live'}>
+                <span class="round-rank-earned">+{row.earned}</span>
+              </Show>
+              <Show when={row.preview !== null && props.mode === 'live'}>
+                <span class="round-rank-preview">+{row.preview}</span>
+              </Show>
+              <Show when={row.status !== undefined}>
+                <span class="round-rank-status" data-status={row.status?.toLowerCase()}>
+                  {row.status}
+                </span>
+              </Show>
+              <Show when={row.marker !== undefined}>
+                <span class="round-rank-marker">{row.marker}</span>
+              </Show>
+            </li>
+          )}
+        </For>
+      </ol>
+    </aside>
+  );
+};
+
+const ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH', '7TH', '8TH'] as const;
+
+function ordinalLabel(place: number): string {
+  if (place >= 1 && place <= 8) {
+    return ORDINALS[place - 1] ?? `${place}TH`;
+  }
+  return `${place}TH`;
+}
 
 function clampRatio(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
