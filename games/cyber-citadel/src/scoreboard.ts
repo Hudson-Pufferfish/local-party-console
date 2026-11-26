@@ -64,16 +64,15 @@ export function scoreboardHeader(state: Float32Array): string {
 export function scoreRules(_state: Float32Array): ScoreRules {
   return {
     guide: [
-      '• SHIP AUTO-FIRES AT NEAREST ENEMY IN CONE',
-      '• PREVENT SWARMS & BRUTES FROM REACHING CENTER CORE',
-      '• IF CENTER CORE HP REACHES 0, SQUAD LOSES',
-      '• GATHER SQUAD IN BLUE RING TO BLAST SUPER BOMB',
+      'AUTO-FIRE AT NEAREST ENEMY IN FRONT CONE',
+      'PROTECT CENTER CORE; SQUAD LOSES AT 0% HP',
+      'TO BOMB: ENTER BLUE RING & PRESS Y TOGETHER',
     ],
     rows: [
-      { label: 'A', value: 'PIERCE LASER (HITS ENTIRE ROW)' },
-      { label: 'B', value: 'QUICK DASH (SPEED ESCAPE & FLANK)' },
-      { label: 'X', value: 'WALL BARRIER (BLOCKS ENEMIES FOR 8s)' },
-      { label: 'Y', value: 'REVIVE DOWNED ALLY / AT CORE=BOMB' },
+      { label: 'A', value: 'PIERCE LASER (FULL ROW)' },
+      { label: 'B', value: 'DASH (DODGE & FLANK)' },
+      { label: 'X', value: 'BARRIER (BLOCKS 8 SEC)' },
+      { label: 'Y', value: 'REVIVE / PRESS AT CORE FOR BOMB' },
     ],
   };
 }

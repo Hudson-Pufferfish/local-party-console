@@ -56,10 +56,10 @@ test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD acc
   const rules = scoreRules(s);
   expect(rules?.guide).toBeDefined();
   expect(rules?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
-    'A: PIERCE LASER (HITS ENTIRE ROW)',
-    'B: QUICK DASH (SPEED ESCAPE & FLANK)',
-    'X: WALL BARRIER (BLOCKS ENEMIES FOR 8s)',
-    'Y: REVIVE DOWNED ALLY / AT CORE=BOMB',
+    'A: PIERCE LASER (FULL ROW)',
+    'B: DASH (DODGE & FLANK)',
+    'X: BARRIER (BLOCKS 8 SEC)',
+    'Y: REVIVE / PRESS AT CORE FOR BOMB',
   ]);
 
   // Match over victory vs defeat headers
