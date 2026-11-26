@@ -58,7 +58,7 @@ test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD acc
   expect(rules?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
     'A: LASER BEAM — Pierces entire line of enemies (2.5s Cooldown)',
     'B: QUICK DASH — Speed dodge to escape or flank (1.8s Cooldown)',
-    'X: ENERGY WALL — Blocks enemy path for 8 seconds (1.5s Cooldown)',
+    'X: ENERGY WALL — Blocks enemy path for 8s; placed outside blue ring only',
     'Y: REVIVE / BOMB — Hold near ally to revive, or press in ring to bomb',
   ]);
 
