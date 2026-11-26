@@ -69,5 +69,6 @@ test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD acc
   expect(scoreboardHeader(s)).toBe('CITADEL HOLDS');
 
   s[CYBER_HEADER.coreHp] = 0;
-  expect(scoreboardHeader(s)).toBe('CORE LOST');
+  s[CYBER_HEADER.wave] = 4;
+  expect(scoreboardHeader(s)).toBe('CORE LOST · WAVE 4/8');
 });

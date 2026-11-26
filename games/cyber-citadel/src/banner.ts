@@ -11,7 +11,7 @@ export function bannerCopy(state: Float32Array, _names?: readonly string[]): str
   const coreHp = state[CYBER_HEADER.coreHp] ?? 0;
 
   if (phase === CYBER_PHASE.MATCH_OVER) {
-    return coreHp > 0 && wave >= C.totalWaves ? 'CITADEL HOLDS' : 'CORE LOST';
+    return coreHp > 0 && wave >= C.totalWaves ? 'CITADEL HOLDS' : `CORE LOST · WAVE ${wave}/${C.totalWaves}`;
   }
   if (phase === CYBER_PHASE.COUNTDOWN) {
     return String(Math.max(1, Math.ceil(timer)));

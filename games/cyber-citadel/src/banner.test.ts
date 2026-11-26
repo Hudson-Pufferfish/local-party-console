@@ -29,5 +29,8 @@ test('bannerCopy formats countdown, wave active, wave break, and win/loss banner
   expect(bannerCopy(s)).toBe('CITADEL HOLDS');
 
   s[CYBER_HEADER.coreHp] = 0;
-  expect(bannerCopy(s)).toBe('CORE LOST');
+  expect(bannerCopy(s)).toBe('CORE LOST · WAVE 8/8');
+
+  s[CYBER_HEADER.wave] = 3;
+  expect(bannerCopy(s)).toBe('CORE LOST · WAVE 3/8');
 });

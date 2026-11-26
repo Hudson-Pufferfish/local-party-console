@@ -56,7 +56,7 @@ export function scoreboardHeader(state: Float32Array): string {
   const corePct = Math.round((coreHp / C.coreMaxHp) * 100);
 
   if (phase === CYBER_PHASE.MATCH_OVER) {
-    return coreHp > 0 && wave >= C.totalWaves ? 'CITADEL HOLDS' : 'CORE LOST';
+    return coreHp > 0 && wave >= C.totalWaves ? 'CITADEL HOLDS' : `CORE LOST · WAVE ${wave}/${C.totalWaves}`;
   }
   return `WAVE ${wave}/${C.totalWaves} • CORE: ${corePct}%`;
 }
