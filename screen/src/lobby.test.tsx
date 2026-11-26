@@ -23,6 +23,10 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
       supportsBots: true,
       rendererType: 'phaser-2d' as const,
       viewConfig: { mode: 'holistic' as const, inputBufferMode: 'zero-buffer' as const },
+      controllerLayout: {
+        preset: 'stick-single' as const,
+        buttons: [{ bit: 0 as const, glyph: 'A' as const, label: 'DASH', kind: 'tap' as const }] as const,
+      },
       themeTokens: {},
     },
   ];
@@ -124,6 +128,10 @@ test('lobby renders BotDifficultySelector under BOTS when supportsBots is true, 
       supportsBots: true,
       rendererType: 'phaser-2d' as const,
       viewConfig: { mode: 'holistic' as const, inputBufferMode: 'zero-buffer' as const },
+      controllerLayout: {
+        preset: 'stick-single' as const,
+        buttons: [{ bit: 0 as const, glyph: 'A' as const, label: 'DASH', kind: 'tap' as const }] as const,
+      },
       themeTokens: {},
     },
     {
@@ -136,6 +144,10 @@ test('lobby renders BotDifficultySelector under BOTS when supportsBots is true, 
       supportsBots: false,
       rendererType: 'phaser-2d' as const,
       viewConfig: { mode: 'holistic' as const, inputBufferMode: 'zero-buffer' as const },
+      controllerLayout: {
+        preset: 'stick-single' as const,
+        buttons: [{ bit: 0 as const, glyph: 'A' as const, label: 'DASH', kind: 'tap' as const }] as const,
+      },
       themeTokens: {},
     },
   ];

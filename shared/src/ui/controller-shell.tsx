@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import { createSignal, For, onCleanup, Show, type VoidComponent } from 'solid-js';
+import { children, createSignal, For, onCleanup, Show, type VoidComponent } from 'solid-js';
 import type { ButtonBit, ButtonSpec, ControllerLayout } from '../controller/layout.ts';
 import { normalizeName } from '../name-service.ts';
 import { playerStyleVars } from '../theme.ts';
@@ -90,6 +90,9 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
     return props.customBoardClass ? `${base} ${props.customBoardClass}` : base;
   };
 
+  const resolvedHud = children(() => props.hud);
+  const resolvedAlert = children(() => props.alert);
+
   return (
     <section
       class={boardClass()}
@@ -98,13 +101,13 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
     >
       <header class="controller-shell-bar">
         <PlayerBadge name={title()} label={label()} />
-        <Show when={props.hud}>
-          <div class="controller-shell-hud">{props.hud}</div>
+        <Show when={resolvedHud()}>
+          <div class="controller-shell-hud">{resolvedHud()}</div>
         </Show>
       </header>
 
-      <Show when={props.alert}>
-        <div class="controller-shell-alert">{props.alert}</div>
+      <Show when={resolvedAlert()}>
+        <div class="controller-shell-alert">{resolvedAlert()}</div>
       </Show>
 
       <div class="controller-hands">
@@ -125,7 +128,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                   <Show when={spec.cooldownMs && spec.cooldownMs > 0}>
                     <div
                       class="button-cooldown-meter"
-                      data-active={active()}
+                      data-active={active() ? 'true' : 'false'}
                       style={{
                         'transition-duration': active() ? `${spec.cooldownMs}ms` : '0ms',
                         'transition-property': 'transform',
@@ -161,7 +164,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                       <Show when={spec.cooldownMs && spec.cooldownMs > 0}>
                         <div
                           class="button-cooldown-meter"
-                          data-active={active()}
+                          data-active={active() ? 'true' : 'false'}
                           style={{
                             'transition-duration': active() ? `${spec.cooldownMs}ms` : '0ms',
                             'transition-property': 'transform',
