@@ -56,10 +56,10 @@ test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD acc
   const rules = scoreRules(s);
   expect(rules?.guide).toBeDefined();
   expect(rules?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
-    'A: PIERCE LASER — CUTS ENTIRE ROW & STUNS (90 DMG, 2.5s CD)',
-    'B: DASH ESCAPE — SPEED BURST; DODGES & STAGGERS BRUTES (1.8s CD)',
-    'X: ENERGY BARRIER — PLACES WALL THAT BLOCKS FOES FOR 8s (1.5s CD)',
-    'Y: REVIVE / BOMB — HOLD 2.5s NEAR ALLY OR PRESS IN BLUE RING FOR BOMB',
+    'A: LASER BEAM — Pierces entire line of enemies (2.5s Cooldown)',
+    'B: QUICK DASH — Speed dodge to escape or flank (1.8s Cooldown)',
+    'X: ENERGY WALL — Blocks enemy path for 8 seconds (1.5s Cooldown)',
+    'Y: REVIVE / BOMB — Hold near ally to revive, or press in ring to bomb',
   ]);
 
   // Match over victory vs defeat headers

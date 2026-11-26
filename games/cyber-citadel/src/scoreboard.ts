@@ -64,17 +64,17 @@ export function scoreboardHeader(state: Float32Array): string {
 export function scoreRules(_state: Float32Array): ScoreRules {
   return {
     guide: [
-      'AUTO-FIRE: SHIPS AUTO-SHOOT CLOSEST ENEMY IN FRONT 60° CONE (NO BUTTON NEEDED)',
-      'MISSION: DEFEND THE CENTER CORE ACROSS 8 WAVES (SQUAD FAILS IF CORE HP REACHES 0%)',
-      'SUPER BOMB (EMP): GATHER >=50% OF SQUAD IN BLUE CIRCLE & PRESS Y TO DETONATE',
-      'REVIVAL: STAND NEXT TO A DOWNED ALLY (OUTSIDE BLUE RING) & HOLD Y FOR 2.5s',
-      'ENEMIES: BRUTES BLOCK HEAD-ON ATTACKS WITH SHIELDS; FLANK THEM FROM BEHIND',
+      '• DEFEND THE CORE: Stop enemies before Core reaches 0% Health.',
+      '• SHOOTING: Ship automatically shoots enemies in front of you.',
+      '• SUPER BOMB: 1 use per wave! Stand inside blue ring and press Y.',
+      '• REVIVE: Stand next to a downed teammate and hold Y for 2.5s.',
+      '• SHIELD ENEMIES: Big enemies block front shots. Flank their backs!',
     ],
     rows: [
-      { label: 'A', value: 'PIERCE LASER — CUTS ENTIRE ROW & STUNS (90 DMG, 2.5s CD)' },
-      { label: 'B', value: 'DASH ESCAPE — SPEED BURST; DODGES & STAGGERS BRUTES (1.8s CD)' },
-      { label: 'X', value: 'ENERGY BARRIER — PLACES WALL THAT BLOCKS FOES FOR 8s (1.5s CD)' },
-      { label: 'Y', value: 'REVIVE / BOMB — HOLD 2.5s NEAR ALLY OR PRESS IN BLUE RING FOR BOMB' },
+      { label: 'A', value: 'LASER BEAM — Pierces entire line of enemies (2.5s Cooldown)' },
+      { label: 'B', value: 'QUICK DASH — Speed dodge to escape or flank (1.8s Cooldown)' },
+      { label: 'X', value: 'ENERGY WALL — Blocks enemy path for 8 seconds (1.5s Cooldown)' },
+      { label: 'Y', value: 'REVIVE / BOMB — Hold near ally to revive, or press in ring to bomb' },
     ],
   };
 }
