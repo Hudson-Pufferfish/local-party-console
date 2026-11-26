@@ -135,3 +135,28 @@ test('bot heuristic anchors to Core perimeter and refuses to chase distant enemi
   writeHeuristic(sim.state, 1, axisX, axisY, buttons, 70, sim.auxState);
   expect(axisX[1]).toBeLessThan(-80);
 });
+
+test('bot deploys kinetic barricade (Button X / WALL) when facing encroaching enemies outside Core ring', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 50, 0, 0, 0, 0, 0, 0]);
+  sim.startMatch([0, 1], 909, { botMask, botLevels });
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  const b1 = playerBase(1);
+  // Place bot at x=180, facing +X (outside Core ring 130u)
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 180;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = 0; // facing +X
+
+  // Spawn an encroaching brute at x=260, y=0 (dist=80, facing directly)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 260, 0, 1, 9999);
+
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 50, sim.auxState);
+  expect(buttons[1]! & BUTTON_BIT.SHIELD).not.toBe(0);
+});

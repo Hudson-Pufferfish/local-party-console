@@ -385,12 +385,21 @@ export function writeHeuristic(
           steerY = uy * 0.45 + ux * 0.45 * side;
         }
 
-        // Deploy kinetic barricade when dense cluster approaches outside Core ring
+        // Deploy kinetic barricade (Button X / WALL) to protect Core choke points:
+        // Placed outside Core ring when enemies are closing in and bot is facing the threat
+        const placeDist = C.playerRadius + C.cellSize * 1.1;
+        const targetCellX = px + Math.cos(heading) * placeDist;
+        const targetCellY = py + Math.sin(heading) * placeDist;
+        const targetCellDistSq = targetCellX * targetCellX + targetCellY * targetCellY;
+        const empRingOuterSq = (C.empRingRadius + 4) * (C.empRingRadius + 4);
+
         if (
-          enemyScanScratch[2]! >= 4 &&
           barricades < C.barricadeMaxPerPlayer &&
-          px * px + py * py > (C.empRingRadius + 30) * (C.empRingRadius + 30) &&
-          aimDot > 0.8
+          targetCellDistSq > empRingOuterSq &&
+          dist < 260 &&
+          dist > 50 &&
+          aimDot > 0.65 &&
+          (enemyScanScratch[2]! >= 1 || eType === ENEMY_TYPE.BRUTE || eType === ENEMY_TYPE.BOSS)
         ) {
           wantButtons |= BUTTON_BIT.SHIELD;
         }
