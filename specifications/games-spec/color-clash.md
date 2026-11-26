@@ -191,8 +191,9 @@ An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz in
 
 ### Scoreboard, Round End & Match Over
 * **Scoreboard Header:** Displays `THRESHOLD: X` or `SUDDEN DEATH` (or `OVERTIME MM:SS` during golden tile sudden death).
-* **Real-Time Scoreboard Rows:** Lists joined players with their player puck color circle, short tag, current match score, and connection status (`LIVE` / `AWAY`).
-* **Rules Card (`ScoreRulesPanel`):** Displays rank payout rules (`1ST: +(N-1) PTS`, `2ND: +(N-2) PTS`, etc.) or `+1 PTS` during sudden death.
+* **Guide Lines and Payout Table (`ScoreRulesPanel`):** Left column always shows four guide lines (how to steer, boost duration and recharge, round win condition, and overtime rule) plus the rank payout table (`1ST: +(N-1) PTS`, `2ND: +(N-2) PTS`, etc., or `+1 PTS` in sudden death).
+* **Live Round Ranking (`RoundRanking`):** Under the guide, shows real-time ranking by paint percent during rounds, with a preview of points each place pays. At round end, the ranking freezes for 2.0 s with real earned points (`+N`), then the `+N` values transfer into the right column totals (0.6 s animation), and the right column re-sorts by total. During breaks, shows the last round's final result.
+* **Right Column Match Totals (`ScoreboardPanel`):** Shows threshold header and player rows sorted by total (highest first, ties by slot), with player puck color circle, short tag, match score, and connection status badge (`LIVE` / `AWAY`). When a round is transferring, each row briefly shows an incoming `+N` chip.
 * **Top Banner (`bannerCopy`):** Shows `BREAK X` during practice, `3`, `2`, `1` during `COUNTDOWN`, `OVERTIME — CLAIM GOLDEN TILE` on overtime start, `POINT` during `ROUND_END`, and `<TAG> WINS` on `MATCH_OVER`.
 
 ---

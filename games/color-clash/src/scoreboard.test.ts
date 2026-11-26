@@ -50,12 +50,13 @@ test('scoreboard formats 6-char tags, live percentages, coverage ratios, clock h
   });
   expect(rows[1]?.status).toBeUndefined();
 
-  expect(scoreRules(state)).toEqual({
-    rows: [
-      { label: '1ST', value: '+1 PTS' },
-      { label: '2ND', value: '+0 PTS' },
-    ],
-  });
+  const rules = scoreRules(state);
+  expect(rules?.guide).toBeDefined();
+  expect(rules?.guide).toHaveLength(4);
+  expect(rules?.rows).toEqual([
+    { label: '1ST', value: '+1 PTS' },
+    { label: '2ND', value: '+0 PTS' },
+  ]);
 
   state[1] = PHASE_PRACTICE;
   state[2] = 29.5;

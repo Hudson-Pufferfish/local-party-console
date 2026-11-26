@@ -38,6 +38,7 @@ export interface ScoreRuleRow {
 }
 
 export interface ScoreRules {
+  readonly guide?: readonly string[];
   readonly rows: readonly ScoreRuleRow[];
 }
 
@@ -137,8 +138,14 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
   const count = activePlayerCount(state);
   if (count < 2) return null;
   const target = targetScoreForCount(count);
+  const guide = [
+    'STEER TO PAINT THE FLOOR',
+    'BOOST: WIDE PAINT FOR 3S, 8S RECHARGE',
+    'MOST FLOOR AT THE BELL WINS THE ROUND',
+    'TIE AT THE BELL: GOLDEN TILE OVERTIME',
+  ];
   if (isSuddenDeath(state, target)) {
-    return { rows: [{ label: ORDINALS[0], value: '+1 PTS' }] };
+    return { guide, rows: [{ label: ORDINALS[0], value: '+1 PTS' }] };
   }
   const rows: ScoreRuleRow[] = [];
   for (let rank = 1; rank <= count; rank += 1) {
@@ -147,7 +154,17 @@ export function scoreRules(state: Float32Array): ScoreRules | null {
       value: `+${count - rank} PTS`,
     });
   }
-  return { rows };
+  return { guide, rows };
+}
+
+export function shouldIncludeSlot(state: Float32Array, index: number): boolean {
+  const base = PLAYER + index * STRIDE;
+  const flags = state[base + 8] ?? 0;
+  const score = state[base + 9] ?? 0;
+  const x = state[base] ?? 0;
+  const y = state[base + 1] ?? 0;
+  if ((flags & FLAG_ACTIVE) === 0 && score === 0 && x === 0 && y === 0) return false;
+  return true;
 }
 
 export function scoreboardRows(
@@ -157,12 +174,9 @@ export function scoreboardRows(
 ): ScoreRow[] {
   const rows: ScoreRow[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
+    if (!shouldIncludeSlot(state, index)) continue;
     const base = PLAYER + index * STRIDE;
-    const flags = state[base + 8] ?? 0;
     const score = state[base + 9] ?? 0;
-    const x = state[base] ?? 0;
-    const y = state[base + 1] ?? 0;
-    if ((flags & FLAG_ACTIVE) === 0 && score === 0 && x === 0 && y === 0) continue;
     const tag = shortTag(names[index] ?? '', index);
     const player = players?.find((item) => item.index === index);
     if (player === undefined) {

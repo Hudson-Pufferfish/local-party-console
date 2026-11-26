@@ -17,6 +17,7 @@ import {
   type ScoreRow,
   type ScoreRules,
 } from './register-games.ts';
+import type { RoundPanelOutput } from './round-panel-model.ts';
 import { readScreenView, startSession, type ScreenSession } from './session.ts';
 import { Standby } from './standby.tsx';
 import { TabHud } from './telemetry/tab-hud.tsx';
@@ -33,6 +34,7 @@ export const App: VoidComponent = () => {
   const [scoreHeader, setScoreHeader] = createSignal('');
   const [scoreRows, setScoreRows] = createSignal<ScoreRow[]>([]);
   const [scoreRules, setScoreRules] = createSignal<ScoreRules | null>(null);
+  const [roundPanel, setRoundPanel] = createSignal<RoundPanelOutput | null>(null);
   const [banner, setBanner] = createSignal('');
   const [notice, setNotice] = createSignal('');
   const [selectedId, setSelectedId] = createSignal('');
@@ -62,6 +64,7 @@ export const App: VoidComponent = () => {
         setScoreHeader,
         setScoreRows,
         setScoreRules,
+        setRoundPanel,
         setBanner,
         setNotice,
         setSelectedId,
@@ -172,6 +175,7 @@ export const App: VoidComponent = () => {
               scoreHeader={scoreHeader()}
               scoreRows={scoreRows()}
               scoreRules={scoreRules()}
+              roundPanel={roundPanel()}
               onQr={(canvas) => {
                 canvases.qr = canvas;
                 session?.attachQr(canvas);

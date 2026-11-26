@@ -4,6 +4,7 @@ import { bannerCopy } from './banner.ts';
 import { eventsFromHeaderDiff } from './events.ts';
 import { levelsForMask, writeHeuristic } from './heuristic.ts';
 import { createColorClashRenderer } from './renderer.ts';
+import { colorClashRoundRanking } from './round-ranking.ts';
 import { scoreboardHeader, scoreboardRows, scoreRules } from './scoreboard.ts';
 import { createColorClashSimulation } from './simulation.ts';
 
@@ -23,5 +24,6 @@ export function createColorClashScreenRuntime() {
     scoreRules: (state: Float32Array) => scoreRules(state),
     bannerCopy: (state: Float32Array, names: readonly string[]) => bannerCopy(state, names),
     rematchEventType: 'color:rematch',
+    createRoundRanking: () => ({ read: colorClashRoundRanking }),
   };
 }

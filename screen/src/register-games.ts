@@ -19,6 +19,7 @@ export interface ScoreRow {
   readonly text?: string;
   readonly status?: 'LIVE' | 'AWAY';
   readonly ratio?: number;
+  readonly incoming?: number;
 }
 
 export interface ScoreRuleRow {
@@ -27,7 +28,31 @@ export interface ScoreRuleRow {
 }
 
 export interface ScoreRules {
+  readonly guide?: readonly string[];
   readonly rows: readonly ScoreRuleRow[];
+}
+
+export type RoundStage = 'idle' | 'live' | 'final';
+
+export interface RoundRankRow {
+  readonly slot: number;
+  readonly color: string;
+  readonly name: string;
+  readonly value: string;
+  readonly place: number | null;
+  readonly finalized: boolean;
+  readonly preview: number | null;
+  readonly status?: 'LIVE' | 'AWAY';
+  readonly marker?: string;
+}
+
+export interface RoundRankingView {
+  readonly stage: RoundStage;
+  readonly rows: readonly RoundRankRow[];
+}
+
+export interface RoundRankingAdapter {
+  read(state: Float32Array, names: readonly string[], players?: readonly PlayerSlot[]): RoundRankingView | null;
 }
 
 export interface ScreenGameRuntime {
@@ -45,6 +70,7 @@ export interface ScreenGameRuntime {
   scoreRules?: (state: Float32Array) => ScoreRules | null;
   bannerCopy?: (state: Float32Array, names: readonly string[]) => string;
   rematchEventType?: string;
+  createRoundRanking?: () => RoundRankingAdapter;
 }
 
 export interface ScreenGameEntry {
