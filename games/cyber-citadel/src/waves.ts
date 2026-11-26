@@ -19,10 +19,10 @@ export interface WaveDefinition {
 }
 
 const WAVE_TABLE: readonly WaveDefinition[] = [
-  { wave: 1, flanks: 1, drones: 16, fastDrones: 1, brutes: 1, hasBoss: false, spawnCadenceSec: 0.55 },
-  { wave: 2, flanks: 2, drones: 24, fastDrones: 3, brutes: 2, hasBoss: false, spawnCadenceSec: 0.48 },
-  { wave: 3, flanks: 2, drones: 20, fastDrones: 8, brutes: 3, hasBoss: false, spawnCadenceSec: 0.45 },
-  { wave: 4, flanks: 3, drones: 14, fastDrones: 16, brutes: 6, hasBoss: false, spawnCadenceSec: 0.4 },
+  { wave: 1, flanks: 1, drones: 21, fastDrones: 1, brutes: 1, hasBoss: false, spawnCadenceSec: 0.55 },
+  { wave: 2, flanks: 2, drones: 29, fastDrones: 3, brutes: 2, hasBoss: false, spawnCadenceSec: 0.48 },
+  { wave: 3, flanks: 2, drones: 25, fastDrones: 8, brutes: 3, hasBoss: false, spawnCadenceSec: 0.45 },
+  { wave: 4, flanks: 3, drones: 19, fastDrones: 16, brutes: 6, hasBoss: false, spawnCadenceSec: 0.4 },
   { wave: 5, flanks: 3, drones: 24, fastDrones: 18, brutes: 7, hasBoss: false, spawnCadenceSec: 0.36 },
   { wave: 6, flanks: 4, drones: 20, fastDrones: 26, brutes: 10, hasBoss: false, spawnCadenceSec: 0.32 },
   { wave: 7, flanks: 4, drones: 28, fastDrones: 26, brutes: 12, hasBoss: false, spawnCadenceSec: 0.28 },
