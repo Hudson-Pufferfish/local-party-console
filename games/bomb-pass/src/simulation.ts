@@ -74,6 +74,7 @@ export function createBombPassSimulation(): BombPassSimulation {
   let matchTarget: number = C.minTargetScore;
   let roundTick = 0;
   let connectedMask = 0xff;
+  let prevConnectedMask = 0xff;
   let rngState = C.defaultSeed >>> 0;
 
   // Scalar scratch for single-transfer-per-tick resolution (zero heap allocation)
@@ -342,17 +343,8 @@ export function createBombPassSimulation(): BombPassSimulation {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const flags = state[PLAYER + i * STRIDE + 8] | 0;
       if ((flags & BOMB_FLAG_ALIVE) === 0) continue;
-      if ((connectedMask & (1 << i)) === 0) continue;
       pickPool[count] = i;
       count += 1;
-    }
-    if (count === 0) {
-      for (let i = 0; i < C.maxPlayers; i += 1) {
-        const flags = state[PLAYER + i * STRIDE + 8] | 0;
-        if ((flags & BOMB_FLAG_ALIVE) === 0) continue;
-        pickPool[count] = i;
-        count += 1;
-      }
     }
     if (count === 0) {
       clearBomb();
@@ -371,7 +363,10 @@ export function createBombPassSimulation(): BombPassSimulation {
 
   function tryDisconnectAutoPass(): void {
     const holder = state[H.bombHolder] | 0;
-    if (holder < 0 || (connectedMask & (1 << holder)) !== 0) return;
+    if (holder < 0) return;
+    const holderDisconnectedNow =
+      (connectedMask & (1 << holder)) === 0 && (prevConnectedMask & (1 << holder)) !== 0;
+    if (!holderDisconnectedNow) return;
 
     const baseH = PLAYER + holder * STRIDE;
     const hx = state[baseH];
@@ -855,6 +850,7 @@ export function createBombPassSimulation(): BombPassSimulation {
 
     // Disconnect auto-pass (FR-5 #3) before motion & detonation
     tryDisconnectAutoPass();
+    prevConnectedMask = connectedMask;
 
     // Physics, dash, elastic collisions, transfer candidate & boundary containment
     simulateMotion(dt, true);

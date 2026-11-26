@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import {
   BOMB_CONSTANTS as C,
   BOMB_FLAG_ALIVE,
+  BOMB_FLAG_DISCONNECTED,
   BOMB_FLAG_EXPLODED,
   BOMB_FLAG_HOLDING,
   BOMB_FLAG_SD_CONTENDER,
@@ -317,6 +318,36 @@ test('simultaneous final-2 point-blank explosion awards 0 pts and triggers 7.5s 
   expect(sim.state[BOMB_HEADER.phase]).toBe(BOMB_PHASE.active);
   expect(sim.state[BOMB_HEADER.bombTimer]).toBeGreaterThan(7.0);
   expect(sim.state[BOMB_HEADER.bombTimer]).toBeLessThanOrEqual(C.suddenDeathFuse + 1e-4);
+});
+
+test('away (disconnected) player holding bomb keeps bomb and explodes when fuse expires', () => {
+  const sim = createBombPassSimulation();
+  sim.startMatch([0, 1], 0x1234);
+  advanceToActive(sim);
+
+  // Slot 1 is away / disconnected from the start
+  sim.setConnectedMask(0b01);
+  sim.step(DT);
+
+  // Force bomb holder to slot 1 (the away player)
+  sim.state[BOMB_HEADER.bombHolder] = 1;
+  sim.state[playerBase(0) + 8] = BOMB_FLAG_ALIVE;
+  sim.state[playerBase(1) + 8] = BOMB_FLAG_ALIVE | BOMB_FLAG_HOLDING | BOMB_FLAG_DISCONNECTED;
+  sim.state[BOMB_HEADER.bombTimer] = 0.05;
+
+  // Ensure away player is far from slot 0
+  sim.state[playerBase(0)] = -150;
+  sim.state[playerBase(0) + 1] = 0;
+  sim.state[playerBase(1)] = 150;
+  sim.state[playerBase(1) + 1] = 0;
+
+  // Step simulation until bomb detonates
+  stepTicks(sim, 10);
+
+  // Away player exploded and round ended
+  expect((sim.state[playerBase(1) + 8] & BOMB_FLAG_ALIVE) === 0).toBe(true);
+  expect((sim.state[playerBase(0) + 8] & BOMB_FLAG_ALIVE) !== 0).toBe(true);
+  expect(sim.state[BOMB_HEADER.phase]).toBe(BOMB_PHASE.roundEnd);
 });
 
 test('10,000-tick 8-player fuzz preserves INV-1..INV-7 and replays bit-exact (INV-9)', () => {
