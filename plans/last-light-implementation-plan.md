@@ -3,13 +3,14 @@ title: "Last Light (last-light) Implementation Plan"
 description: "Phased implementation plan for Last Light, a zero-physics 2–8 player tap-to-lock lamp bluffing game plugin built on the holistic platform shell."
 status: pending
 priority: P2
-effort: 18h
+effort: 17h
 issue: ""
 branch: docs/last-light-implementation-plan
 tags: [feature, frontend, game-plugin, phaser-4, solidjs-2]
 blockedBy: []
 blocks: []
 created: 2026-11-25
+updated: 2026-11-25
 ---
 
 # Plan: Last Light (`last-light`) Implementation
@@ -81,15 +82,18 @@ Codebase inspection against `main` (`51d6d18`) uncovered three important facts t
 
 This table separates direct reuse from existing games, architectural contrast with Cyber-Citadel ([plans/cyber-citadel-implementation-plan.md](./cyber-citadel-implementation-plan.md)), and Last Light's bespoke mechanics.
 
-| Dimension | Reuse from Existing Games (`bomb-pass` / `color-clash` / platform) | Contrast vs. Cyber-Citadel (`cyber-citadel`) | Last Light Bespoke Mechanics (`games/last-light/`) |
+> [!NOTE]
+> **PR #43 Baseline (`feat(platform): Cyber-Citadel Phase 1 seams and responsive 8-player HUD`):** PR #43 has already implemented `CONTROLLER_REV = '0.4.0'` (`shared/src/sdp/qr-target.ts`), `pad:state` dynamic button labeling + `disabled` bitmask with tactile dimmed styling + host cooldown wipes (`shared/src/types/game-control.ts`, `shared/src/ui/controller-shell.tsx`, `shared/src/ui/primitives.css`, `controller/src/app.tsx`), and 8-player responsive holistic HUD clamping (`screen/src/styles/match.css`). Last Light builds directly on PR #43 and must not duplicate any of those changes.
+
+| Dimension | Reuse from Existing Games (`bomb-pass` / `color-clash` / platform + PR #43) | Contrast vs. Cyber-Citadel (`cyber-citadel`) | Last Light Bespoke Mechanics (`games/last-light/`) |
 | :--- | :--- | :--- | :--- |
 | **Core Genre & Players** | Competitive 2–8 player FFA party game with optional heuristic bots (`bomb-pass`, `color-clash`). | Cooperative 1–8 player wave defense (`minPlayers: 1`); everyone wins or loses together; weighted squad scaling $W$. | 2–8 player nerve/bluffing game; zero spatial movement; no avatars or arena boundaries. |
-| **Physics & Memory Layout** | Standard `SNAPSHOT_FLOATS = 88` (`Float32Array`), zero `auxState` (same as `bomb-pass` / `sumo-dash`). | Heavy `shared/src/physics-2d/` + new `grid-hash.ts` broadphase + $40 \times 40$ flow field + large `Uint8Array` `auxState` entity pools (160 enemies, 256 projectiles, 24 barricades). | **Zero physics.** Zero imports from `shared/src/physics-2d/`. Flat 88-float buffer stores only lamp phase/elapsed/flags and per-slot flags/lockTick/score/lastRoundPoints. |
+| **Physics & Memory Layout** | Standard `SNAPSHOT_FLOATS = 88` (`Float32Array`), zero `auxState` (same as `bomb-pass` / `sumo-dash`). | Heavy `shared/src/physics-2d/` + `UniformGridHash` broadphase (PR #43, `grid-hash.ts`) + $40 \times 40$ flow field + large `Uint8Array` `auxState` entity pools (160 enemies, 256 projectiles, 24 barricades). | **Zero physics.** Zero imports from `shared/src/physics-2d/` (does not use PR #43's `UniformGridHash`). Flat 88-float buffer stores only lamp phase/elapsed/flags and per-slot flags/lockTick/score/lastRoundPoints. |
 | **Scoring & Target Formula** | Reuse Bomb Pass / Color Clash target formula $\max(3, (N - 1) \times 3)$, `ScoreRow` / `ScoreRules.guide` / `shortTag`, and ranked payouts $N - 1 - \text{strictly later}$ (`games/bomb-pass/src/scoreboard.ts`, `games/color-clash/src/scoreboard.ts`). | No individual scores or rank payouts; tracks Core HP, Wave 1–8, and kills/revives. | **Non-tapper zero rule:** Unlocked slots score `0` regardless of $N$. Same-tick locks share rank points. Void rounds (0 locks) score `0` with `NO LOCK` banner. |
 | **Sudden Death** | Reuse Bomb Pass leaders-only Sudden Death pattern: skip 20s practice break, park non-leaders, sole winner earns `+1` (`games/bomb-pass/src/simulation.ts`, `scoreboard.ts`). | No Sudden Death (Wave 8 Dreadnought victory or Core 0 HP defeat). | **Same-tick Sudden Death tie replay:** Tied latest lock in Sudden Death awards `0` points and triggers immediate `COUNTDOWN` replay (FR-9.1). Void round in Sudden Death repeats `COUNTDOWN` (FR-9.9). |
-| **Round Ranking Panel** | Reuse `createRoundPanelModel()` (`screen/src/round-panel-model.ts`) and `<RoundRanking>` (`screen/src/score-rules.tsx:94-147`) inside `<HolisticMatchShell>`. | Does not use ranked round progression; uses wave/Core HUD. | **INV-8 Blind Live Adapter (`round-ranking.ts`):** During `'live'`, emits `place: null`, `finalized: false`, `value: 'LOCKED' \| 'IN' \| 'WATCHING'`, sorted by `slot` so lock order never leaks. Reveals exact lock times (`8.4s`) and places only on `'final'`. |
+| **Round Ranking & 8P HUD** | Reuse `createRoundPanelModel()` (`screen/src/round-panel-model.ts`), `<RoundRanking>` (`screen/src/score-rules.tsx:94-147`) inside `<HolisticMatchShell>`, and PR #43's **8-player responsive HUD clamping** (`screen/src/styles/match.css`, `clamp(14px, 2.2dvh, 28px)`) so 8 players fit cleanly on 720p/1080p displays. | Does not use ranked round progression; uses wave/Core HUD. | **INV-8 Blind Live Adapter (`round-ranking.ts`):** During `'live'`, emits `place: null`, `finalized: false`, `value: 'LOCKED' \| 'IN' \| 'WATCHING'`, sorted by `slot` so lock order never leaks. Reveals exact lock times (`8.4s`) and places only on `'final'`. |
 | **Practice & Countdown Flow** | Reuse Color Clash practice timers (`practiceInitial = 30.0s`, `practiceBreak = 20.0s`), `COUNTDOWN = 3.0s`, `ROUND_END = 0.8s`, and `COUNTDOWN` held-button edge suppression (`games/color-clash/src/simulation.ts`). | 15s wave breather breaks with Core HP recovery and dead player respawn. | **Looping Practice Blowouts + 4.1s Guard:** Rapid $1.0\text{s} - 3.5\text{s}$ practice blowouts + 0.6s reveal loop inside `PRACTICE`. Suppresses new practice blowouts when $< 4.1\text{s}$ ($T_{\text{max}} + 0.6\text{s}$) remain on the practice clock (FR-9.11). |
-| **Phone Controller Layout** | Reuse `<ControllerShell>`, `<ArcadeButton>` (`disabled` prop already exists), `<PlayerBadge>`, `send-input.ts` toggle-bit rising edges, and `host-loop.ts` edge latching. | Uses existing `stick-diamond` (joystick + A/B/X/Y) + `pad:state` dynamic button labels/cooldowns + lazy controller loader. | **New `'tap-only'` preset** in `shared/src/controller/layout.ts` and `ControllerShell` (omits `<VirtualJoystick>`, centers large `LOCK IN` button with $\ge 36\text{px}$ edge clearance, supports disabled/label override). **Host-confirmed `LOCKED`** state (no optimistic lock), synchronized white flash + vibration/iOS switch haptic on blowout. |
+| **Phone Controller Layout** | Reuse `<ControllerShell>`, `<ArcadeButton>`, `<PlayerBadge>`, `send-input.ts` toggle-bit rising edges, `host-loop.ts` edge latching, and PR #43's **`pad:state` dynamic button labeling, `disabled` bitmask with tactile dimmed styling, and `CONTROLLER_REV = '0.4.0'`**. | Uses existing `stick-diamond` (joystick + A/B/X/Y) + PR #43 `pad:state` context labels (Button Y: `REVIVE`/`EMP`/`JOINED`) + cooldown wipes. | **New `'tap-only'` preset** in `shared/src/controller/layout.ts` and `ControllerShell` (omits `<VirtualJoystick>`, centers large `LOCK IN` button with $\ge 36\text{px}$ edge clearance, plugs into PR #43's dynamic label and `disabled` bitmask support). **Host-confirmed `LOCKED`** state (no optimistic lock), synchronized white flash + vibration/iOS switch haptic on blowout. |
 | **Disconnect & Rejoin** | Reuse `setConnectedMask(mask)` (`screen/src/host-loop.ts:175`), 100ms silence zeroing, `<MatchRejoinQr>`, and `MATCH_IN_PROGRESS` (`server/src/rooms.ts:97-101`). | Standby bot takes over AWAY human after 3.0s and hands back on rejoin. | **No bot takeover.** Existing lock persists across disconnect; unlocked AWAY slot cannot lock and scores `0`. Rejoin triggers generic `rehydrateEvent` seam -> `light:state`. |
 | **Secret Timing & Dimmer** | Reuse seeded deterministic PRNG structure from `games/bomb-pass/src/simulation.ts:712`. | Deterministic seeded wave spawns; all state visible to renderer. | **Secret Blowout Timer + Decoupled Dimmer:** `blowoutTick` lives in private closure memory only. Non-linear escalating hazard rate in $[3.0, 12.0]\text{s}$ (scored) and $[1.0, 3.5]\text{s}$ (practice). Fixed luminescence curve ($100\% \to 20\%$ over $12.0\text{s}$) depends only on `lampElapsed`, never `blowoutTick`. Rare fake/ambient micro-flickers via `LAMP_FLAG_FLICKER`. |
 | **Heuristic Bots** | Reuse `createBotFill` (`screen/src/bot-fill.ts`), `assignBotScores` (`shared/src/bot-difficulty.ts`), difficulty tiers (`Easy: 11-20`, `Medium: 30-50`, `Hard: 50-70`). | 1.0s tactical role planner (flank, brute intercept, revive, EMP) over full arena state. | **Information-Barrier Timing Bot (`heuristic.ts`):** Rolls target lock tick solely from public `(T_min, T_max, level, blowoutCount, slot)` with no-tap chance (20% / 8% / 3%). Zero access to `blowoutTick`. Resets bit 0 cleanly between 60 Hz even ticks. |
@@ -98,30 +102,42 @@ This table separates direct reuse from existing games, architectural contrast wi
 
 ## 4. Platform Seams & Extension Trace
 
-### Platform Seam Changes (Minimal, Game-Agnostic)
+### Already Implemented in PR #43 (Do Not Duplicate)
+
+**PR #43** (`feat(platform): Cyber-Citadel Phase 1 seams and responsive 8-player HUD`) already delivers three platform capabilities that Last Light consumes directly:
+
+- **`CONTROLLER_REV` bumped to `'0.4.0'`** (`shared/src/sdp/qr-target.ts`, `shared/src/sdp/qr-target.test.ts`).
+- **Dynamic `pad:state` control seam** (`shared/src/types/game-control.ts`, `shared/src/ui/controller-shell.tsx`, `shared/src/ui/primitives.css`, `controller/src/app.tsx`): slot-scoped dynamic button labels, `disabled` bitmask with tactile dimmed styling, and host cooldown wipes.
+- **8-player responsive holistic HUD clamping** (`screen/src/styles/match.css`, `screen/src/score-rules.test.tsx`): clamped grid gaps, row heights, and scoreboard typography (`clamp(14px, 2.2dvh, 28px)`) so 8 players fit cleanly on 720p and 1080p monitors.
+
+### Net-New Platform Seams for Last Light Phase 1 (Minimal, Game-Agnostic)
+
+Because PR #43 covers dynamic button labels, disabled styling, `CONTROLLER_REV 0.4.0`, and 8-player HUD clamping, Phase 1 of Last Light needs only **three** net-new seams:
 
 1. **`shared/src/types/game-control.ts`:** Add `'light'` to `ALLOWED_GAME_PREFIXES` (`['sumo', 'bomb', 'color', 'cyber', 'pad', 'light']`). Fastify relay (`server/src/relay.ts:195`) automatically forwards `light:*` control messages with zero server changes.
 2. **`shared/src/controller/layout.ts` + `shared/src/ui/controller-shell.tsx` + `controller-shell.css`:**
    - Add `'tap-only'` variant to `ControllerLayout` union (`{ readonly preset: 'tap-only'; readonly buttons: readonly [ButtonSpec] }`).
    - Update `ControllerShell` to omit `<VirtualJoystick>` when `props.layout.preset === 'tap-only'`, rendering a centered full-stage `<ArcadeButton>` with $\ge 36\text{px}$ edge safety padding.
-   - Add optional props `buttonDisabled?: Partial<Record<ButtonBit, boolean>>` and `buttonLabels?: Partial<Record<ButtonBit, string>>` to `ControllerShellProps` so games can disable buttons or swap labels declaratively (compatible with Cyber-Citadel's future `pad:state` seam).
+   - Wire the `'tap-only'` single button into PR #43's existing dynamic button label and `disabled` bitmask logic in `ControllerShell` (no duplicate `buttonDisabled` / `buttonLabels` mechanism).
 3. **`screen/src/register-games.ts` + `screen/src/session.ts`:**
    - Add optional `rehydrateEvent?: (state: Float32Array) => Envelope | null` to `ScreenGameRuntime`.
    - In `screen/src/session.ts` inside `applyPlayers()`, when `primary && loop !== null && loop.inMatch` and any slot transitions `!before && after` (reconnect), call `currentRuntime()?.rehydrateEvent?.(loop.state)` and `send(event)` if non-null.
-4. **`shared/src/sdp/qr-target.ts`:** Bump `CONTROLLER_REV` from `'0.3.0'` to `'0.4.0'` (MINOR bump: backwards-compatible controller feature adding `'tap-only'` preset and Last Light controller view).
+
+> [!NOTE]
+> **Controller Cache Busting (`CONTROLLER_REV`):** PR #43 already sets `CONTROLLER_REV = '0.4.0'`. Do not re-bump to `0.4.0` in Phase 1. When Last Light's `'tap-only'` controller ships after PR #43 merges to `main`, apply one MINOR bump (`'0.4.0'` -> `'0.5.0'`) in Phase 7/8 per `AGENTS.md`.
 
 ### Extension Trace (Required by `ak-plan`)
 
 Trace a credible second game through both new platform seams: **Quick-Draw Quiz / Buzzer Duel** (a 2–8 player single-button buzzer game where phones buzz once per question and reconnect mid-question).
 
 - **Stable contracts:**
-  - `ControllerLayout` `'tap-only'` preset mounts one centered `<ArcadeButton>` with zero joystick DOM, $\ge 36\text{px}$ edge insets, and optional `buttonDisabled` / `buttonLabels` overrides (`LOCKED` / `BUZZED` / `LOCKED OUT`).
+  - `ControllerLayout` `'tap-only'` preset mounts one centered `<ArcadeButton>` with zero joystick DOM, $\ge 36\text{px}$ edge insets, and reuses PR #43's dynamic label and `disabled` bitmask handling (`LOCKED` / `BUZZED` / `LOCKED OUT`).
   - `ScreenGameRuntime.rehydrateEvent(state)` emits the active game's public state envelope (`quiz:state`) whenever a phone reconnects mid-match.
 - **Pieces that change for the second game:**
   - Only the new game's plugin folder (`games/buzzer-duel/`), its prefix in `ALLOWED_GAME_PREFIXES`, and its entries in `screen/src/register-games.ts` and `controller/src/register-games.ts`.
   - Zero edits to `ControllerShell`, `HolisticMatchShell`, `host-loop.ts`, `session.ts`, or `server/`.
 - **How this plan proves the claim:**
-  - Phase 1 unit tests verify `'tap-only'` layout rendering, button disabled/label overrides, and `rehydrateEvent` invocation using generic mock games with no Last Light imports.
+  - Phase 1 unit tests verify `'tap-only'` layout rendering (integrated with PR #43's dynamic label/disabled state) and `rehydrateEvent` invocation using generic mock games with no Last Light imports.
 
 ---
 
@@ -155,7 +171,7 @@ Before writing code, lock these five state-buffer and timing details so `INV-1` 
 
 | Phase | Name | Effort | Primary Ownership | Key Gate |
 | :--- | :--- | :--- | :--- | :--- |
-| **1** | Platform Seams (`tap-only`, `light` prefix, `rehydrateEvent`, `CONTROLLER_REV`) | 2.5h | `shared/`, `screen/`, `controller/` | `pnpm --filter @shared test && pnpm --filter @screen test && pnpm --filter @controller test` |
+| **1** | Platform Seams (`tap-only` preset, `light` prefix, `rehydrateEvent`; builds on PR #43) | 1.5h | `shared/`, `screen/`, `controller/` | `pnpm --filter @shared test && pnpm --filter @screen test && pnpm --filter @controller test` |
 | **2** | Package Scaffold, Manifest & Constants | 1.0h | `games/last-light/` | `pnpm --filter @games/last-light test && tsc --noEmit` |
 | **3** | Zero-Physics Simulation, Hazard RNG & Scoring FSM (TDD) | 4.5h | `games/last-light/src/simulation.*` | Worked examples (2P/3P/8P) + INV-1..9 + 10,000-tick fuzz |
 | **4** | Scoreboard, Blind Round Ranking, Banner & Control Events | 2.5h | `games/last-light/src/{scoreboard,round-ranking,banner,events}.*` | INV-8 leak test + RoundPanelModel integration tests |
@@ -168,22 +184,23 @@ Before writing code, lock these five state-buffer and timing details so `INV-1` 
 
 ### Phase 1: Platform Seams (`shared/`, `screen/`, `controller/`)
 
-**Objective:** Add the three minimal, game-agnostic platform seams required by Last Light without hardcoding any game logic in core shells.
+**Objective:** Add only the three net-new, game-agnostic platform seams required by Last Light on top of **PR #43**, without duplicating PR #43's `CONTROLLER_REV = '0.4.0'`, `pad:state` dynamic button labeling / `disabled` bitmask / dimmed styling, or 8-player responsive HUD clamping.
+
+**Prerequisite / Baseline:** Rebase on **PR #43** (`feat(platform): Cyber-Citadel Phase 1 seams and responsive 8-player HUD`) once merged to `main`.
 
 **Files to Modify:**
-- `shared/src/types/game-control.ts` & `shared/src/types/game-control.test.ts` — Add `'light'` to `ALLOWED_GAME_PREFIXES`.
+- `shared/src/types/game-control.ts` & `shared/src/types/game-control.test.ts` — Add `'light'` to `ALLOWED_GAME_PREFIXES` (preserving PR #43's `PAD_STATE_TYPE` and `pad:state` parsers untouched).
 - `shared/src/controller/layout.ts` — Add `{ readonly preset: 'tap-only'; readonly buttons: readonly [ButtonSpec] }` to `ControllerLayout`.
-- `shared/src/ui/controller-shell.tsx` & `shared/src/ui/controller-shell.css` — Support `preset === 'tap-only'` (omit `<VirtualJoystick>`, center single `<ArcadeButton>` with $\ge 36\text{px}$ safe insets) and optional `buttonDisabled?: Partial<Record<ButtonBit, boolean>>` and `buttonLabels?: Partial<Record<ButtonBit, string>>` props.
-- `controller/src/controller-shell.test.tsx` — Add failing tests first for `'tap-only'` rendering (no joystick, single button, disabled state, label override).
+- `shared/src/ui/controller-shell.tsx` & `shared/src/ui/controller-shell.css` — Support `preset === 'tap-only'` (omit `<VirtualJoystick>`, center single `<ArcadeButton>` with $\ge 36\text{px}$ safe insets) and wire its single button directly into PR #43's existing dynamic label and `disabled` bitmask handling (no duplicate props or CSS).
+- `controller/src/controller-shell.test.tsx` — Add failing tests first for `'tap-only'` rendering (no joystick, single centered button, and compatibility with PR #43's `pad:state` dynamic label and `disabled` bitmask).
 - `screen/src/register-games.ts` & `screen/src/session.ts` — Add optional `rehydrateEvent?: (state: Float32Array) => Envelope | null` to `ScreenGameRuntime` and emit it in `applyPlayers()` when a player reconnects during an active match (`primary && loop !== null && loop.inMatch`). Add unit test in `screen/src/register-games.test.ts` (or dedicated session test).
-- `shared/src/sdp/qr-target.ts` & `shared/src/sdp/qr-target.test.ts` — Bump `CONTROLLER_REV` from `'0.3.0'` to `'0.4.0'`.
 
 **Acceptance Criteria:**
 - [ ] `isGameControlMessageType('light:lock')` returns `true` and Fastify relay forwards `light:*` events from primary screen.
-- [ ] `<ControllerShell>` with `preset: 'tap-only'` renders zero `.joystick` nodes, renders one centered `<ArcadeButton>`, respects `buttonDisabled[0]`, and updates label via `buttonLabels[0]`.
+- [ ] `<ControllerShell>` with `preset: 'tap-only'` renders zero `.joystick` nodes, renders one centered `<ArcadeButton>`, and responds to PR #43's dynamic label and `disabled` bitmask without duplicating state logic.
 - [ ] `tap-only` container enforces $\ge 36\text{px}$ horizontal and bottom edge safe padding in portrait and landscape orientations.
 - [ ] Reconnecting slot in `screen/src/session.ts` invokes `rehydrateEvent(loop.state)` and sends the returned envelope when non-null.
-- [ ] `CONTROLLER_REV === '0.4.0'`.
+- [ ] Zero duplicate edits to `screen/src/styles/match.css` 8-player clamping or PR #43's `CONTROLLER_REV = '0.4.0'`.
 
 **Verification Command:**
 ```bash
@@ -398,10 +415,11 @@ corepack pnpm --filter @games/last-light test && corepack pnpm --filter @games/l
   - **Render Test:** Mounts `<ControllerShell>` with `tap-only` layout, renders `<PlayerBadge>`, score + state pill (`IN` / `LOCKED` / `OUT` / `WATCHING`), single `LOCK IN` button (zero joystick), and disables button when `LOCKED` or `WATCHING`.
 - `games/last-light/src/controller-view.tsx`:
   - Exports `createInitialLightHudState`, `reduceLightControl`, `hapticForLightControl`, `LastLightController`.
-  - Uses `<ControllerShell layout={LAST_LIGHT_MANIFEST.controllerLayout} buttonDisabled={{ 0: buttonDisabled() }} buttonLabels={{ 0: buttonLabel() }} ... />`.
+  - Uses `<ControllerShell layout={LAST_LIGHT_MANIFEST.controllerLayout} ... />` and drives bit-0 label (`LOCK IN` -> `LOCKED`) and disabled state (`LOCKED` / `WATCHING`) through PR #43's `ControllerShell` dynamic label / `disabled` bitmask seam (no duplicate button-state props).
   - **Blowout White Flash:** Toggles a lightweight CSS attribute `data-flash="true"` (single short CSS keyframe or 140ms timeout, **zero continuous `rAF` loops** per SPEC ULP Thermal Defense) flashing solid `#FFFFFF` overlay on `light:blowout`.
   - **Dual-Platform Haptics:** Calls `navigator.vibrate(65)` where supported, plus triggers a hidden iOS 18 `<input type="checkbox" switch>` toggle click fallback for Safari Taptic Engine (`SPEC.md` line 100).
 - `games/last-light/src/controller-view.css` — Neo-Brutalist status badge styling (`IN`, `LOCKED`, `OUT`, `WATCHING`), full-bleed white blowout flash overlay (`pointer-events: none`), zero blurry shadows, $\ge 36\text{px}$ edge safety.
+- `shared/src/sdp/qr-target.ts` & `shared/src/sdp/qr-target.test.ts` — Bump `CONTROLLER_REV` from PR #43's `'0.4.0'` to `'0.5.0'` (MINOR bump for `'tap-only'` + Last Light controller).
 
 **Acceptance Criteria:**
 - [ ] Phone never transitions to `LOCKED` optimistically before host `light:lock` or `light:state`.
@@ -467,7 +485,7 @@ corepack pnpm build
 | **Accidental timestamp/order leak via `RoundRanking` or `BroadcastChannel`** | High | Keep `state[base + 1] = -1` while `LIT` and flush private `privateLockTick` only on blackout. Sort `'live'` rows in `round-ranking.ts` by `slot` only (`place: null`, `finalized: false`). |
 | **Lobby size $N$ drifts during Sudden Death or disconnects** | High | Set `LIGHT_FLAG.joined` (Bit 6) on every joined slot at `startMatch` and never clear it; `shouldIncludeSlot` checks `LIGHT_FLAG.joined` instead of `x/y/active`. |
 | **60 Hz bot cadence holds bit 0 across blowout boundary** | Medium | `writeHeuristic` explicitly clears `buttons[botIndex] = 0` whenever not `LIT` or already `LOCKED`; simulation `COUNTDOWN` suppresses held edges (FR-9.12). |
-| **Merge conflict with Cyber-Citadel on `ControllerShell` or `controller/src/register-games.ts`** | Medium | Keep `ControllerShell` additions strictly additive (`tap-only` branch + optional `buttonDisabled`/`buttonLabels` props) so they compose cleanly with Cyber-Citadel's `pad:state` seam. |
+| **Merge conflict or duplication with PR #43 (Cyber-Citadel Phase 1)** | Medium | Rebase Last Light Phase 1 onto PR #43 once merged; reuse PR #43's `pad:state` dynamic button labels, `disabled` bitmask, `CONTROLLER_REV = '0.4.0'` baseline (bump to `'0.5.0'` in Phase 7), and 8-player HUD clamping without duplicating code. |
 | **iOS Safari lacks `navigator.vibrate`** | Low | Pair `navigator.vibrate(65)` with the hidden `<input type="checkbox" switch>` Taptic Engine fallback (`SPEC.md` line 100) plus unmistakable full-screen white flash. |
 
 ---
@@ -512,3 +530,13 @@ All 11 defaults from `last-light.md` Section 8 are locked into this plan unless 
   - `server/src/relay.ts:195, 251-252` — Forwards any prefix in `ALLOWED_GAME_PREFIXES` and re-sends cached `game:mount` on rejoin.
   - `server/src/rooms.ts:97-101` — Enforces `MATCH_IN_PROGRESS` for unauthorized mid-match joins.
   - `plans/cyber-citadel-implementation-plan.md` — Verified co-op wave defense architecture, `grid-hash.ts`, `auxState`, `stick-diamond`, `pad:state`, and AWAY bot takeover contrast.
+
+### Session 2 — 2026-11-25
+
+- **Trigger:** Cross-reference **PR #43** (`feat(platform): Cyber-Citadel Phase 1 seams and responsive 8-player HUD`) to eliminate duplicate platform work in Phase 1.
+- **Facts Verified (`gh pr view 43`):**
+  - PR #43 already bumps `CONTROLLER_REV` to `'0.4.0'` (`shared/src/sdp/qr-target.ts`, `qr-target.test.ts`).
+  - PR #43 already implements `pad:state` (`PAD_STATE_TYPE`, `PadStatePayload`, `parsePadStatePayload`, `readPadStateMessage`) in `shared/src/types/game-control.ts` and handles dynamic button labels, `disabled` bitmask with tactile dimmed styling, and cooldown wipes in `shared/src/ui/controller-shell.tsx`, `shared/src/ui/primitives.css`, and `controller/src/app.tsx`.
+  - PR #43 already implements 8-player responsive holistic HUD clamping (`clamp(14px, 2.2dvh, 28px)`) in `screen/src/styles/match.css` and `screen/src/score-rules.test.tsx`.
+- **Plan Updates Applied:**
+  - Updated Sections 3, 4, 6 (Phase 1 & Phase 7), and 8 to reuse PR #43 directly, scoping Phase 1 exclusively to the `'tap-only'` layout preset, `ScreenGameRuntime.rehydrateEvent`, and `'light'` in `ALLOWED_GAME_PREFIXES` (with `CONTROLLER_REV` bumping `'0.4.0'` -> `'0.5.0'` when Last Light's controller ships).
