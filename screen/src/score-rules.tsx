@@ -39,8 +39,8 @@ export const MatchRejoinQr: VoidComponent<{
       <canvas
         class="match-rejoin-qr"
         ref={(canvas) => props.onQr(canvas)}
-        width={80}
-        height={80}
+        width={128}
+        height={128}
       />
       <p class="match-rejoin-label">SCAN TO REJOIN</p>
     </aside>
@@ -106,35 +106,32 @@ export const RoundRanking: VoidComponent<{
     <aside class="round-ranking" aria-label="Round ranking" data-mode={props.mode}>
       <p class="round-ranking-heading">{heading()}</p>
       <ol class="round-ranking-list">
-        <For each={props.rows}>
+        <For each={props.rows} keyed={(row) => row.slot}>
           {(row) => (
-            <li class="round-rank-row" data-finalized={row.finalized}>
-              <Show when={row.place !== null}>
-                <span class="round-rank-place">{ordinalLabel(row.place ?? 0)}</span>
-              </Show>
-              <Show when={row.place === null}>
-                <span class="round-rank-place" />
+            <li class="round-rank-row" data-finalized={row().finalized}>
+              <Show when={row().place !== null} fallback={<span class="round-rank-place" />}>
+                <span class="round-rank-place">{ordinalLabel(row().place ?? 0)}</span>
               </Show>
               <span
                 class="round-rank-dot"
                 aria-hidden="true"
-                style={{ 'background-color': row.color }}
+                style={{ 'background-color': row().color }}
               />
-              <span class="round-rank-name">{row.name}</span>
-              <span class="round-rank-value">{row.value}</span>
-              <Show when={row.earned !== undefined && props.mode !== 'live'}>
-                <span class="round-rank-earned">+{row.earned}</span>
+              <span class="round-rank-name">{row().name}</span>
+              <span class="round-rank-value">{row().value}</span>
+              <Show when={row().earned !== undefined && props.mode !== 'live'}>
+                <span class="round-rank-earned">+{row().earned}</span>
               </Show>
-              <Show when={row.preview !== null && props.mode === 'live'}>
-                <span class="round-rank-preview">+{row.preview}</span>
+              <Show when={row().preview !== null && props.mode === 'live'}>
+                <span class="round-rank-preview">+{row().preview}</span>
               </Show>
-              <Show when={row.status !== undefined}>
-                <span class="round-rank-status" data-status={row.status?.toLowerCase()}>
-                  {row.status}
+              <Show when={row().status !== undefined}>
+                <span class="round-rank-status" data-status={row().status?.toLowerCase()}>
+                  {row().status}
                 </span>
               </Show>
-              <Show when={row.marker !== undefined}>
-                <span class="round-rank-marker">{row.marker}</span>
+              <Show when={row().marker !== undefined}>
+                <span class="round-rank-marker">{row().marker}</span>
               </Show>
             </li>
           )}

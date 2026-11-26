@@ -55,17 +55,13 @@ export const HolisticMatchShell: VoidComponent<HolisticMatchShellProps> = (props
         width={800}
         height={800}
       />
-      <Show when={!props.roundPanel}>
-        <ScoreboardPanel header={props.scoreHeader} rows={props.scoreRows} />
-      </Show>
-      <Show when={props.roundPanel}>
-        {(panel) => (
-          <div class="match-side match-side-right">
-            <MatchRejoinQr onQr={(canvas) => props.onQr(canvas)} />
-            <ScoreboardPanel header={props.scoreHeader} rows={panel().totalRows} />
-          </div>
-        )}
-      </Show>
+      <div class="match-side match-side-right">
+        <MatchRejoinQr onQr={(canvas) => props.onQr(canvas)} />
+        <ScoreboardPanel
+          header={props.scoreHeader}
+          rows={props.roundPanel ? props.roundPanel.totalRows : props.scoreRows}
+        />
+      </div>
       <Show when={props.primary && props.matchOver}>
         <div class="podium">
           <button type="button" class="key" onClick={() => props.onPlayAgain()}>

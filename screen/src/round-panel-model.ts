@@ -78,6 +78,17 @@ export function createRoundPanelModel(): RoundPanelModel {
     }
   }
 
+  function withLiveStatus(
+    rows: readonly RoundPanelRankRow[],
+    totals: readonly ScoreRow[],
+  ): RoundPanelRankRow[] {
+    return rows.map((row) => {
+      const live = totals.find((t) => t.slot === row.slot);
+      if (live === undefined || live.status === row.status) return row;
+      return { ...row, status: live.status };
+    });
+  }
+
   return {
     update(view: RoundRankingView | null, totals: readonly ScoreRow[], nowMs: number): RoundPanelOutput {
       if (checkForNewMatch(totals)) {
@@ -125,11 +136,12 @@ export function createRoundPanelModel(): RoundPanelModel {
           baseline = null;
           saveTotals(totals);
         } else {
-          frozenRows = [];
+          frozenRows = view.rows;
           previousStage = 'final';
+          saveTotals(totals);
           return {
             mode: 'result',
-            rankRows: sortRankRows(view.rows),
+            rankRows: sortRankRows(withLiveStatus(frozenRows, totals)),
             totalRows: sortTotalRows(totals),
           };
         }
@@ -153,7 +165,7 @@ export function createRoundPanelModel(): RoundPanelModel {
         });
         return {
           mode: 'frozen',
-          rankRows: sortRankRows(frozenRows),
+          rankRows: sortRankRows(withLiveStatus(frozenRows, totals)),
           totalRows: oldRows,
         };
       }
@@ -168,7 +180,7 @@ export function createRoundPanelModel(): RoundPanelModel {
 
       return {
         mode: 'result',
-        rankRows: sortRankRows(frozenRows),
+        rankRows: sortRankRows(withLiveStatus(frozenRows, totals)),
         totalRows: sortTotalRows(totals),
       };
     },

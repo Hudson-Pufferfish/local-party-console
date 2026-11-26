@@ -72,16 +72,20 @@ test('ScoreRulesPanel renders PTS payouts on the left and ScoreboardPanel render
   expect(valueBlock).toContain('text-align: right');
 });
 
-test('MatchRejoinQr renders rejoin QR panel labeled SCAN TO REJOIN without clobbering arena canvas', () => {
+test('MatchRejoinQr renders borderless larger rejoin QR labeled SCAN TO REJOIN without clobbering arena canvas', () => {
   const html = renderToString(() => <MatchRejoinQr onQr={() => {}} />);
   expect(html).toContain('class="match-rejoin"');
   expect(html).toContain('class="match-rejoin-qr"');
   expect(html).toContain('SCAN TO REJOIN');
 
   const matchCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/match.css'), 'utf8');
+  const rejoinBlock = matchCss.match(/\.match-rejoin\s*\{[^}]*\}/)?.[0] ?? '';
   const rejoinQrBlock = matchCss.match(/\.match-rejoin-qr\s*\{[^}]*\}/)?.[0] ?? '';
-  expect(rejoinQrBlock).toMatch(/width:\s*(72|80)px/);
-  expect(rejoinQrBlock).toMatch(/height:\s*(72|80)px/);
+  expect(rejoinBlock).not.toContain('border:');
+  expect(rejoinBlock).not.toContain('box-shadow:');
+  expect(rejoinQrBlock).not.toContain('border:');
+  expect(rejoinQrBlock).toMatch(/width:\s*128px/);
+  expect(rejoinQrBlock).toMatch(/height:\s*128px/);
   expect(matchCss).not.toMatch(/\.match\s+canvas\s*\{/);
   expect(matchCss).not.toContain('backdrop-filter');
 });

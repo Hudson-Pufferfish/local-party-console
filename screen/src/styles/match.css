@@ -67,21 +67,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  align-self: flex-start;
   gap: 6px;
-  padding: 8px;
-  border: 2.5px solid var(--ink, #111111);
-  background: var(--paper, #f4f1ea);
-  color: var(--ink, #111111);
-  box-shadow: 0px 4px 0px var(--ink, #111111);
 }
 
 .match-rejoin-qr {
   display: block;
   box-sizing: border-box;
-  width: 80px;
-  height: 80px;
-  border: 2px solid var(--ink, #111111);
-  background: var(--paper, #f4f1ea);
+  width: 128px;
+  height: 128px;
   image-rendering: pixelated;
 }
 
@@ -283,17 +277,24 @@
 }
 
 .round-rank-status {
-  font-size: clamp(11px, 0.9dvw, 14px);
+  display: inline-block;
+  justify-self: start;
+  padding: 2px 5px;
+  border: 2px solid var(--ink, #111111);
+  background: var(--paper, #f4f1ea);
+  color: var(--ink, #111111);
+  font-family: "JetBrains Mono";
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.round-rank-status[data-status="live"] {
-  color: var(--theme-green, #00c853);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .round-rank-status[data-status="away"] {
-  color: var(--theme-red, #d50000);
+  background: var(--theme-yellow, #f5c518);
+  color: var(--ink, #111111);
 }
 
 .round-rank-marker {
@@ -441,6 +442,7 @@
   .match-banner,
   .match .score-rules,
   .match .match-side-left,
+  .match .match-side-right,
   .match > canvas,
   .match .scoreboard-panel,
   .match .podium {
@@ -453,9 +455,14 @@
     height: min(800px, max(200px, calc(100dvw - 64px)), max(200px, calc(100dvh - 300px)));
   }
 
-  .match .scoreboard-panel {
+  .match .scoreboard-panel,
+  .match .match-side-right {
     grid-row: 3;
     align-items: center;
+  }
+
+  .match .match-side-right .match-rejoin {
+    align-self: center;
   }
 
   .match .scoreboard {
