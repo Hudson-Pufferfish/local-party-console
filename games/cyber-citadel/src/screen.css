@@ -1,3 +1,28 @@
 .match[data-game="cyber-citadel"] canvas {
   background: var(--bg-surface, #f4f1ea);
 }
+
+.match[data-game="cyber-citadel"] .score-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match[data-game="cyber-citadel"] .score-rule-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 8px;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.match[data-game="cyber-citadel"] .score-rule-rank {
+  font-weight: 700;
+  min-width: 20px;
+}
+
+.match[data-game="cyber-citadel"] .score-rule-pts {
+  font-weight: 500;
+  word-break: break-word;
+}

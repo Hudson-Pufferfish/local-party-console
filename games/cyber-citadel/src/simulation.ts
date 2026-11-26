@@ -1,6 +1,7 @@
 import { clampBoxBoundary } from '../../../shared/src/physics-2d/boundary.ts';
 import {
   cancelReviveChannelForReviver,
+  destroyBarricade,
   processAutoFireStage,
   processDashStage,
   processRailStage,
@@ -643,6 +644,12 @@ export function createCyberCitadelSimulation(
       w.flowField.rebuildIfDirty();
       const nextT = state[CYBER_HEADER.phaseTimer]! - stepDt;
       if (nextT <= 0) {
+        // Clear all temporary player barricades placed during break before new wave begins
+        for (let i = 0; i < AUX_LAYOUT.MAX_BARRICADES; i += 1) {
+          destroyBarricade(w, i);
+        }
+        w.flowField.rebuildIfDirty();
+
         const nextWave = Math.min(C.totalWaves, Math.trunc(state[CYBER_HEADER.wave]!) + 1);
         state[CYBER_HEADER.wave] = nextWave;
         state[CYBER_HEADER.phaseEnum] = CYBER_PHASE.WAVE_ACTIVE;
