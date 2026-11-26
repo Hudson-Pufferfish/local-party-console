@@ -66,7 +66,7 @@ export function scoreRules(_state: Float32Array): ScoreRules {
     guide: [
       '• DEFEND THE CORE: Stop enemies before Core reaches 0% Health.',
       '• SHOOTING: Ship automatically shoots enemies in front of you.',
-      '• SUPER BOMB: 1 use per wave! Stand inside blue ring and press Y.',
+      '• SUPER BOMB: 1 use per wave! At least 50% of living squad must stand in blue ring and press Y.',
       '• REVIVE: Stand next to a downed teammate and hold Y for 2.5s.',
       '• SHIELD ENEMIES: Big enemies block front shots. Flank their backs!',
     ],
