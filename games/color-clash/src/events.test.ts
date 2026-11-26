@@ -8,6 +8,7 @@ import {
   PHASE_ROUND_END,
 } from './constants';
 import { eventsFromHeaderDiff } from './events';
+import { targetScoreForCount, targetScoreForState } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -87,4 +88,22 @@ test('eventsFromHeaderDiff generates round_start, round_end, match_start, boost,
     winnerIndex: 0,
     scores: [3, 1, 0, 0, 0, 0, 0, 0],
   });
+});
+
+test('color:round_end matchOver follows the locked matchTarget when a slot is wiped', () => {
+  const prev = new Float32Array(88);
+  const next = new Float32Array(88);
+  prev[PHASE] = PHASE_ROUND_ACTIVE;
+  next[PHASE] = PHASE_ROUND_END;
+  next[WINNER] = 0;
+  // 3-player match. Locked target is 6. Slot 2 is later empty in the buffer.
+  next[PLAYER + 0 * STRIDE + SCORE] = 3;
+  next[PLAYER + 1 * STRIDE + SCORE] = 1;
+
+  const locked = targetScoreForCount(3);
+  expect(locked).toBe(6);
+  expect(targetScoreForState(next)).toBe(3);
+
+  const roundEnd = eventsFromHeaderDiff(prev, next, locked).find((e) => e.type === 'color:round_end');
+  expect((roundEnd?.payload as { matchOver: boolean }).matchOver).toBe(false);
 });
