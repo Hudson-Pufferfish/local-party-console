@@ -104,7 +104,7 @@ export function writeHeuristic(
   const y = state[base + 1] ?? 0;
   const angle = state[base + 4] ?? 0;
   const boostCooldown = state[base + 5] ?? 0;
-  const pace = nerf(0.55, 0.45, share);
+  const pace = nerf(0.6, 0.40, share);
 
   const phase = state[PHASE] ?? 0;
   const golden = Math.trunc(state[GOLDEN] ?? -1);
@@ -135,7 +135,7 @@ export function writeHeuristic(
 
   // 2. Coarse 8x8 sector scan (5x5 cells each)
   const ownId = botIndex + 1;
-  const wOpp = nerf(0.75, 0.70, share);
+  const wOpp = nerf(0.85, 0.70, share);
   let bestValue = -1;
   let bestTargetX = 0;
   let bestTargetY = 0;
