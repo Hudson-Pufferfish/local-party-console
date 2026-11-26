@@ -182,7 +182,7 @@ export function createColorClashSimulation(): ColorClashSimulation {
     if (joined[playerIndex] === 0) return;
 
     const phase = state[PHASE];
-    if (phase !== PHASE_ROUND_ACTIVE && phase !== PHASE_OVERTIME) return;
+    if (phase !== PHASE_COUNTDOWN && phase !== PHASE_ROUND_ACTIVE && phase !== PHASE_OVERTIME) return;
 
     const base = PLAYER + playerIndex * STRIDE;
     if ((state[base + 8] & FLAG_ACTIVE) === 0) return;
@@ -199,7 +199,11 @@ export function createColorClashSimulation(): ColorClashSimulation {
     }
 
     const channel = inputs[playerIndex];
-    if ((buttons & 1) !== 0 && (channel.buttons & 1) === 0) {
+    // Countdown records the held bits without an edge, so a BOOST held through
+    // the countdown is not a fresh press on the first ROUND_ACTIVE frame.
+    if (phase === PHASE_COUNTDOWN) {
+      channel.edge = 0;
+    } else if ((buttons & 1) !== 0 && (channel.buttons & 1) === 0) {
       channel.edge = 1;
     }
     channel.buttons = buttons;
@@ -423,10 +427,10 @@ export function createColorClashSimulation(): ColorClashSimulation {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       if (joined[i] === 0) continue;
       const base = PLAYER + i * STRIDE;
+      // Keep inputs[i].buttons: a BOOST held into overtime is not a fresh press.
       inputs[i].edge = 0;
       inputs[i].axisX = 0;
       inputs[i].axisY = 0;
-      inputs[i].buttons = 0;
       if (cellCounts[i] === maxCells) {
         state[base + 5] = 0;
         state[base + 6] = 0;
