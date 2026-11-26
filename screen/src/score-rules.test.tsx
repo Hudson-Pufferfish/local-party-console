@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { renderToString } from '@solidjs/web';
 import { expect, test } from 'vitest';
-import { MatchRejoinQr, ScoreboardPanel, ScoreRulesPanel } from './score-rules.tsx';
+import { MatchRejoinQr, RoundRanking, ScoreboardPanel, ScoreRulesPanel } from './score-rules.tsx';
 
 test('ScoreRulesPanel renders PTS payouts on the left and ScoreboardPanel renders LIVE/AWAY status on the right', () => {
   const leftHtml = renderToString(() => (
@@ -119,6 +119,7 @@ test('left column pushes guide to top, wraps payouts into 2 columns, and pins ro
   const sideLeftBlock = matchCss.match(/\.match-side-left\s*\{[^}]*\}/)?.[0] ?? '';
   const rulesListBlock = matchCss.match(/\.score-rules-list\s*\{[^}]*\}/)?.[0] ?? '';
   const rankStatusBlock = matchCss.match(/\.round-rank-status\s*\{[^}]*\}/)?.[0] ?? '';
+  const rankBombBlock = matchCss.match(/\.round-rank-value\[data-bomb="true"\]\s*\{[^}]*\}/)?.[0] ?? '';
 
   expect(sideLeftBlock).toContain('grid-column: 1');
   expect(sideLeftBlock).toContain('grid-row: 1 / -1');
@@ -126,4 +127,39 @@ test('left column pushes guide to top, wraps payouts into 2 columns, and pins ro
   expect(rulesListBlock).toContain('display: grid');
   expect(rulesListBlock).toContain('repeat(2,');
   expect(rankStatusBlock).toContain('grid-column: 6');
+  expect(rankBombBlock).toContain('border-color:');
+});
+
+test('RoundRanking marks bomb holder with data-bomb on rank value and avoids extra marker column', () => {
+  const html = renderToString(() => (
+    <RoundRanking
+      mode="live"
+      rows={[
+        {
+          slot: 0,
+          color: '#FF4D00',
+          name: 'HUDSON',
+          value: 'ALIVE',
+          place: null,
+          finalized: false,
+          preview: null,
+          status: 'LIVE',
+          marker: 'BOMB',
+        },
+        {
+          slot: 1,
+          color: '#00C853',
+          name: 'BOT1',
+          value: 'ALIVE',
+          place: null,
+          finalized: false,
+          preview: null,
+          status: 'AWAY',
+        },
+      ]}
+    />
+  ));
+
+  expect(html).toContain('class="round-rank-value" data-bomb="true"');
+  expect(html).not.toContain('class="round-rank-marker"');
 });

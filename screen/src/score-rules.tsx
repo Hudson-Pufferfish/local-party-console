@@ -118,7 +118,12 @@ export const RoundRanking: VoidComponent<{
                 style={{ 'background-color': row().color }}
               />
               <span class="round-rank-name">{row().name}</span>
-              <span class="round-rank-value">{row().value}</span>
+              <span
+                class="round-rank-value"
+                data-bomb={row().marker === 'BOMB' ? 'true' : undefined}
+              >
+                {row().value}
+              </span>
               <Show when={row().earned !== undefined && props.mode !== 'live'}>
                 <span class="round-rank-earned">+{row().earned}</span>
               </Show>
@@ -130,7 +135,7 @@ export const RoundRanking: VoidComponent<{
                   {row().status}
                 </span>
               </Show>
-              <Show when={row().marker !== undefined}>
+              <Show when={row().marker !== undefined && row().marker !== 'BOMB'}>
                 <span class="round-rank-marker">{row().marker}</span>
               </Show>
             </li>

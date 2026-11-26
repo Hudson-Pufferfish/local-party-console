@@ -258,6 +258,17 @@
 .round-rank-value {
   font-weight: 500;
   text-align: right;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 2px solid transparent;
+  line-height: 1;
+}
+
+.round-rank-value[data-bomb="true"] {
+  border-color: var(--ink, #111111);
+  background: var(--theme-yellow, #f5c518);
+  color: var(--ink, #111111);
+  font-weight: 700;
 }
 
 .round-rank-earned {
