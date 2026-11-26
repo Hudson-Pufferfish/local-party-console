@@ -383,6 +383,62 @@ describe('ColorClashSimulation', () => {
   });
   });
 
+  test('sudden death only awards +1 to players tied for the lead (Sumo rule)', () => {
+    const sim = createColorClashSimulation();
+    sim.startMatch([0, 1, 2]); // 3 players -> target = 6 pts
+
+    // Slot 0 and Slot 1 tied at 6 pts (leaders at threshold). Slot 2 behind at 4 pts.
+    sim.state[baseOf(0) + 9] = 6;
+    sim.state[baseOf(1) + 9] = 6;
+    sim.state[baseOf(2) + 9] = 4;
+
+    advanceToActive(sim);
+
+    // Slot 2 wins the round (paints more than slot 0 and 1)
+    sim.applyInput(2, 1, 127, 0);
+    for (let i = 0; i < 120 * 46; i += 1) {
+      if (sim.state[1] === PHASE_ROUND_END) break;
+      sim.step(DT);
+    }
+    expect(sim.state[1]).toBe(PHASE_ROUND_END);
+    expect(sim.state[7]).toBe(2); // slot 2 won round
+
+    // Under the Sumo sudden death rule, slot 2 is not tied for the lead (4 < 6),
+    // so slot 2 does NOT get points, and tied leaders also do not get points.
+    expect(sim.state[baseOf(0) + 9]).toBe(6);
+    expect(sim.state[baseOf(1) + 9]).toBe(6);
+    expect(sim.state[baseOf(2) + 9]).toBe(4);
+
+    // After round end, since there is still no unique winner, enters next break
+    for (let i = 0; i < 120 * 1; i += 1) {
+      sim.step(DT);
+    }
+    expect(sim.state[1]).toBe(PHASE_PRACTICE);
+
+    // Next round: leader slot 0 wins the round (slot 2 zero input)
+    advanceToActive(sim);
+    sim.applyInput(2, 0, 0, 0);
+    sim.applyInput(0, 1, 127, 0);
+    for (let i = 0; i < 120 * 46; i += 1) {
+      if (sim.state[1] === PHASE_ROUND_END) break;
+      sim.step(DT);
+    }
+    expect(sim.state[1]).toBe(PHASE_ROUND_END);
+    expect(sim.state[7]).toBe(0);
+
+    // Slot 0 was tied for the lead, so slot 0 earns +1 pt (6 -> 7)
+    expect(sim.state[baseOf(0) + 9]).toBe(7);
+    expect(sim.state[baseOf(1) + 9]).toBe(6);
+    expect(sim.state[baseOf(2) + 9]).toBe(4);
+
+    // Step through round end -> unique leader 7 pts -> PHASE_MATCH_OVER
+    for (let i = 0; i < 120 * 1; i += 1) {
+      sim.step(DT);
+    }
+    expect(sim.state[1]).toBe(PHASE_MATCH_OVER);
+    expect(sim.state[7]).toBe(0); // match winner slot 0
+  });
+
   test('10,000-tick fuzz holds invariants INV-1..6 and replay is bit-exact (INV-8)', () => {
     function runScripted(ticks: number) {
       const sim = createColorClashSimulation();

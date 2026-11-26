@@ -48,6 +48,5 @@ export const COLOR_CLASH_CONSTANTS = {
   roundDuration: 45.0,
   roundEnd: 0.8,
   overtimeDuration: 30.0,
-  finalReveal: 3.0,
   goldenMargin: 6,
 } as const;

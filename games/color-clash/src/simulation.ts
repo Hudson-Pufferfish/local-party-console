@@ -483,7 +483,13 @@ export function createColorClashSimulation(): ColorClashSimulation {
     const count = joinedCount;
     if (count < 2) return;
     if (isSuddenDeath(state, matchTarget)) {
-      if (winnerSlot >= 0 && winnerSlot < C.maxPlayers && joined[winnerSlot] === 1) {
+      const topScore = maxScoreForState(state);
+      if (
+        winnerSlot >= 0
+        && winnerSlot < C.maxPlayers
+        && joined[winnerSlot] === 1
+        && state[PLAYER + winnerSlot * STRIDE + 9] === topScore
+      ) {
         state[PLAYER + winnerSlot * STRIDE + 9] += 1;
       }
       return;
