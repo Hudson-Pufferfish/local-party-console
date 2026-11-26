@@ -5,6 +5,6 @@ export const PLAYER_COLORS = [
   '#E10600',
   '#FF2BD6',
   '#00B7C2',
-  '#111111',
+  '#651FFF',
   '#F4F1EA',
 ] as const;

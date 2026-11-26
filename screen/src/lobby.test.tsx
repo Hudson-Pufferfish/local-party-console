@@ -10,7 +10,7 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   const players: PlayerSlot[] = [
     { index: 0, name: 'Ada', color: '#FF4D00', teamId: null, connected: true },
     { index: 1, name: 'Bea', color: '#00C853', teamId: null, connected: false },
-    { index: 6, name: 'Cid', color: '#111111', teamId: null, connected: true },
+    { index: 6, name: 'Cid', color: '#651FFF', teamId: null, connected: true },
   ];
   const games = [
     {
@@ -62,7 +62,7 @@ test('lobby renders player color CSS vars, kick buttons on LIVE/AWAY cards, and 
   expect(primaryHtml).toContain('title="Remove player"');
   expect(primaryHtml).toContain('--player-color:var(--player-1, #FF4D00)');
   expect(primaryHtml).toContain('--player-ink:var(--player-1-ink, #111111)');
-  expect(primaryHtml).toContain('--player-color:var(--player-7, #111111)');
+  expect(primaryHtml).toContain('--player-color:var(--player-7, #651FFF)');
   expect(primaryHtml).toContain('--player-ink:var(--player-7-ink, #F4F1EA)');
   expect(primaryHtml).toContain('class="key game-key"');
   expect(primaryHtml).toContain('data-selected="true"');

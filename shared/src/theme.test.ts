@@ -82,7 +82,7 @@ test('theme.css player vars match PLAYER_COLORS, maximize WCAG ink contrast, and
     '--player-ink': 'var(--player-1-ink, #111111)',
   });
   expect(playerStyleVars(6, PLAYER_COLORS[6])).toEqual({
-    '--player-color': 'var(--player-7, #111111)',
+    '--player-color': 'var(--player-7, #651FFF)',
     '--player-ink': 'var(--player-7-ink, #F4F1EA)',
   });
   expect(playerStyleVars(-1)).toEqual({});
