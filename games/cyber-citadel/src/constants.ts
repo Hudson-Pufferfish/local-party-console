@@ -44,7 +44,7 @@ export const CYBER_CITADEL_CONSTANTS = {
   autoFireRange: 260,
   autoFireCadenceSec: 0.2,
   autoFireDamage: 12,
-  autoFireCosHalfSq: 0.75, // cos^2(30 deg) for 60 deg forward cone
+  autoFireCosHalfSq: 0.25, // cos^2(60 deg) for 120 deg forward cone
   autoFireStickinessRatioSq: 0.81, // 0.9^2 for 10% closer Core distance
   autoFireTracerTicks: 8,
 
