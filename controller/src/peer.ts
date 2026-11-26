@@ -7,7 +7,7 @@ import { HEARTBEAT_MS } from '../../shared/src/sync/heartbeat.ts';
 import { WINDOW_MS, nextDelayMs } from '../../shared/src/sync/tdma.ts';
 import { routeFastInput, type FastInputRoute } from '../../shared/src/transport/policy.ts';
 import type { RoomPhase, RoomRejectReason } from '../../shared/src/types/envelope.ts';
-import { isGameControlMessageType } from '../../shared/src/types/index.ts';
+import { isGameControlMessageType } from '../../shared/src/types/game-control.ts';
 import {
   bindTransport,
   flushHeartbeat,

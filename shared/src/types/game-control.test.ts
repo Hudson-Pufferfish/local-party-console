@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { ALLOWED_GAME_PREFIXES, isGameControlMessageType, isGameControlPrefix } from './game-control.ts';
 
 describe('game-control message helpers', () => {
-  test('ALLOWED_GAME_PREFIXES contains registered game IDs and pad', () => {
+  test('ALLOWED_GAME_PREFIXES contains message prefixes for games and pad', () => {
     expect(ALLOWED_GAME_PREFIXES).toEqual(['sumo', 'bomb', 'color', 'cyber', 'pad']);
     expect(isGameControlPrefix('sumo')).toBe(true);
     expect(isGameControlPrefix('bomb')).toBe(true);

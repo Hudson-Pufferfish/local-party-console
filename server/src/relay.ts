@@ -207,8 +207,6 @@ function handleText(
   fanOut(clients, room, client, raw);
 }
 
-
-
 function handleJoin(
   clients: Map<Room, Set<Client>>,
   mounts: WeakMap<Room, string>,
