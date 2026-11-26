@@ -1,9 +1,8 @@
 import type { RoundRankRow, RoundRankingView, RoundStage, ScoreRow } from './register-games.ts';
 
 export const ROUND_FREEZE_MS = 2000;
-export const ROUND_TRANSFER_MS = 600;
 
-export type RoundPanelMode = 'empty' | 'live' | 'frozen' | 'transfer' | 'result';
+export type RoundPanelMode = 'empty' | 'live' | 'frozen' | 'result';
 
 export interface RoundPanelRankRow extends RoundRankRow {
   readonly earned?: number;
@@ -156,38 +155,6 @@ export function createRoundPanelModel(): RoundPanelModel {
           mode: 'frozen',
           rankRows: sortRankRows(frozenRows),
           totalRows: oldRows,
-        };
-      }
-
-      if (previousStage === 'final' && elapsed < ROUND_FREEZE_MS + ROUND_TRANSFER_MS) {
-        const transferRows: ScoreRow[] = [];
-        for (const row of totals) {
-          const earned = frozenRows.find((fr) => fr.slot === row.slot)?.earned ?? 0;
-          transferRows.push({ ...row, incoming: earned });
-        }
-        const oldRows: ScoreRow[] = [];
-        for (const row of totals) {
-          const earned = frozenRows.find((fr) => fr.slot === row.slot)?.earned ?? 0;
-          const oldScore = typeof row.score === 'number' ? row.score - earned : row.score;
-          oldRows.push({ ...row, score: oldScore });
-        }
-        oldRows.sort((a, b) => {
-          const aScore = typeof a.score === 'number' ? a.score : -Infinity;
-          const bScore = typeof b.score === 'number' ? b.score : -Infinity;
-          if (aScore !== bScore) return bScore - aScore;
-          return a.slot - b.slot;
-        });
-        const orderedTransfer: ScoreRow[] = [];
-        for (const oldRow of oldRows) {
-          const match = transferRows.find((tr) => tr.slot === oldRow.slot);
-          if (match !== undefined) {
-            orderedTransfer.push(match);
-          }
-        }
-        return {
-          mode: 'transfer',
-          rankRows: sortRankRows(frozenRows),
-          totalRows: orderedTransfer,
         };
       }
 

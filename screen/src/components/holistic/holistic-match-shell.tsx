@@ -25,7 +25,6 @@ export interface HolisticMatchShellProps {
 export const HolisticMatchShell: VoidComponent<HolisticMatchShellProps> = (props) => {
   return (
     <section class="match" data-game={props.gameId}>
-      <MatchRejoinQr onQr={(canvas) => props.onQr(canvas)} />
       <Show when={props.manifest?.title}>
         <span class="match-game-title">{props.manifest?.title}</span>
       </Show>
@@ -60,7 +59,12 @@ export const HolisticMatchShell: VoidComponent<HolisticMatchShellProps> = (props
         <ScoreboardPanel header={props.scoreHeader} rows={props.scoreRows} />
       </Show>
       <Show when={props.roundPanel}>
-        {(panel) => <ScoreboardPanel header={props.scoreHeader} rows={panel().totalRows} />}
+        {(panel) => (
+          <div class="match-side match-side-right">
+            <MatchRejoinQr onQr={(canvas) => props.onQr(canvas)} />
+            <ScoreboardPanel header={props.scoreHeader} rows={panel().totalRows} />
+          </div>
+        )}
       </Show>
       <Show when={props.primary && props.matchOver}>
         <div class="podium">

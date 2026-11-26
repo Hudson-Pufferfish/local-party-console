@@ -6,7 +6,7 @@ import {
 } from './round-panel-model.ts';
 import type { ScoreRow } from './register-games.ts';
 
-test('round panel walks through live, freeze, transfer, result, and reset on new match', () => {
+test('round panel walks through live, freeze, result, and reset on new match', () => {
   const model = createRoundPanelModel();
 
   const liveRows: readonly RoundPanelRankRow[] = [
@@ -62,19 +62,8 @@ test('round panel walks through live, freeze, transfer, result, and reset on new
   expect(frozenOutput2.totalRows[0]?.score).toBe(8); // still old score
   expect(frozenOutput2.totalRows[1]?.score).toBe(6);
 
-  // Transfer at t=3200 (freeze ended at 3000, within 600ms transfer)
-  const transferOutput = model.update(finalView, totalsAfter, 3200);
-  expect(transferOutput.mode).toBe('transfer');
-  expect(transferOutput.totalRows).toHaveLength(2);
-  expect(transferOutput.totalRows[0]?.slot).toBe(1); // still old order
-  expect(transferOutput.totalRows[0]?.score).toBe(9); // new score
-  expect(transferOutput.totalRows[0]?.incoming).toBe(1);
-  expect(transferOutput.totalRows[1]?.slot).toBe(0);
-  expect(transferOutput.totalRows[1]?.score).toBe(9); // new score
-  expect(transferOutput.totalRows[1]?.incoming).toBe(3);
-
-  // Result at t=3700 (transfer ended at 3600) with stage still final
-  const resultOutput1 = model.update(finalView, totalsAfter, 3700);
+  // Result at t=3100 (freeze ended at 3000) with stage still final
+  const resultOutput1 = model.update(finalView, totalsAfter, 3100);
   expect(resultOutput1.mode).toBe('result');
   expect(resultOutput1.rankRows).toHaveLength(2);
   expect(resultOutput1.rankRows[0]?.earned).toBe(3);

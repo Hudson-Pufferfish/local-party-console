@@ -67,9 +67,6 @@ export const ScoreboardPanel: VoidComponent<{
               />
               <span class="score-name">{row().name}</span>
               <span class="score-value">{row().score}</span>
-              <Show when={row().incoming !== undefined}>
-                <span class="score-incoming">+{row().incoming}</span>
-              </Show>
               <Show when={row().status !== undefined}>
                 <span class="score-status" data-status={row().status?.toLowerCase()}>
                   {row().status}
@@ -101,7 +98,7 @@ export const RoundRanking: VoidComponent<{
   const heading = () => {
     const mode = props.mode;
     if (mode === 'live' || mode === 'empty') return 'THIS ROUND';
-    if (mode === 'frozen' || mode === 'transfer') return 'THIS ROUND - FINAL';
+    if (mode === 'frozen') return 'THIS ROUND - FINAL';
     return 'LAST ROUND';
   };
 

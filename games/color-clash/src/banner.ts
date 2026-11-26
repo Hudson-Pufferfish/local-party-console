@@ -3,6 +3,7 @@ import {
   PHASE_MATCH_OVER,
   PHASE_OVERTIME,
   PHASE_PRACTICE,
+  PHASE_ROUND_ACTIVE,
   PHASE_ROUND_END,
 } from './constants.ts';
 import { isSuddenDeath, shortTag, targetScoreForState } from './scoreboard.ts';
@@ -58,6 +59,9 @@ export function bannerCopy(state: Float32Array, names: readonly string[]): strin
   }
   if (phase === PHASE_OVERTIME) {
     return 'OVERTIME — CLAIM GOLDEN TILE';
+  }
+  if (phase === PHASE_ROUND_ACTIVE && timer > 0) {
+    return String(Math.ceil(timer));
   }
   return '';
 }
