@@ -17,7 +17,7 @@ import type { GameManifest } from '../../../shared/src/types/game.ts';
 
 export const CYBER_CITADEL_MANIFEST: GameManifest = {
   id: 'cyber-citadel',
-  title: 'CYBER-CITADEL', // Default display title.
+  title: 'CITADEL DEFENSE', // Default display title.
   minPlayers: 1,
   maxPlayers: 8,
   supportsTeams: false,
