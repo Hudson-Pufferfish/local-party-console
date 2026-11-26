@@ -80,9 +80,9 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
 * **Ring-Out Rule:** A puck is immediately marked `ELIMINATED` the tick its center crosses the outer hazard line:
   $$\sqrt{x_i^2 + y_i^2} > R_{\text{arena}}(t)$$
 * **Round Resolution:**
-  * When `aliveCount <= 1`, transition to `ROUND_END` (last standing puck receives $+1$ point). If every puck still alive would leave on the same tick while the ring is above $R_{\min}$, nobody is eliminated and no point is awarded: centers are pulled just inside the ring and outward speed is cancelled, so the round does not restart.
-  * Display round winner banner for $2.5\text{s}$, then reset arena for the next round.
-* **Match Victory:** First player to reach **5 points** transitions the match to `MATCH_OVER`, displaying final podium standings, match telemetry summary, and a **Play Again / Return to Lobby** control for the host.
+  * When `aliveCount <= 1`, transition to `ROUND_END`. Each joined player earns ranked survival points `N - 1 - better`, where `better` is the number of players still alive plus players knocked out on a later tick (same-tick knockouts share a place). In match sudden death, only the surviving contender receives `+1`. If every puck still alive would leave on the same tick while the ring is above $R_{\min}$, nobody is eliminated and no point is awarded: centers are pulled just inside the ring and outward speed is cancelled, so the round does not restart.
+  * Hold `ROUND_END` for `0.5s`, then start the practice break before the next round.
+* **Match Victory:** Match target is `max(3, (N - 1) * 3)`. A unique leader at or above the target transitions the match to `MATCH_OVER`, displaying final podium standings and **Play Again / Return to Lobby** controls for the host. If multiple leaders tie at or above the target, the match enters **Sudden Death**.
 
 ### FR-5: Phone Controller Layout & Feedback
 * **Layout (Landscape Forced via Pre-Flight Strip):**
@@ -113,13 +113,16 @@ Curves use $\text{share} = \text{skill}/100$ and $\text{nerf}(\text{base}, \text
 4. Fire `DASH` when the opponent is inside $\text{dashRange} = \text{nerf}(60, 260, \text{share})$, alignment clears $\text{nerf}(0.96, -0.10, \text{share})$, and the landing stays inside $0.85 \cdot R_{\text{arena}}$. A missed dash stays inside the ring, and the next steer turns back at the safe radius. The outer bot still yields and does not dash through that yield.
 
 ### Scoreboard and practice
-The holistic screen lists everyone in the match in the cream to the right of the arena inside `<HolisticMatchShell>`, in slot order, rendered as a responsive CSS grid with dedicated columns:
-1. **Player puck color circle**: 20px filled circle with `2.5px #111111` border.
-2. **Player name/tag (`.score-name`)**: Takes the first up to 6 alphanumeric characters (`shortTag`), e.g., `HUDSON` or `HUJON`, preventing tag collisions, with `overflow: hidden; text-overflow: ellipsis`.
-3. **Score (`.score-value`)**: Current points, right-aligned with `font-variant-numeric: tabular-nums`.
-4. **Status pill (`.score-status`)**: `LIVE` or `AWAY` indicator.
+The holistic screen uses `<HolisticMatchShell>` with the shared round ranking panel:
 
-First to **3 round wins** (or scaled threshold) ends the match. If tied leaders cross the threshold simultaneously, the match enters decisive **Sudden Death** (+1 instant win duel among contenders).
+* **Left column (`ScoreRulesPanel` and `RoundRanking`):** Always shows the four guide lines and the rank payout table (`1ST: +(N-1) PTS` ... `NTH: +0 PTS`, or `1ST: +1 PTS` in sudden death). Under the guide, `RoundRanking` shows live round progress: survivors appear as `ALIVE` with no place, and each knocked-out puck locks its place from the bottom up (`OUT` with a `+N` preview; same-frame knockouts share a place). Parked non-contenders in match sudden death appear as `OUT` with no place. At round end, the survivor gets `1ST`, the ranking freezes for `2.0s` showing real earned `+N` points, and the final round result stays visible through the break.
+* **Right column (`ScoreboardPanel`):** Shows the rejoin QR, `THRESHOLD: X` (or `SUDDEN DEATH`) header, and match totals sorted by total (highest first, ties by slot):
+  1. **Player puck color circle**: 20px filled circle with `2.5px #111111` border.
+  2. **Player name/tag (`.score-name`)**: Takes the first up to 6 alphanumeric characters (`shortTag`), e.g., `HUDSON` or `HUJON`, preventing tag collisions, with `overflow: hidden; text-overflow: ellipsis`.
+  3. **Score (`.score-value`)**: Current points, right-aligned with `font-variant-numeric: tabular-nums`.
+  4. **Status pill (`.score-status`)**: `LIVE` or `AWAY` indicator. `AWAY` is a display-only badge; disconnected pucks stay in play and score normally if they survive.
+
+First to `max(3, (N - 1) * 3)` points with a unique lead ends the match. If tied leaders cross the threshold simultaneously, the match enters decisive **Sudden Death** (+1 instant win duel among contenders).
 
 The match opens with 30s of practice (`practiceInitial`), and every later round opens with 20s of practice (`practiceBreak`) (move and dash, full ring, no points). `BREAK` and the seconds left, the countdown digit, `POINT`, and `<TAG> WINS` sit in the cream above the arena in the HUD banner. `POINT` is the short flash when a non-final round scores; the match-winning round switches straight to `<TAG> WINS` (using the 6-character tag) and holds it through match over. The opening break places everyone on the spawn ring. After a scored round the break does not: the eliminated puck is revived just inside the full ring and everyone else stays put. When that timer hits zero, spawn resets once into the 3-2-1 countdown. That lineup is the only teleport during a live break, and `BREAK` is on screen before it.
 

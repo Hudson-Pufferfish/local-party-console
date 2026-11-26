@@ -32,12 +32,12 @@ Keep `<canvas width={800} height={800}>` as a direct child of `<section class="m
 
 ### Round Ranking Panel
 
-Games that provide `createRoundRanking` in their `ScreenGameRuntime` get a live round ranking panel under the guide on the left side. The panel shows:
+Games that provide `createRoundRanking` in their `ScreenGameRuntime` (Color Clash and Sumo Dash) get a live round ranking panel under the guide on the left side. The panel shows:
 
 - **Stage**: `idle` (practice or countdown), `live` (round running), or `final` (round over).
-- During a live round: player rankings by the game metric (e.g. paint percent, cells owned), with a preview of points each place pays.
-- At round end: the ranking freezes for 2.0 s, showing real earned points per player. Then each `+N` transfers into the right column total (0.6 s animation), and the right column re-sorts by total.
-- During breaks and practice: the last round's final result stays visible.
+- During a live round: player rankings by the game metric (e.g. paint percent in Color Clash, live survival and bottom-up knockout locks in Sumo Dash), with a preview of points each place pays.
+- At round end: the ranking freezes for 2.0 s, showing real earned points per player, then updates and re-sorts the right column by match total.
+- During breaks and practice: the last round's final result stays visible, while `LIVE` / `AWAY` status updates in real time.
 
 The `+N` values shown at round end are real, computed from the difference between totals before and after. The screen never shows a guessed payout.
 

@@ -43,15 +43,18 @@ export function createRoundPanelModel(): RoundPanelModel {
     return sorted;
   }
 
+  function rankBucket(row: RoundPanelRankRow): number {
+    if (row.place === null) return row.finalized ? 2 : 0;
+    return 1;
+  }
+
   function sortRankRows(rows: readonly RoundPanelRankRow[]): RoundPanelRankRow[] {
     const sorted = rows.slice();
     sorted.sort((a, b) => {
-      if (a.place !== null && b.place !== null) {
-        if (a.place !== b.place) return a.place - b.place;
-      } else if (a.place !== null) {
-        return -1;
-      } else if (b.place !== null) {
-        return 1;
+      const bucketDiff = rankBucket(a) - rankBucket(b);
+      if (bucketDiff !== 0) return bucketDiff;
+      if (a.place !== null && b.place !== null && a.place !== b.place) {
+        return a.place - b.place;
       }
       return a.slot - b.slot;
     });
