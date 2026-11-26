@@ -13,8 +13,10 @@
 | `sumo-dash` | **Sumo Dash** | [`./sumo-dash.md`](./sumo-dash.md) | **Live** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
 | `bomb-pass` | **Bomb Pass** | [`./bomb-pass.md`](./bomb-pass.md) | **Live** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
 | `color-clash` | **Color Clash** | [`./color-clash.md`](./color-clash.md) | **Live** *(heuristic bots)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
+| `last-light` | **Last Light** | [`./last-light.md`](./last-light.md) | **Design** *(spec only, not implemented)* | 2D (`Phaser 4`) | 2–8 humans + bots | `holistic` | `zero-buffer` |
 
 All active games are registered in the desktop host lobby carousel (`screen/src/register-games.ts`) and mount into the universal `<HolisticMatchShell>`.
+Rows with status **Design** have a spec only. They are not registered in `screen/src/register-games.ts` or `controller/src/register-games.ts` yet.
 
 ---
 
