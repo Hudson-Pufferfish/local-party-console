@@ -103,13 +103,13 @@ export const CYBER_CITADEL_CONSTANTS = {
   carrierSpawnIntervalSec: 3.5,
 
   bossBaseHp: 2400,
-  bossSpeed: 48,
-  bossEnrageSpeed: 68,
+  bossSpeed: 32,
+  bossEnrageSpeed: 44,
   bossRadius: 44,
   bossMeleeDps: 45,
   bossLaserDps: 55,
   bossLaserRange: 340,
-  bossLaserSweepSpeed: 0.85, // rad/sec
+  bossLaserSweepSpeed: 0.55, // rad/sec
   bossLaserHalfWidth: 16,
   bossDualDashWindowSec: 1.0,
   bossVulnerableSec: 5.0,
