@@ -134,13 +134,13 @@ Run flow and simulation phases:
 * **Haptics:** Triggers `navigator.vibrate` for rail fire, dash impact, damage intake, and EMP bursts on supported devices. On iOS Safari (which lacks Vibration API), the EMP blast triggers a high-contrast screen flash.
 * **Ergonomics:** All interactive buttons and joysticks are inset at least 36px from screen margins.
 
-### FR-6: Disconnect, AWAY Bot Takeover & Mid-Match Rejoin (`SCAN TO REJOIN`)
+### FR-6: Disconnect, Real AWAY Handling & Mid-Match Rejoin (`SCAN TO REJOIN`)
 
 * **Input Invalidation:** When a phone stops transmitting packets for 100ms or longer, the host zeroes its inputs (`screen/src/host-loop.ts:189-200`) and flags the player as `AWAY`.
-* **AWAY Bot Takeover:** When a player remains `AWAY` for 3.0s continuously during an active match, a standby Medium difficulty heuristic bot takes over the slot until the player reconnects.
+* **Real AWAY Behavior:** When a player is `AWAY`, their ship sits completely idle with zero velocity and zero auto-fire. No heuristic bot ever takes over a human's ship (avoiding ghost inputs).
 * **State Notification:** The simulation tracks connection states via `setConnectedMask` (`screen/src/host-loop.ts:175-176`).
 * **Downed AWAY Handling:** If a player disconnects while downed, their bleed-out timer is paused.
-* **Rejoin Mechanics:** Reconnecting players use the standard `<MatchRejoinQr/>` displayed on screen. Upon rejoining, the player immediately re-assumes control of their slot from the standby bot with their current position and HP preserved, or respawns at the Core without penalty if dead.
+* **Rejoin Mechanics:** Reconnecting players use the standard `<MatchRejoinQr/>` displayed on screen. Upon rejoining, the player immediately re-assumes control of their slot with their current position and HP preserved, or respawns at the Core without penalty if dead.
 * **Late Stranger Joins:** Unregistered tokens connecting mid-match receive `room:rejected` with reason `MATCH_IN_PROGRESS`.
 
 ### FR-7: Industrial Neo-Brutalist Visuals & Game Feel (Zero Art Assets)

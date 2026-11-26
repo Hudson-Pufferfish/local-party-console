@@ -76,7 +76,7 @@ test('heuristic prioritizes urgent <5.0s human revive over downed bot and joins 
   expect(axisX[1]).toBeGreaterThan(50);
 });
 
-test('AWAY disconnect pauses bleed-out, activates STANDBY_BOT at 3.0s, and hands control back on reconnect', () => {
+test('AWAY disconnect leaves player idle with standbyBotLevel=0, and reconnect preserves position', () => {
   const sim = createCyberCitadelSimulation();
   sim.startMatch([0, 1], 707);
   sim.jumpToWave(1);
@@ -86,14 +86,12 @@ test('AWAY disconnect pauses bleed-out, activates STANDBY_BOT at 3.0s, and hands
   const b0 = playerBase(0);
   expect(standbyBotLevel(sim.state, 0)).toBe(0);
 
-  // Disconnect P0 while ACTIVE: after 2.0s still no standby bot; after 3.1s standby bot engages at level 40
+  // Disconnect P0: real AWAY, never taken over by bot
   sim.setConnectedMask(0b10);
-  for (let i = 0; i < 240; i += 1) sim.step(C.dt);
+  for (let i = 0; i < 380; i += 1) sim.step(C.dt);
   expect(standbyBotLevel(sim.state, 0)).toBe(0);
-  for (let i = 0; i < 140; i += 1) sim.step(C.dt);
-  expect(standbyBotLevel(sim.state, 0)).toBe(C.standbyBotLevel);
 
-  // Reconnect P0: immediate handback to human (standbyBotLevel -> 0)
+  // Reconnect P0: remains 0
   sim.setConnectedMask(0b11);
   expect(standbyBotLevel(sim.state, 0)).toBe(0);
 

@@ -71,10 +71,9 @@ export function levelsForMask(
   return out;
 }
 
-export function standbyBotLevel(state: Float32Array, slot: number): number {
-  if (slot !== (slot | 0) || slot < 0 || slot >= SLOTS) return 0;
-  const flags = state[playerBase(slot) + CYBER_PLAYER_OFFSET.flags] ?? 0;
-  return (flags & CYBER_FLAG.STANDBY_BOT) !== 0 ? C.standbyBotLevel : 0;
+export function standbyBotLevel(_state: Float32Array, _slot: number): number {
+  // Real AWAY: disconnected humans are never taken over by heuristic bots
+  return 0;
 }
 
 function clampLevel(level: number): number {

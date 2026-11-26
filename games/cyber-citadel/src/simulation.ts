@@ -79,19 +79,8 @@ function processStage1Inputs(w: CyberWorld, dt: number): void {
     const base = playerBase(s);
     let flags = state[base + CYBER_PLAYER_OFFSET.flags]!;
 
-    // Track 3.0s continuous AWAY disconnect timer -> STANDBY_BOT takeover (FR-6)
-    const isHumanSlot = (flags & CYBER_FLAG.IS_BOT) === 0;
-    const isDisconnected = (flags & CYBER_FLAG.DISCONNECTED) !== 0;
-    if (isHumanSlot && isDisconnected) {
-      const nextDisc = w.pDisconnectTimer[s]! + dt;
-      w.pDisconnectTimer[s] = nextDisc;
-      if (nextDisc >= C.awayTakeoverSec && (flags & CYBER_FLAG.STANDBY_BOT) === 0) {
-        flags |= CYBER_FLAG.STANDBY_BOT;
-        state[base + CYBER_PLAYER_OFFSET.flags] = flags;
-      }
-    } else {
-      w.pDisconnectTimer[s] = 0;
-    }
+    // While disconnected (AWAY), ship sits idle with zero inputs; never taken over by a standby bot
+    w.pDisconnectTimer[s] = 0;
 
     // Decrement cooldowns strictly >= 0 (INV-4)
     const nextRail = state[base + CYBER_PLAYER_OFFSET.railCooldown]! - dt;

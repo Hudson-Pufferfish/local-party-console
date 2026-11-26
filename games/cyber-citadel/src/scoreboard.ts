@@ -52,25 +52,28 @@ export function shortTag(name: string, slot: number): string {
 export function scoreboardHeader(state: Float32Array): string {
   const phase = state[CYBER_HEADER.phaseEnum] ?? 0;
   const wave = Math.max(1, Math.min(C.totalWaves, Math.trunc(state[CYBER_HEADER.wave] ?? 1)));
-  const coreHp = state[CYBER_HEADER.coreHp] ?? 0;
+  const coreHp = Math.max(0, Math.min(C.coreMaxHp, state[CYBER_HEADER.coreHp] ?? 0));
+  const corePct = Math.round((coreHp / C.coreMaxHp) * 100);
 
   if (phase === CYBER_PHASE.MATCH_OVER) {
     return coreHp > 0 && wave >= C.totalWaves ? 'CITADEL HOLDS' : 'CORE LOST';
   }
-  return `WAVE ${wave}/${C.totalWaves}`;
+  return `WAVE ${wave}/${C.totalWaves} • CORE: ${corePct}%`;
 }
 
 export function scoreRules(_state: Float32Array): ScoreRules {
   return {
     guide: [
-      'PROTECT THE CORE ACROSS 8 WAVES',
-      'STAY CLOSE TO REVIVE OR CHARGE EMP',
+      '• SHIP AUTO-FIRES AT NEAREST ENEMY IN CONE',
+      '• PREVENT SWARMS & BRUTES FROM REACHING CENTER CORE',
+      '• IF CENTER CORE HP REACHES 0, SQUAD LOSES',
+      '• GATHER SQUAD IN BLUE RING TO BLAST SUPER BOMB',
     ],
     rows: [
-      { label: 'A', value: 'RAIL' },
-      { label: 'B', value: 'DASH' },
-      { label: 'X', value: 'SHIELD' },
-      { label: 'Y', value: 'REVIVE / EMP' },
+      { label: 'A', value: 'PIERCE LASER (HITS ENTIRE ROW)' },
+      { label: 'B', value: 'QUICK DASH (SPEED ESCAPE & FLANK)' },
+      { label: 'X', value: 'WALL BARRIER (BLOCKS ENEMIES FOR 8s)' },
+      { label: 'Y', value: 'REVIVE DOWNED ALLY / AT CORE=BOMB' },
     ],
   };
 }

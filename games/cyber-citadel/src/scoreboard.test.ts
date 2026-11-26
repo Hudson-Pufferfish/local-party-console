@@ -28,7 +28,7 @@ function makeState(): Float32Array {
 
 test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD accurately', () => {
   const s = makeState();
-  expect(scoreboardHeader(s)).toBe('WAVE 3/8');
+  expect(scoreboardHeader(s)).toBe('WAVE 3/8 • CORE: 80%');
 
   const rows = scoreboardRows(
     s,
@@ -56,10 +56,10 @@ test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD acc
   const rules = scoreRules(s);
   expect(rules?.guide).toBeDefined();
   expect(rules?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
-    'A: RAIL',
-    'B: DASH',
-    'X: SHIELD',
-    'Y: REVIVE / EMP',
+    'A: PIERCE LASER (HITS ENTIRE ROW)',
+    'B: QUICK DASH (SPEED ESCAPE & FLANK)',
+    'X: WALL BARRIER (BLOCKS ENEMIES FOR 8s)',
+    'Y: REVIVE DOWNED ALLY / AT CORE=BOMB',
   ]);
 
   // Match over victory vs defeat headers
