@@ -32,7 +32,7 @@ export interface ScoreRules {
 
 export interface ScreenGameRuntime {
   createSim(): ScreenSim;
-  eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array) => Envelope[];
+  eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array, matchTarget?: number) => Envelope[];
   createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array, readAux?: () => Uint8Array | null) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;

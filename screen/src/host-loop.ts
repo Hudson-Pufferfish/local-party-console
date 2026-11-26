@@ -17,6 +17,7 @@ export interface ScreenSim {
   step(dt: number): void;
   startMatch(slots: number[]): void;
   setConnectedMask?(mask: number): void;
+  getMatchTarget?(): number;
 }
 
 export interface HostLoop {
@@ -42,7 +43,7 @@ export function seqAccepted(last: number | null, seq: number): boolean {
 
 export function createHostLoop(
   sim: ScreenSim,
-  eventsFromHeaderDiff: ((prev: Float32Array, next: Float32Array) => Envelope[]) | undefined,
+  eventsFromHeaderDiff: ((prev: Float32Array, next: Float32Array, matchTarget?: number) => Envelope[]) | undefined,
   emit: (events: readonly Envelope[]) => void,
   fillBot?: (slot: number, sim: ScreenSim) => boolean,
 ): HostLoop {
@@ -217,7 +218,7 @@ export function createHostLoop(
       copySnapshot();
       if (eventsFromHeaderDiff !== undefined) {
         for (let index = 0; index < SNAPSHOT_FLOATS; index += 1) next[index] = snapshot[index] ?? 0;
-        const events = eventsFromHeaderDiff(prev, next);
+        const events = eventsFromHeaderDiff(prev, next, sim.getMatchTarget?.());
         if (events.length > 0) emit(events);
         for (let index = 0; index < SNAPSHOT_FLOATS; index += 1) prev[index] = next[index] ?? 0;
       }

@@ -25,7 +25,11 @@ const SCORE = 9;
 const SLOTS = 8;
 const SCORE_THROTTLE_TICKS = 30; // 120Hz / 30 = 4Hz max
 
-export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): Envelope[] {
+export function eventsFromHeaderDiff(
+  prev: Float32Array,
+  next: Float32Array,
+  matchTarget?: number,
+): Envelope[] {
   const events: Envelope[] = [];
   const prevTick = prev[TICK] ?? 0;
   const nextTick = next[TICK] ?? 0;
@@ -93,7 +97,7 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
     events.push(envelope('color:round_end', {
       winnerIndex: Math.trunc(next[WINNER] ?? -1),
       scores: scoreList(next),
-      matchOver: hasUniqueWinner(next),
+      matchOver: hasUniqueWinner(next, matchTarget),
       overtime: prevPhase === PHASE_OVERTIME,
     }));
   }

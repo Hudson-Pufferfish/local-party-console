@@ -45,6 +45,7 @@ export interface ColorClashSimulation {
   applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void;
   step(dt: number): void;
   startMatch(slots: number[]): void;
+  getMatchTarget(): number;
 }
 
 function createChannel(): Channel {
@@ -688,5 +689,5 @@ export function createColorClashSimulation(): ColorClashSimulation {
     }
   }
 
-  return { state, auxState, applyInput, step, startMatch };
+  return { state, auxState, applyInput, step, startMatch, getMatchTarget: () => matchTarget };
 }
