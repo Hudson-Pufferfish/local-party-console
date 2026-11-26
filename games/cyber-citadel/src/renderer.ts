@@ -27,8 +27,9 @@ export const CYBER_PALETTE = {
   coreHealthy: 0x00c853,
   coreWarn: 0xff4d00,
   coreCritical: 0xe10600,
-  empRing: 0x2979ff,
-  empFill: 0x00b7c2,
+  empRing: 0x536dfe, // Electric Indigo/Cobalt - high contrast against #2979ff (P3) and #f4f1ea backdrop
+  empFill: 0xffffff, // Pure Arc Lightning White - flashes stunned enemies without clashing with #00B7C2 (P6)
+  empArcGlow: 0x7c4dff, // Vivid Deep Violet charging progression arc
   barricadeFill: 0x2a2a2a,
   barricadeWarn: 0xff4d00,
   droneBody: 0x2d2d2d,
@@ -184,7 +185,7 @@ export function createCyberCitadelRenderer(
       g.strokePath();
     }
     if (empCharge > 0) {
-      g.lineStyle(5, CYBER_PALETTE.empFill, 0.95);
+      g.lineStyle(5, CYBER_PALETTE.empArcGlow, 0.95);
       g.beginPath();
       g.arc(
         centerX,
@@ -488,7 +489,7 @@ export function createCyberCitadelRenderer(
 
       // EMP joined halo
       if (empJoined) {
-        g.lineStyle(3, CYBER_PALETTE.empFill, 1);
+        g.lineStyle(3, CYBER_PALETTE.empArcGlow, 1);
         g.strokeCircle(sx, sy, pRadiusPx + 6);
       }
 
