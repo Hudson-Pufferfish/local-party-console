@@ -281,3 +281,41 @@ it('createBotFill forwards sim.auxState to writeBotInput', () => {
   expect(seenAux).toBe(auxState);
   expect(appliedX).toBe(64);
 });
+
+it('createBotFill supports opt-in standbyLevelFor takeover and stops immediately when returning 0', () => {
+  let seenLevel: number | undefined;
+  let appliedX = 0;
+  let standbyLevel = 0;
+
+  const fill = createBotFill(
+    (_state, slot, axisX, _axisY, _buttons, level) => {
+      seenLevel = level;
+      axisX[slot] = 90;
+    },
+    undefined,
+    (_state, slot) => (slot === 0 ? standbyLevel : 0),
+  );
+  // Slot 0 is a human slot (botMask[0] === 0)
+  fill.arm(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]));
+  const sim = {
+    state: new Float32Array(88),
+    applyInput(_slot: number, _buttons: number, x: number) {
+      appliedX = x;
+    },
+  };
+
+  expect(fill.fill(0, sim)).toBe(false);
+  expect(appliedX).toBe(0);
+
+  // AWAY takeover engages at Medium level 40
+  standbyLevel = 40;
+  expect(fill.fill(0, sim)).toBe(true);
+  expect(seenLevel).toBe(40);
+  expect(appliedX).toBe(90);
+
+  // Human reconnects -> standbyLevel returns 0 -> handback immediate
+  standbyLevel = 0;
+  appliedX = 0;
+  expect(fill.fill(0, sim)).toBe(false);
+  expect(appliedX).toBe(0);
+});

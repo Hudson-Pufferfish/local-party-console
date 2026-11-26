@@ -1,10 +1,11 @@
 import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
 import { COLOR_CLASH_MANIFEST } from '../../games/color-clash/src/manifest.ts';
+import { CYBER_CITADEL_MANIFEST } from '../../games/cyber-citadel/src/manifest.ts';
 import { LAST_LIGHT_MANIFEST } from '../../games/last-light/src/manifest.ts';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
-import type { BotLevels, WriteBotInput } from './bot-fill.ts';
+import type { BotLevels, StandbyBotLevel, WriteBotInput } from './bot-fill.ts';
 import type { ScreenSim } from './host-loop.ts';
 
 export interface ArenaRenderer {
@@ -60,9 +61,11 @@ export interface ScreenGameRuntime {
   createSim(): ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array, matchTarget?: number) => Envelope[];
   rehydrateEvent?: (state: Float32Array) => Envelope | null;
+  rehydrateEvents?: (state: Float32Array, slot: number) => Envelope[];
   createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array, readAux?: () => Uint8Array | null) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
+  standbyBotLevel?: StandbyBotLevel;
   scoreboardHeader?: (state: Float32Array) => string;
   scoreboardRows?: (
     state: Float32Array,
@@ -215,6 +218,13 @@ export const screenGames = createScreenGameLoader([
     load: async () => {
       const mod = await import('../../games/last-light/src/screen-runtime.ts');
       return mod.createLastLightScreenRuntime();
+    },
+  },
+  {
+    manifest: CYBER_CITADEL_MANIFEST,
+    load: async () => {
+      const mod = await import('../../games/cyber-citadel/src/screen-runtime.ts');
+      return mod.createCyberCitadelScreenRuntime();
     },
   },
 ]);

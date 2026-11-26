@@ -1,0 +1,3 @@
+.match[data-game="cyber-citadel"] canvas {
+  background: var(--bg-surface, #f4f1ea);
+}

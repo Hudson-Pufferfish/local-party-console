@@ -1,0 +1,135 @@
+import { expect, test } from 'vitest';
+import { hitsBruteFrontalShield } from './brute.ts';
+import {
+  BOSS_WEAK_FLAG,
+  BUTTON_BIT,
+  CYBER_CITADEL_CONSTANTS as C,
+  CYBER_HEADER,
+  CYBER_PHASE,
+  CYBER_PLAYER_OFFSET,
+  ENEMY_STATE_FLAG,
+  ENEMY_TYPE,
+} from './constants.ts';
+import { createCyberCitadelSimulation } from './simulation.ts';
+import { createAuxView, playerBase, readEnemy, readMetaTrailer } from './state.ts';
+
+test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
+  // Pure arc math: brute at (0, 0) facing +X (heading 0)
+  const rad59 = (59 * Math.PI) / 180;
+  const rad61 = (61 * Math.PI) / 180;
+  expect(hitsBruteFrontalShield(0, 0, 0, true, 0, Math.cos(rad59) * 100, Math.sin(rad59) * 100)).toBe(true);
+  expect(hitsBruteFrontalShield(0, 0, 0, true, 0, Math.cos(-rad59) * 100, Math.sin(-rad59) * 100)).toBe(true);
+  expect(hitsBruteFrontalShield(0, 0, 0, true, 0, Math.cos(rad61) * 100, Math.sin(rad61) * 100)).toBe(false);
+  expect(hitsBruteFrontalShield(0, 0, 0, true, 0, Math.cos(-rad61) * 100, Math.sin(-rad61) * 100)).toBe(false);
+  // While spinning (spinTimer > 0), frontal shield is bypassed
+  expect(hitsBruteFrontalShield(0, 0, 0, true, 0.5, 100, 0)).toBe(false);
+
+  // Simulation test: auto-fire deflected from front, RAIL pierces and breaks shield, DASH spins for 1.0s without stacking
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 42);
+  sim.jumpToWave(3);
+  const view = createAuxView(sim.auxState);
+
+  // Place P0 at (140, 0) facing +X toward Brute at (240, 0) facing -X (heading PI, shield pointing directly at P0)
+  const b0 = playerBase(0);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 140;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+  const bruteId = sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 240, 0, Math.PI, 300);
+
+  // Run 30 ticks of auto-fire (more than 0.2s cadence): frontal shield must deflect -> full hpPct 255
+  for (let i = 0; i < 30; i += 1) sim.step(C.dt);
+  expect(readEnemy(view, bruteId).hpPct).toBe(255);
+
+  // P0 fires RAIL (bit 0): pierces frontal shield, deals damage, drops SHIELD_UP
+  sim.applyInput(0, BUTTON_BIT.RAIL, 0, 0);
+  sim.step(C.dt);
+  sim.applyInput(0, 0, 0, 0);
+  const afterRail = readEnemy(view, bruteId);
+  expect(afterRail.hpPct).toBeLessThan(255);
+  expect(afterRail.stateFlags & ENEMY_STATE_FLAG.SHIELD_UP).toBe(0);
+
+  // Second Brute for DASH spin test (non-stacking 1.0s spin)
+  const brute2 = sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, -200, 0, 0, 300);
+  const b1 = playerBase(1);
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = -150;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = Math.PI;
+  sim.applyInput(1, BUTTON_BIT.DASH, -127, 0);
+  for (let i = 0; i < 15; i += 1) {
+    sim.step(C.dt);
+    sim.applyInput(1, 0, -127, 0);
+  }
+  expect(readEnemy(view, brute2).stateFlags & ENEMY_STATE_FLAG.SPUN).not.toBe(0);
+  // After 0.6s still spun; after 1.1s spin has ended (proving 1.0s duration, not stacked)
+  for (let i = 0; i < 65; i += 1) sim.step(C.dt);
+  expect(readEnemy(view, brute2).stateFlags & ENEMY_STATE_FLAG.SPUN).not.toBe(0);
+  for (let i = 0; i < 70; i += 1) sim.step(C.dt);
+  expect(readEnemy(view, brute2).stateFlags & ENEMY_STATE_FLAG.SPUN).toBe(0);
+});
+
+test('Wave 8 Dreadnought transitions phases at 66% and 33%, exposes weak points on opposite dual-dash within 1.0s, and triggers win on defeat', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 777);
+  sim.jumpToWave(8);
+  const view = createAuxView(sim.auxState);
+
+  // Advance past 2.0s telegraph so Dreadnought spawns
+  for (let i = 0; i < 250; i += 1) sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(1);
+
+  // Find boss entity
+  let bossIdx = -1;
+  for (let i = 0; i < 160; i += 1) {
+    const e = readEnemy(view, i);
+    if (e.hpPct > 0 && e.type === ENEMY_TYPE.BOSS) {
+      bossIdx = i;
+      break;
+    }
+  }
+  expect(bossIdx).toBeGreaterThanOrEqual(0);
+  const boss0 = readEnemy(view, bossIdx);
+
+  // Single dash alone from P0 on left side sets flank hit bit, not vulnerable
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = boss0.x - 68;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = boss0.y;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+  sim.applyInput(0, BUTTON_BIT.DASH, 127, 0);
+  for (let i = 0; i < 10; i += 1) {
+    sim.step(C.dt);
+    sim.applyInput(0, 0, 127, 0);
+  }
+  const metaOneDash = readMetaTrailer(view);
+  expect(metaOneDash.bossWeakPointMask & BOSS_WEAK_FLAG.FLANK_A_HIT).not.toBe(0);
+  expect(metaOneDash.bossWeakPointMask & BOSS_WEAK_FLAG.VULNERABLE).toBe(0);
+
+  // Second dash by P1 from opposite flank within 1.0s exposes weak point (VULNERABLE)
+  const bossNow = readEnemy(view, bossIdx);
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = bossNow.x + 68;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = bossNow.y;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = Math.PI;
+  sim.applyInput(1, BUTTON_BIT.DASH, -127, 0);
+  for (let i = 0; i < 10; i += 1) {
+    sim.step(C.dt);
+    sim.applyInput(1, 0, -127, 0);
+  }
+  const metaDualDash = readMetaTrailer(view);
+  expect(metaDualDash.bossWeakPointMask & BOSS_WEAK_FLAG.VULNERABLE).not.toBe(0);
+
+  // Damage boss down past 66% -> Phase 2 (spawns carrier) and 33% -> Phase 3 (enraged)
+  sim.damageEnemyForTest(bossIdx, C.bossBaseHp * 0.55);
+  sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(2);
+
+  sim.damageEnemyForTest(bossIdx, C.bossBaseHp * 0.55);
+  sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(3);
+
+  // Defeat boss and clear remaining wave enemies -> MATCH_OVER victory
+  sim.clearAllEnemiesForTest();
+  sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.MATCH_OVER);
+  expect(sim.getMatchWon()).toBe(true);
+});

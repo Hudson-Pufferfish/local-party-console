@@ -120,6 +120,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const levels = activeRuntime?.botLevels;
     if (levels === undefined) return new Uint8Array(8);
     return levels(mask, difficulty);
+  }, (state, slot) => {
+    const standby = activeRuntime?.standbyBotLevel;
+    if (standby === undefined) return 0;
+    return standby(state, slot);
   });
   let primary = false;
   let socket: WebSocket | null = null;
@@ -401,13 +405,19 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         reconnected = true;
         loop?.clearSeq(slot);
         if (primary && lanIp !== '') void peers.offer(slot, lanIp);
+        if (primary && loop !== null && loop.inMatch) {
+          const rehydrate = activeRuntime?.rehydrateEvents?.(loop.state, slot);
+          if (rehydrate !== undefined) {
+            for (const event of rehydrate) send(event);
+          }
+        }
       }
     }
     players = next;
     pushConnectedMask();
     if (reconnected && primary && loop !== null && loop.inMatch) {
-      const rehydrate = currentRuntime()?.rehydrateEvent?.(loop.state);
-      if (rehydrate !== null && rehydrate !== undefined) send(rehydrate);
+      const single = (activeRuntime ?? currentRuntime())?.rehydrateEvent?.(loop.state);
+      if (single !== null && single !== undefined) send(single);
     }
     handlers.setPlayers(next);
     if (matchCanvas !== null) publishScores();
@@ -558,8 +568,12 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
           if (loop === null) return;
           botNames = roster.botNames.slice();
           activeBotMask.set(roster.botMask);
-          bots.arm(roster.botMask, botLobby.difficulty);
-          loop.startMatch(roster.slots);
+          const activeLevels = activeRuntime?.botLevels?.(roster.botMask, botLobby.difficulty);
+          bots.arm(roster.botMask, botLobby.difficulty, activeLevels);
+          loop.startMatch(roster.slots, {
+            botMask: roster.botMask,
+            botLevels: bots.getLevels(),
+          });
           pushConnectedMask();
           handlers.setMatch(true);
           handlers.setMatchOver(false);
@@ -582,8 +596,12 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       roundModel.reset();
       botNames = roster.botNames.slice();
       activeBotMask.set(roster.botMask);
-      bots.arm(roster.botMask, botLobby.difficulty);
-      loop.startMatch(roster.slots);
+      const rematchLevels = activeRuntime?.botLevels?.(roster.botMask, botLobby.difficulty);
+      bots.arm(roster.botMask, botLobby.difficulty, rematchLevels);
+      loop.startMatch(roster.slots, {
+        botMask: roster.botMask,
+        botLevels: bots.getLevels(),
+      });
       pushConnectedMask();
       handlers.setMatch(true);
       handlers.setMatchOver(false);

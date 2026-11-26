@@ -42,6 +42,7 @@ import { QuitButton, canQuitController, isOrientationLocked } from './quit-butto
 import {
   controllerSupportedOrientations,
   controllerView,
+  loadControllerView,
   localTheme,
   type ControllerControl,
   type ControllerViewProps,
@@ -154,10 +155,12 @@ export const App: VoidComponent = () => {
   const [theme, setTheme] = createSignal<ThemeVars>({});
   const [control, setControl] = createSignal<ControllerControl | null>(null);
   const [padState, setPadState] = createSignal<PadStatePayload | null>(null);
+  const [loadedView, setLoadedView] = createSignal<VoidComponent<ControllerViewProps> | null>(null);
   let link: PhoneLink | undefined;
   let knownSlot = -1;
   let joinPending = false;
   let joinTimer = 0;
+  let viewLoadNonce = 0;
 
   createEffect(
     () => undefined,
@@ -351,11 +354,37 @@ export const App: VoidComponent = () => {
     },
   );
 
+  createEffect(
+    () => ({ isJoined: joined(), id: gameId() }),
+    ({ isJoined, id }) => {
+      viewLoadNonce += 1;
+      const nonce = viewLoadNonce;
+      if (!isJoined || id === '') {
+        setLoadedView(() => null);
+        return;
+      }
+      const cached = controllerView(id);
+      if (cached !== null) {
+        setLoadedView(() => cached);
+        return;
+      }
+      setLoadedView(() => null);
+      void loadControllerView(id).then(
+        (View) => {
+          if (nonce !== viewLoadNonce || !joined() || gameId() !== id) return;
+          setLoadedView(() => View);
+        },
+        () => {
+          if (nonce !== viewLoadNonce) return;
+          setNotice('COULD NOT LOAD CONTROLLER — RETRY');
+        },
+      );
+    },
+  );
+
   const view = (): VoidComponent<ControllerViewProps> | null => {
-    if (!joined()) return null;
-    const id = gameId();
-    if (id === '') return null;
-    return controllerView(id);
+    if (!joined() || gameId() === '') return null;
+    return loadedView();
   };
 
   const supportedOrientations = () => {

@@ -160,12 +160,18 @@ export type WriteBotInput = (
 
 export type BotLevels = (mask: Uint8Array, difficulty?: BotDifficulty) => Uint8Array;
 
+export type StandbyBotLevel = (state: Float32Array, slot: number) => number;
+
 export interface BotFill {
   arm(mask: Uint8Array, difficulty?: BotDifficulty): void;
   fill(slot: number, sim: BotFillSim): boolean;
 }
 
-export function createBotFill(write: WriteBotInput, levelsFor?: BotLevels): BotFill {
+export function createBotFill(
+  write: WriteBotInput,
+  levelsFor?: BotLevels,
+  standbyLevelFor?: StandbyBotLevel,
+): BotFill {
   const axisX = new Int8Array(MASK_LEN);
   const axisY = new Int8Array(MASK_LEN);
   const buttons = new Uint8Array(MASK_LEN);
@@ -182,9 +188,15 @@ export function createBotFill(write: WriteBotInput, levelsFor?: BotLevels): BotF
       }
     },
     fill(slot: number, sim: BotFillSim): boolean {
-      if (botMask[slot] !== 1) return false;
-      const stored = levelBySlot[slot] ?? 0;
-      const level = stored === 0 ? undefined : stored;
+      let level: number | undefined;
+      if (botMask[slot] === 1) {
+        const stored = levelBySlot[slot] ?? 0;
+        level = stored === 0 ? undefined : stored;
+      } else {
+        const standby = standbyLevelFor?.(sim.state, slot) ?? 0;
+        if (standby <= 0) return false;
+        level = standby;
+      }
       if ((sim.state[0] & 1) === 0) {
         write(sim.state, slot, axisX, axisY, buttons, level, sim.auxState);
       }
