@@ -1,0 +1,3 @@
+.match[data-game="last-light"] canvas {
+  background: var(--bg-surface, #f4f1ea);
+}

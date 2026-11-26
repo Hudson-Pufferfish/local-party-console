@@ -1,0 +1,20 @@
+{
+  "name": "@games/last-light",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@solidjs/vite-plugin": "3.0.1",
+    "@types/node": "22.20.5",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1"
+  },
+  "dependencies": {
+    "@solidjs/web": "2.0.3",
+    "phaser": "4.2.1",
+    "solid-js": "2.0.3"
+  }
+}

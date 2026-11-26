@@ -10,12 +10,13 @@ import {
 
 describe('game-control message helpers', () => {
   test('ALLOWED_GAME_PREFIXES contains message prefixes for games and pad', () => {
-    expect(ALLOWED_GAME_PREFIXES).toEqual(['sumo', 'bomb', 'color', 'cyber', 'pad']);
+    expect(ALLOWED_GAME_PREFIXES).toEqual(['sumo', 'bomb', 'color', 'cyber', 'pad', 'light']);
     expect(isGameControlPrefix('sumo')).toBe(true);
     expect(isGameControlPrefix('bomb')).toBe(true);
     expect(isGameControlPrefix('color')).toBe(true);
     expect(isGameControlPrefix('cyber')).toBe(true);
     expect(isGameControlPrefix('pad')).toBe(true);
+    expect(isGameControlPrefix('light')).toBe(true);
     expect(isGameControlPrefix('phone')).toBe(false);
     expect(isGameControlPrefix('room')).toBe(false);
   });
@@ -26,6 +27,7 @@ describe('game-control message helpers', () => {
     expect(isGameControlMessageType('color:boost')).toBe(true);
     expect(isGameControlMessageType('cyber:wave_start')).toBe(true);
     expect(isGameControlMessageType('pad:state')).toBe(true);
+    expect(isGameControlMessageType('light:lock')).toBe(true);
 
     // Non-game control messages
     expect(isGameControlMessageType('phone:tier')).toBe(false);

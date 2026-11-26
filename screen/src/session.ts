@@ -389,6 +389,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       if (player.index < 0 || player.index > 7) continue;
       if (player.connected) connected[player.index] = 1;
     }
+    let reconnected = false;
     for (let slot = 0; slot < connected.length; slot += 1) {
       const before = was[slot] === 1;
       const after = connected[slot] === 1;
@@ -397,12 +398,17 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         loop?.clearSeq(slot);
       }
       if (!before && after) {
+        reconnected = true;
         loop?.clearSeq(slot);
         if (primary && lanIp !== '') void peers.offer(slot, lanIp);
       }
     }
     players = next;
     pushConnectedMask();
+    if (reconnected && primary && loop !== null && loop.inMatch) {
+      const rehydrate = currentRuntime()?.rehydrateEvent?.(loop.state);
+      if (rehydrate !== null && rehydrate !== undefined) send(rehydrate);
+    }
     handlers.setPlayers(next);
     if (matchCanvas !== null) publishScores();
   }
