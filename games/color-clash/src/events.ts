@@ -3,10 +3,12 @@ import {
   COLOR_CLASH_CONSTANTS as C,
   FLAG_CONTENDER,
   PHASE_COUNTDOWN,
-  PHASE_FINAL_REVEAL,
+  PHASE_MATCH_OVER,
   PHASE_OVERTIME,
   PHASE_ROUND_ACTIVE,
+  PHASE_ROUND_END,
 } from './constants.ts';
+import { hasUniqueWinner } from './scoreboard.ts';
 
 const TICK = 0;
 const PHASE = 1;
@@ -18,7 +20,7 @@ const STRIDE = 10;
 const BOOST_ACTIVE = 6;
 const PAINT_PCT = 7;
 const FLAGS = 8;
-const PAINT_CELLS = 9;
+const SCORE = 9;
 const SLOTS = 8;
 const SCORE_THROTTLE_TICKS = 30; // 120Hz / 30 = 4Hz max
 
@@ -32,8 +34,12 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
   const opened =
     nextPhase === PHASE_COUNTDOWN && (prevPhase !== PHASE_COUNTDOWN || (prevTick === 0 && nextTick > 0));
   if (opened) {
+    events.push(envelope('color:round_start', {
+      countdownMs: C.countdown * 1000,
+      scores: scoreList(next),
+    }));
     events.push(envelope('color:match_start', {
-      durationMs: C.matchDuration * 1000,
+      durationMs: C.roundDuration * 1000,
       countdownMs: C.countdown * 1000,
     }));
   }
@@ -72,18 +78,26 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
   if ((next[HIT] ?? 0) > (prev[HIT] ?? 0)) {
     const goldenCapture =
       prevPhase === PHASE_OVERTIME
-      && nextPhase === PHASE_FINAL_REVEAL
+      && nextPhase === PHASE_ROUND_END
       && (prev[GOLDEN] ?? -1) >= 0;
     events.push(envelope('color:haptic', {
       intensity: goldenCapture ? 'golden' : 'heavy',
     }));
   }
 
-  if (nextPhase === PHASE_FINAL_REVEAL && prevPhase !== PHASE_FINAL_REVEAL) {
+  if (nextPhase === PHASE_ROUND_END && prevPhase !== PHASE_ROUND_END) {
+    events.push(envelope('color:round_end', {
+      winnerIndex: Math.trunc(next[WINNER] ?? -1),
+      scores: scoreList(next),
+      matchOver: hasUniqueWinner(next),
+      overtime: prevPhase === PHASE_OVERTIME,
+    }));
+  }
+
+  if (nextPhase === PHASE_MATCH_OVER && prevPhase !== PHASE_MATCH_OVER) {
     events.push(envelope('color:match_end', {
       winnerIndex: Math.trunc(next[WINNER] ?? -1),
-      percents: percentList(next),
-      cells: cellList(next),
+      scores: scoreList(next),
       overtime: prevPhase === PHASE_OVERTIME,
     }));
   }
@@ -94,6 +108,7 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
   if (activeScoring && (throttleTick || prevPhase !== nextPhase)) {
     events.push(envelope('color:scores', {
       percents: percentList(next),
+      scores: scoreList(next),
     }));
   }
 
@@ -113,10 +128,10 @@ function percentList(state: Float32Array): number[] {
   return list;
 }
 
-function cellList(state: Float32Array): number[] {
+function scoreList(state: Float32Array): number[] {
   const list: number[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
-    list.push(Math.trunc(state[PLAYER + index * STRIDE + PAINT_CELLS] ?? 0));
+    list.push(Math.trunc(state[PLAYER + index * STRIDE + SCORE] ?? 0));
   }
   return list;
 }

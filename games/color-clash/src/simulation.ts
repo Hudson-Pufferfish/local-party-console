@@ -12,11 +12,13 @@ import {
   FLAG_BOOSTING,
   FLAG_CONTENDER,
   PHASE_COUNTDOWN,
-  PHASE_FINAL_REVEAL,
   PHASE_MATCH_OVER,
   PHASE_OVERTIME,
+  PHASE_PRACTICE,
   PHASE_ROUND_ACTIVE,
+  PHASE_ROUND_END,
 } from './constants';
+import { hasUniqueWinner, isSuddenDeath, maxScoreForState, targetScoreForCount } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
@@ -95,6 +97,7 @@ export function createColorClashSimulation(): ColorClashSimulation {
   };
 
   let joinedCount = 0;
+  let matchTarget = 0;
   cellStampTick.fill(-1);
 
   function writeActiveMask(): void {
@@ -135,22 +138,45 @@ export function createColorClashSimulation(): ColorClashSimulation {
       state[base + 6] = 0;
       state[base + 7] = 0;
       state[base + 8] = FLAG_ACTIVE;
-      state[base + 9] = 0;
+      // Note: state[base + 9] is overall match points, preserved across rounds
     }
+  }
+
+  function resetRoundGridAndCounters(): void {
+    auxState.fill(0);
+    cellCounts.fill(0);
+    prevCounts.fill(0);
+    lastReachedTick.fill(0);
+    cellStampTick.fill(-1);
+    cellStampDistSq.fill(0);
+    cellStampBoost.fill(0);
+    cellStampSlot.fill(0);
+  }
+
+  function beginPractice(lineup: boolean): void {
+    state[PHASE] = PHASE_PRACTICE;
+    state[TIMER] = lineup ? C.practiceInitial : C.practiceBreak;
+    state[ARENA] = C.arenaSize;
+    state[GOLDEN] = -1;
+    resetRoundGridAndCounters();
+    placeSpawn();
+    writeActiveMask();
+  }
+
+  function beginCountdown(): void {
+    state[PHASE] = PHASE_COUNTDOWN;
+    state[TIMER] = C.countdown;
+    state[GOLDEN] = -1;
+    resetRoundGridAndCounters();
+    placeSpawn();
+    writeActiveMask();
   }
 
   function startMatch(slots: number[]): void {
     joinedCount = 0;
     joined.fill(0);
     spawnOrder.fill(-1);
-    cellCounts.fill(0);
-    prevCounts.fill(0);
-    lastReachedTick.fill(0);
-    auxState.fill(0);
-    cellStampTick.fill(-1);
-    cellStampDistSq.fill(0);
-    cellStampBoost.fill(0);
-    cellStampSlot.fill(0);
+    resetRoundGridAndCounters();
 
     for (let index = 0; index < slots.length; index += 1) {
       const slot = slots[index];
@@ -160,6 +186,8 @@ export function createColorClashSimulation(): ColorClashSimulation {
       joinedCount += 1;
     }
 
+    matchTarget = targetScoreForCount(joinedCount);
+
     for (let i = 0; i < C.maxPlayers; i += 1) {
       inputs[i].axisX = 0;
       inputs[i].axisY = 0;
@@ -168,13 +196,8 @@ export function createColorClashSimulation(): ColorClashSimulation {
     }
 
     state.fill(0);
-    state[PHASE] = PHASE_COUNTDOWN;
-    state[TIMER] = C.countdown;
-    state[ARENA] = C.arenaSize;
-    state[GOLDEN] = -1;
     state[WINNER] = -1;
-    placeSpawn();
-    writeActiveMask();
+    beginPractice(true);
   }
 
   function applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void {
@@ -182,7 +205,14 @@ export function createColorClashSimulation(): ColorClashSimulation {
     if (joined[playerIndex] === 0) return;
 
     const phase = state[PHASE];
-    if (phase !== PHASE_COUNTDOWN && phase !== PHASE_ROUND_ACTIVE && phase !== PHASE_OVERTIME) return;
+    if (
+      phase !== PHASE_PRACTICE
+      && phase !== PHASE_COUNTDOWN
+      && phase !== PHASE_ROUND_ACTIVE
+      && phase !== PHASE_OVERTIME
+    ) {
+      return;
+    }
 
     const base = PLAYER + playerIndex * STRIDE;
     if ((state[base + 8] & FLAG_ACTIVE) === 0) return;
@@ -381,7 +411,6 @@ export function createColorClashSimulation(): ColorClashSimulation {
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       const count = cellCounts[i];
-      state[base + 9] = count;
       state[base + 7] = (count * 100) / C.gridCells;
       if (count !== prevCounts[i]) {
         prevCounts[i] = count;
@@ -450,11 +479,46 @@ export function createColorClashSimulation(): ColorClashSimulation {
     state[GOLDEN] = pickGoldenCell(tick);
   }
 
-  function enterFinalReveal(winnerSlot: number): void {
+  function awardRoundPoints(): void {
+    const count = joinedCount;
+    if (count < 2) return;
+    if (isSuddenDeath(state, matchTarget)) {
+      const topScore = maxScoreForState(state);
+      for (let i = 0; i < C.maxPlayers; i += 1) {
+        if (joined[i] === 0) continue;
+        const baseI = PLAYER + i * STRIDE;
+        if (state[baseI + 9] === topScore) {
+          state[baseI + 9] += 1;
+        }
+      }
+      return;
+    }
+
+    for (let i = 0; i < C.maxPlayers; i += 1) {
+      if (joined[i] === 0) continue;
+      const baseI = PLAYER + i * STRIDE;
+      const cellsI = cellCounts[i];
+      let better = 0;
+      for (let j = 0; j < C.maxPlayers; j += 1) {
+        if (joined[j] === 0 || j === i) continue;
+        const cellsJ = cellCounts[j];
+        if (cellsJ > cellsI) {
+          better += 1;
+        }
+      }
+      const points = count - 1 - better;
+      if (points > 0) {
+        state[baseI + 9] += points;
+      }
+    }
+  }
+
+  function enterRoundEnd(winnerSlot: number): void {
     state[WINNER] = winnerSlot;
     state[GOLDEN] = -1;
-    state[PHASE] = PHASE_FINAL_REVEAL;
-    state[TIMER] = C.finalReveal;
+    awardRoundPoints();
+    state[PHASE] = PHASE_ROUND_END;
+    state[TIMER] = C.roundEnd;
     for (let i = 0; i < C.maxPlayers; i += 1) {
       const base = PLAYER + i * STRIDE;
       state[base + 2] = 0;
@@ -493,21 +557,35 @@ export function createColorClashSimulation(): ColorClashSimulation {
     }
 
     const phase = state[PHASE];
-    if (phase === PHASE_COUNTDOWN) {
+    if (phase === PHASE_PRACTICE) {
+      simulateMotion(dt);
       state[TIMER] -= dt;
       if (state[TIMER] <= 0) {
-        state[PHASE] = PHASE_ROUND_ACTIVE;
-        state[TIMER] = C.matchDuration;
+        beginCountdown();
       }
       writeActiveMask();
       return;
     }
 
-    if (phase === PHASE_FINAL_REVEAL) {
+    if (phase === PHASE_COUNTDOWN) {
       state[TIMER] -= dt;
       if (state[TIMER] <= 0) {
-        state[PHASE] = PHASE_MATCH_OVER;
-        state[TIMER] = 0;
+        state[PHASE] = PHASE_ROUND_ACTIVE;
+        state[TIMER] = C.roundDuration;
+      }
+      writeActiveMask();
+      return;
+    }
+
+    if (phase === PHASE_ROUND_END) {
+      state[TIMER] -= dt;
+      if (state[TIMER] <= 0) {
+        if (hasUniqueWinner(state, matchTarget)) {
+          state[PHASE] = PHASE_MATCH_OVER;
+          state[TIMER] = 0;
+        } else {
+          beginPractice(false);
+        }
       }
       writeActiveMask();
       return;
@@ -539,7 +617,7 @@ export function createColorClashSimulation(): ColorClashSimulation {
           }
         }
         if (leaderCount === 1 && leaderSlot >= 0) {
-          enterFinalReveal(leaderSlot);
+          enterRoundEnd(leaderSlot);
         } else {
           enterOvertime(maxCells < 0 ? 0 : maxCells, tick);
         }
@@ -555,14 +633,14 @@ export function createColorClashSimulation(): ColorClashSimulation {
       if (golden >= 0 && golden < C.gridCells && cellStampTick[golden] === tick) {
         const winner = cellStampSlot[golden];
         state[HIT] = C.hitStopFrames;
-        enterFinalReveal(winner);
+        enterRoundEnd(winner);
         writeActiveMask();
         return;
       }
       state[TIMER] -= dt;
       if (state[TIMER] <= 0) {
         state[TIMER] = 0;
-        enterFinalReveal(resolveOvertimeTimeout());
+        enterRoundEnd(resolveOvertimeTimeout());
       }
       writeActiveMask();
     }

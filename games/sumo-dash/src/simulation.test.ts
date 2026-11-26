@@ -619,13 +619,13 @@ test('a pack that stays inside still ends the round and scores', () => {
   expect(line.includes(' 2')).toBe(true);
 });
 
-test('practice countdown lasts 20 seconds before entering 3-2-1 countdown', () => {
+test('practice countdown lasts 30 seconds initially and 20s on mid-match break before entering 3-2-1 countdown', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
   expect(sim.state[PHASE]).toBe(4);
-  expect(sim.state[2]).toBeCloseTo(20, 5);
+  expect(sim.state[2]).toBeCloseTo(30, 5);
 
-  for (let tick = 0; tick < 20 * 120 - 2; tick += 1) {
+  for (let tick = 0; tick < 30 * 120 - 2; tick += 1) {
     sim.step(DT);
   }
   expect(sim.state[PHASE]).toBe(4);

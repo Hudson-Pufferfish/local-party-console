@@ -1,8 +1,9 @@
 export const PHASE_COUNTDOWN = 0;
 export const PHASE_ROUND_ACTIVE = 1;
-export const PHASE_FINAL_REVEAL = 2;
+export const PHASE_ROUND_END = 2;
 export const PHASE_MATCH_OVER = 3;
-export const PHASE_OVERTIME = 4;
+export const PHASE_PRACTICE = 4;
+export const PHASE_OVERTIME = 5;
 
 export const FLAG_ACTIVE = 1;
 export const FLAG_BOOSTING = 2;
@@ -39,8 +40,13 @@ export const COLOR_CLASH_CONSTANTS = {
   boostSteer: 0.85,
   paintRadius: 24,
   boostPaintRadius: 54,
+  minTargetScore: 3,
+  targetMultiplier: 3,
+  practiceInitial: 30.0,
+  practiceBreak: 20.0,
   countdown: 3.0,
-  matchDuration: 45.0,
+  roundDuration: 45.0,
+  roundEnd: 0.8,
   overtimeDuration: 30.0,
   finalReveal: 3.0,
   goldenMargin: 6,
