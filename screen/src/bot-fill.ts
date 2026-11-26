@@ -163,8 +163,9 @@ export type BotLevels = (mask: Uint8Array, difficulty?: BotDifficulty) => Uint8A
 export type StandbyBotLevel = (state: Float32Array, slot: number) => number;
 
 export interface BotFill {
-  arm(mask: Uint8Array, difficulty?: BotDifficulty): void;
+  arm(mask: Uint8Array, difficulty?: BotDifficulty, levels?: Uint8Array): void;
   fill(slot: number, sim: BotFillSim): boolean;
+  getLevels(): Uint8Array;
 }
 
 export function createBotFill(
@@ -178,14 +179,17 @@ export function createBotFill(
   const botMask = new Uint8Array(MASK_LEN);
   const levelBySlot = new Uint8Array(MASK_LEN);
   return {
-    arm(mask: Uint8Array, difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY): void {
+    arm(mask: Uint8Array, difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY, levels?: Uint8Array): void {
       for (let index = 0; index < MASK_LEN; index += 1) {
         botMask[index] = mask[index] ?? 0;
       }
-      const levels = levelsFor?.(botMask, difficulty);
+      const assigned = levels ?? levelsFor?.(botMask, difficulty);
       for (let index = 0; index < MASK_LEN; index += 1) {
-        levelBySlot[index] = levels?.[index] ?? 0;
+        levelBySlot[index] = assigned?.[index] ?? 0;
       }
+    },
+    getLevels(): Uint8Array {
+      return levelBySlot.slice();
     },
     fill(slot: number, sim: BotFillSim): boolean {
       let level: number | undefined;

@@ -99,7 +99,11 @@ export function createHostLoop(
       joined[slot] = 1;
       list.push(slot);
     }
-    sim.startMatch(list, roster);
+    if (roster !== undefined) {
+      sim.startMatch(list, roster);
+    } else {
+      sim.startMatch(list);
+    }
     epoch += 1;
     inMatch = true;
     accumulator = 0;

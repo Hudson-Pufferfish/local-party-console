@@ -122,7 +122,7 @@ export function tickEmpSystem(w: CyberWorld, dt: number): void {
           w.ePendingDamage[i] = w.ePendingDamage[i]! + C.empDroneDamage * 0.5;
           w.squadDamageDealt += C.empDroneDamage * 0.5;
           w.eStunTimer[i] = C.empBruteStunSec;
-          w.eShieldBreakTimer[i] = C.bruteShieldBreakSec;
+          w.eShieldBreakTimer[i] = C.empBruteStunSec;
           w.eStateFlags[i] =
             ((w.eStateFlags[i]! & ~ENEMY_STATE_FLAG.SHIELD_UP) | ENEMY_STATE_FLAG.STUNNED) & 0x3f;
         } else if (type === ENEMY_TYPE.BOSS) {

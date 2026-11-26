@@ -70,6 +70,8 @@ export const CyberCitadelController: VoidComponent<{
     (message) => {
       if (message === null) return;
       if (message.type === 'cyber:wave_start') {
+        const target = readNum(message.payload, 'targetSlot', -1);
+        if (target !== -1 && target !== props.slot) return;
         setWave(readNum(message.payload, 'wave', wave()));
         setDowned(false);
         triggerVibrate(20);
