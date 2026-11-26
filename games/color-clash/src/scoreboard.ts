@@ -3,38 +3,98 @@ import {
   COLOR_CLASH_CONSTANTS as C,
   FLAG_ACTIVE,
   PHASE_COUNTDOWN,
-  PHASE_FINAL_REVEAL,
   PHASE_MATCH_OVER,
   PHASE_OVERTIME,
+  PHASE_PRACTICE,
   PHASE_ROUND_ACTIVE,
+  PHASE_ROUND_END,
 } from './constants.ts';
 
+const TICK = 0;
+const PHASE = 1;
+const TIMER = 2;
 const PLAYER = 8;
 const STRIDE = 10;
 const SLOTS = 8;
 const FALLBACK_COLOR = '#111111';
+const ORDINALS = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH', '7TH', '8TH'] as const;
 
-export interface ColorScoreRow {
+export interface ScoreRow {
   readonly slot: number;
   readonly color: string;
   readonly name: string;
-  readonly score: string;
-  readonly ratio: number;
+  readonly score: number;
   readonly status?: 'LIVE' | 'AWAY';
 }
 
-export interface ColorScorePlayerStatus {
+export interface ScorePlayerStatus {
   readonly index: number;
   readonly connected: boolean;
 }
 
-export interface ColorScoreRuleRow {
+export interface ScoreRuleRow {
   readonly label: string;
   readonly value: string;
 }
 
-export interface ColorScoreRules {
-  readonly rows: readonly ColorScoreRuleRow[];
+export interface ScoreRules {
+  readonly rows: readonly ScoreRuleRow[];
+}
+
+export function targetScoreForCount(playerCount: number): number {
+  const scaled = (playerCount - 1) * C.targetMultiplier;
+  return scaled > C.minTargetScore ? scaled : C.minTargetScore;
+}
+
+export function activePlayerCount(state: Float32Array): number {
+  let count = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    const base = PLAYER + index * STRIDE;
+    const flags = state[base + 8] ?? 0;
+    const score = state[base + 9] ?? 0;
+    const x = state[base] ?? 0;
+    const y = state[base + 1] ?? 0;
+    if ((flags & FLAG_ACTIVE) === 0 && score === 0 && x === 0 && y === 0) continue;
+    count += 1;
+  }
+  return count;
+}
+
+export function targetScoreForState(state: Float32Array): number {
+  return targetScoreForCount(activePlayerCount(state));
+}
+
+export function maxScoreForState(state: Float32Array): number {
+  let max = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    const score = state[PLAYER + index * STRIDE + 9] ?? 0;
+    if (score > max) max = score;
+  }
+  return max;
+}
+
+export function leaderCountForState(state: Float32Array, maxScore: number): number {
+  if (maxScore <= 0) return 0;
+  let leaders = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    const score = state[PLAYER + index * STRIDE + 9] ?? 0;
+    if (score === maxScore) leaders += 1;
+  }
+  return leaders;
+}
+
+export function isSuddenDeath(state: Float32Array, win?: number): boolean {
+  const target = win ?? targetScoreForState(state);
+  if (target <= 0) return false;
+  const max = maxScoreForState(state);
+  return max >= target && leaderCountForState(state, max) > 1;
+}
+
+export function hasUniqueWinner(state: Float32Array, win?: number): boolean {
+  const target = win ?? targetScoreForState(state);
+  if (target <= 0) return false;
+  const max = maxScoreForState(state);
+  return max >= target && leaderCountForState(state, max) === 1;
 }
 
 export function shortTag(name: string, slot: number): string {
@@ -62,73 +122,62 @@ function formatClock(seconds: number): string {
 }
 
 export function scoreboardHeader(state: Float32Array): string {
-  const phase = state[1] ?? PHASE_COUNTDOWN;
-  const timer = state[2] ?? 0;
-  if (phase === PHASE_FINAL_REVEAL || phase === PHASE_MATCH_OVER) {
-    return 'FINAL SCORES';
-  }
+  const phase = state[PHASE] ?? 0;
   if (phase === PHASE_OVERTIME) {
-    return `OVERTIME ${formatClock(timer)}`;
+    return `OVERTIME ${formatClock(state[TIMER] ?? 0)}`;
   }
-  if (phase === PHASE_ROUND_ACTIVE) {
-    return `TIME ${formatClock(timer)}`;
-  }
-  return `TIME ${formatClock(C.matchDuration)}`;
+  const count = activePlayerCount(state);
+  if (count < 2) return '';
+  const target = targetScoreForCount(count);
+  if (isSuddenDeath(state, target)) return 'SUDDEN DEATH';
+  return `THRESHOLD: ${target}`;
 }
 
-export function scoreRules(_state: Float32Array): ColorScoreRules {
-  return {
-    rows: [
-      { label: 'MATCH', value: '45S' },
-      { label: 'BOOST', value: '3S WIDE' },
-      { label: 'TIE', value: '30S GOLDEN TILE' },
-    ],
-  };
+export function scoreRules(state: Float32Array): ScoreRules | null {
+  const count = activePlayerCount(state);
+  if (count < 2) return null;
+  const target = targetScoreForCount(count);
+  if (isSuddenDeath(state, target)) {
+    return { rows: [{ label: ORDINALS[0], value: '+1 PTS' }] };
+  }
+  const rows: ScoreRuleRow[] = [];
+  for (let rank = 1; rank <= count; rank += 1) {
+    rows.push({
+      label: ORDINALS[rank - 1] ?? `${rank}TH`,
+      value: `+${count - rank} PTS`,
+    });
+  }
+  return { rows };
 }
 
 export function scoreboardRows(
   state: Float32Array,
   names: readonly string[],
-  players?: readonly ColorScorePlayerStatus[],
-): ColorScoreRow[] {
-  const entries: Array<{ slot: number; cells: number; pct: number }> = [];
+  players?: readonly ScorePlayerStatus[],
+): ScoreRow[] {
+  const rows: ScoreRow[] = [];
   for (let index = 0; index < SLOTS; index += 1) {
     const base = PLAYER + index * STRIDE;
     const flags = state[base + 8] ?? 0;
-    const cells = state[base + 9] ?? 0;
+    const score = state[base + 9] ?? 0;
     const x = state[base] ?? 0;
     const y = state[base + 1] ?? 0;
-    if ((flags & FLAG_ACTIVE) === 0 && cells === 0 && x === 0 && y === 0) continue;
-    const pct = state[base + 7] ?? (cells * 100) / C.gridCells;
-    entries.push({ slot: index, cells, pct });
-  }
-
-  entries.sort((a, b) => {
-    if (b.cells !== a.cells) return b.cells - a.cells;
-    return a.slot - b.slot;
-  });
-
-  const rows: ColorScoreRow[] = [];
-  for (const entry of entries) {
-    const tag = shortTag(names[entry.slot] ?? '', entry.slot);
-    const player = players?.find((item) => item.index === entry.slot);
-    const ratio = entry.cells / C.gridCells;
-    const score = `${entry.pct.toFixed(1)}%`;
+    if ((flags & FLAG_ACTIVE) === 0 && score === 0 && x === 0 && y === 0) continue;
+    const tag = shortTag(names[index] ?? '', index);
+    const player = players?.find((item) => item.index === index);
     if (player === undefined) {
       rows.push({
-        slot: entry.slot,
-        color: PLAYER_COLORS[entry.slot] ?? FALLBACK_COLOR,
+        slot: index,
+        color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
         name: tag,
         score,
-        ratio,
       });
     } else {
       rows.push({
-        slot: entry.slot,
-        color: PLAYER_COLORS[entry.slot] ?? FALLBACK_COLOR,
+        slot: index,
+        color: PLAYER_COLORS[index] ?? FALLBACK_COLOR,
         name: tag,
         score,
-        ratio,
         status: player.connected ? 'LIVE' : 'AWAY',
       });
     }

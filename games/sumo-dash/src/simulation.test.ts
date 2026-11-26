@@ -619,13 +619,13 @@ test('a pack that stays inside still ends the round and scores', () => {
   expect(line.includes(' 2')).toBe(true);
 });
 
-test('practice countdown lasts 20 seconds before entering 3-2-1 countdown', () => {
+test('practice countdown lasts 30 seconds initially and 20s on mid-match break before entering 3-2-1 countdown', () => {
   const sim = createSumoSimulation();
   sim.startMatch([0, 1]);
   expect(sim.state[PHASE]).toBe(4);
-  expect(sim.state[2]).toBeCloseTo(20, 5);
+  expect(sim.state[2]).toBeCloseTo(30, 5);
 
-  for (let tick = 0; tick < 20 * 120 - 2; tick += 1) {
+  for (let tick = 0; tick < 30 * 120 - 2; tick += 1) {
     sim.step(DT);
   }
   expect(sim.state[PHASE]).toBe(4);
@@ -636,6 +636,25 @@ test('practice countdown lasts 20 seconds before entering 3-2-1 countdown', () =
   }
   expect(sim.state[PHASE]).toBe(0);
   expect(sim.state[2]).toBeCloseTo(3, 5);
+
+  // Advance through countdown into active round
+  while (sim.state[PHASE] === 0) {
+    sim.step(DT);
+  }
+  expect(sim.state[PHASE]).toBe(1);
+
+  // Eliminate player 1 to finish round 1 without reaching threshold 3
+  sim.state[18] = 500; // slot 1 off-ring
+  sim.state[19] = 500;
+  sim.step(DT);
+  expect(sim.state[PHASE]).toBe(2); // ROUND_END
+
+  // Step through ROUND_END (0.5s) to enter mid-match break
+  while (sim.state[PHASE] === 2) {
+    sim.step(DT);
+  }
+  expect(sim.state[PHASE]).toBe(4); // PRACTICE break
+  expect(sim.state[2]).toBeCloseTo(20, 5);
 });
 
 test('ranked elimination awards N-1..0, ties share the higher rank, and match ends at (N-1)*3', () => {

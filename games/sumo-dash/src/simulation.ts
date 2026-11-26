@@ -229,7 +229,7 @@ export function createSumoSimulation(): SumoSimulation {
 
   function beginPractice(lineup: boolean): void {
     state[PHASE] = PRACTICE;
-    state[TIMER] = C.practice;
+    state[TIMER] = lineup ? C.practiceInitial : C.practiceBreak;
     state[ARENA] = C.r0;
     state[TARGET] = C.r0;
     if (lineup) {

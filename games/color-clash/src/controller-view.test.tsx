@@ -28,4 +28,16 @@ test('ColorClashController renders PlayerBadge, paint splash swatch, MOVE joysti
   expect(html).toContain('BOOST');
   expect(html).toContain('class="button-cooldown-meter"');
   expect(html).toContain('class="color-readout"');
+
+  const watchingHtml = renderToString(() => (
+    <ColorClashController
+      color="#2979FF"
+      name="Hudson"
+      slot={2}
+      control={{ type: 'color:round_start', payload: { scores: [4, 4, 2, 0, 0, 0, 0, 0], activeMask: 0b00000011 } }}
+      onAxes={() => {}}
+      onButton={() => {}}
+    />
+  ));
+  expect(watchingHtml).toContain('WATCHING');
 });

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { bannerCopy } from './banner';
-import { PHASE_COUNTDOWN, PHASE_FINAL_REVEAL, PHASE_MATCH_OVER, PHASE_OVERTIME, PHASE_ROUND_ACTIVE } from './constants';
+import { PHASE_COUNTDOWN, PHASE_MATCH_OVER, PHASE_OVERTIME, PHASE_PRACTICE, PHASE_ROUND_ACTIVE, PHASE_ROUND_END } from './constants';
 import { scoreboardHeader, scoreboardRows, scoreRules, shortTag } from './scoreboard';
 
 const PLAYER = 8;
@@ -19,15 +19,15 @@ test('scoreboard formats 6-char tags, live percentages, coverage ratios, clock h
   state[PLAYER + 0 * STRIDE + 0] = 10;
   state[PLAYER + 0 * STRIDE + 7] = 20.0;
   state[PLAYER + 0 * STRIDE + 8] = 1;
-  state[PLAYER + 0 * STRIDE + 9] = 320;
+  state[PLAYER + 0 * STRIDE + 9] = 1; // 1 match point
 
   // Slot 1: 547 cells (34.1875% -> 34.2%)
   state[PLAYER + 1 * STRIDE + 0] = -10;
   state[PLAYER + 1 * STRIDE + 7] = (547 * 100) / 1600;
   state[PLAYER + 1 * STRIDE + 8] = 1;
-  state[PLAYER + 1 * STRIDE + 9] = 547;
+  state[PLAYER + 1 * STRIDE + 9] = 2; // 2 match points
 
-  expect(scoreboardHeader(state)).toBe('TIME 00:45');
+  expect(scoreboardHeader(state)).toBe('THRESHOLD: 3');
   const rows = scoreboardRows(
     state,
     ['Hudson', 'AlphaBot', '', '', '', '', '', ''],
@@ -36,29 +36,30 @@ test('scoreboard formats 6-char tags, live percentages, coverage ratios, clock h
     ],
   );
   expect(rows).toHaveLength(2);
-  // Sorted by highest paintCells first
+  // Rows are emitted in slot index order (matching Sumo Dash and Bomb Pass)
   expect(rows[0]).toMatchObject({
-    slot: 1,
-    name: 'ALPHAB',
-    score: '34.2%',
-    ratio: 547 / 1600,
-  });
-  expect(rows[0]?.status).toBeUndefined();
-  expect(rows[1]).toMatchObject({
     slot: 0,
     name: 'HUDSON',
-    score: '20.0%',
-    ratio: 320 / 1600,
+    score: 1,
     status: 'LIVE',
   });
+  expect(rows[1]).toMatchObject({
+    slot: 1,
+    name: 'ALPHAB',
+    score: 2,
+  });
+  expect(rows[1]?.status).toBeUndefined();
 
   expect(scoreRules(state)).toEqual({
     rows: [
-      { label: 'MATCH', value: '45S' },
-      { label: 'BOOST', value: '3S WIDE' },
-      { label: 'TIE', value: '30S GOLDEN TILE' },
+      { label: '1ST', value: '+1 PTS' },
+      { label: '2ND', value: '+0 PTS' },
     ],
   });
+
+  state[1] = PHASE_PRACTICE;
+  state[2] = 29.5;
+  expect(bannerCopy(state, ['Hudson', 'Alpha'])).toBe('BREAK 30');
 
   state[1] = PHASE_COUNTDOWN;
   state[2] = 2.4;
@@ -69,11 +70,12 @@ test('scoreboard formats 6-char tags, live percentages, coverage ratios, clock h
   expect(scoreboardHeader(state)).toBe('OVERTIME 00:30');
   expect(bannerCopy(state, ['Hudson', 'Alpha'])).toBe('OVERTIME — CLAIM GOLDEN TILE');
 
-  state[1] = PHASE_FINAL_REVEAL;
+  state[1] = PHASE_ROUND_END;
   state[7] = 1;
-  expect(scoreboardHeader(state)).toBe('FINAL SCORES');
-  expect(bannerCopy(state, ['Hudson', 'Alpha'])).toBe('ALPHA WINS · 34.2%');
+  expect(bannerCopy(state, ['Hudson', 'Alpha'])).toBe('POINT');
 
   state[1] = PHASE_MATCH_OVER;
+  state[7] = 1;
+  state[PLAYER + 1 * STRIDE + 9] = 3; // Reached threshold (3)
   expect(bannerCopy(state, ['Hudson', 'Alpha'])).toBe('ALPHA WINS');
 });

@@ -6,7 +6,7 @@
 
 ## 1. Overview & `GameManifest` Contract
 
-**Color Clash** is a 2-to-8 player top-down 2D territory painter. Neo-Brutalist pucks glide across a square matte studio floor and stamp their player color onto a $40 \times 40$ paint grid (`1,600` cells). Players trigger a 3-second **BOOST** charge to carve a wide paint trail across unpainted tiles and steal rival turf. Matches run for **45 seconds**. There is no elimination. The player who owns the highest percentage of the grid when the clock hits zero wins. A tie for first place triggers a **30-second Tiebreak Sudden Death (`OVERTIME`)** with a Golden Tile instant-win objective or most painted cells at expiry.
+**Color Clash** is a 2-to-8 player top-down 2D territory painter. Neo-Brutalist pucks glide across a square matte studio floor and stamp their player color onto a $40 \times 40$ paint grid (`1,600` cells). Players trigger a 3-second **BOOST** charge to carve a wide paint trail across unpainted tiles and steal rival turf. Matches run in a multi-round format with 45-second scored rounds until a player reaches the match target. There is no elimination. The player who owns the highest percentage of the grid when the clock hits zero wins the round. A tie for first place triggers a **30-second Tiebreak Sudden Death (`OVERTIME`)** with a Golden Tile instant-win objective or most painted cells at expiry.
 
 ### Declarative Manifest (`manifest.ts`)
 ```typescript
@@ -111,26 +111,36 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
     * If `oldOwner > 0`, decrement `cellCounts[oldOwner - 1]`.
     * Increment `cellCounts[newOwner - 1]`.
     * Write `grid[c] = newOwner`.
-    * Sync `paintCells = cellCounts[i]` and `paintPct = (cellCounts[i] * 100) / 1600` into each player's state stride at the end of the tick.
+    * Sync `paintPct = (cellCounts[i] * 100) / 1600` into each player's state stride at the end of the tick. (Internal cell counts are tracked in `cellCounts`, while `[base + 9]` stores accumulated match points).
 
-### FR-4: Timed Match Flow, Scoring, Tiebreak Sudden Death & Podium
-* **Match Structure:**
-  1. **`COUNTDOWN` (`3.0s`):** Pucks stand locked on the spawn circle. The $40 \times 40$ grid is blank. The top banner displays `3`, `2`, `1`.
-  2. **`ROUND_ACTIVE` (`45.0s`):** Physics, paint stamping, and `BOOST` are live. The scoreboard updates each player's real-time percentage ownership every frame. During the final `10.0s`, the timer header pulses with `--accent-hazard`.
-  3. **End-of-Timer Evaluation (`phaseTimer <= 0`):**
+### FR-4: Multi-Round Match Flow, Scoring, Tiebreak Sudden Death & Podium
+* **Multi-Round Match Structure:**
+  1. **`PRACTICE` (`phaseEnum = 4`):**
+     * Matches open with `30.0s` (`practiceInitial`) of practice on the arena (move and boost freely; zero points awarded).
+     * After a scored round where no player reached the match target, play enters a `20.0s` (`practiceBreak`) break before the next countdown.
+     * When the practice timer expires, all players reset onto the spawn circle and enter `COUNTDOWN`.
+  2. **`COUNTDOWN` (`phaseEnum = 0`, `3.0s`):** Pucks stand locked on the spawn circle. The $40 \times 40$ grid is blank. The top banner displays `3`, `2`, `1`.
+  3. **`ROUND_ACTIVE` (`phaseEnum = 1`, `45.0s`):** Physics, paint stamping, and `BOOST` are live. The scoreboard displays each player's points and match threshold.
+  4. **End-of-Round Evaluation (`phaseTimer <= 0`):**
      * Find `maxCells = max(paintCells[i])` across joined slots.
      * Count how many joined slots hold `paintCells[i] === maxCells`.
-     * **Unique Leader (`leaderCount === 1`):** Set `winnerSlot` to the leader and transition to `FINAL_REVEAL` (`3.0s`).
+     * **Unique Leader (`leaderCount === 1`):** Set `winnerSlot` to the leader and transition to `ROUND_END` (`0.8s`).
      * **Tie for First Place (`leaderCount >= 2`):** Transition directly to **Tiebreak Sudden Death (`OVERTIME`, `30.0s`)**.
-  4. **Tiebreak Sudden Death (`OVERTIME`, `30.0s`):**
+  5. **Tiebreak Sudden Death (`OVERTIME`, `phaseEnum = 5`, `30.0s`):**
      * Set `CONTENDER` (`Bit 3`) on every tied leader and keep them active.
      * Park all non-tied players off-arena (`ACTIVE = 0`, `CONTENDER = 0`) so non-contenders cannot kingmake. Their existing painted cells stay frozen on the grid (contenders can paint over them).
      * Keep all painted territory on the grid. Reset contender `boostCooldown = 0` and `boostActiveTimer = 0` so tied leaders enter overtime on equal footing.
      * **Golden Tile Spawn:** Deterministically choose one `goldenCell` index $\in [0, 1599]$ inside the inner arena (`col ∈ [6, 33]`, `row ∈ [6, 33]`) that maximizes minimum distance to all contender pucks, breaking ties deterministically by `(tickId + cellIndex) % 1600`. Store `goldenCell` in header `[4]`.
-     * **Instant Win (Golden Tile):** The first contender puck whose normal or boosted stamp disc covers `goldenCell` claims it immediately, sets `winnerSlot = i`, sets `hitStopFrames = 2`, and transitions to `FINAL_REVEAL`.
-     * **Overtime Expiry (`phaseTimer <= 0`):** If no contender claimed the Golden Tile in `30.0s`, compare `paintCells` among contenders only. The contender with the most painted cells wins. If contenders still tie on exact `paintCells`, the contender who reached that cell count earliest (`lastPeakTick`) wins; if still tied, the lower slot index wins. Set `winnerSlot` and transition to `FINAL_REVEAL`.
-  5. **`FINAL_REVEAL` (`3.0s`):** Freeze all puck movement and paint stamping. Lock final grid and percentage bars on screen. Display `<TAG> WINS · <PCT>%` in the banner.
-  6. **`MATCH_OVER`:** Present final podium standings (`1ST`, `2ND`, `3RD`, and all remaining slots with exact `%` and cell counts) alongside host **PLAY AGAIN** and **RETURN TO LOBBY** controls.
+     * **Instant Win (Golden Tile):** The first contender puck whose normal or boosted stamp disc covers `goldenCell` claims it immediately, sets `winnerSlot = i`, sets `hitStopFrames = 2`, and transitions to `ROUND_END`.
+     * **Overtime Expiry (`phaseTimer <= 0`):** If no contender claimed the Golden Tile in `30.0s`, compare `paintCells` among contenders only. The contender with the most painted cells wins. If contenders still tie on exact `paintCells`, the contender who reached that cell count earliest (`lastPeakTick`) wins; if still tied, the lower slot index wins. Set `winnerSlot` and transition to `ROUND_END`.
+  6. **`ROUND_END` (`phaseEnum = 2`, `0.8s`):**
+     * Freeze puck velocities and award round points.
+     * **Point Allocation:** For $N$ joined players, 1st place (`winnerSlot`) receives $N - 1$ points. Other players receive points ranked by cell coverage ($N - 1 - \text{better}$).
+     * **Match Target:** `targetScore = max(3, (N - 1) * 3)`.
+     * **Decisive Sudden Death:** If multiple players tie at or above the threshold (`score >= targetScore`), the match enters Sudden Death: non-contenders below the top score are parked off-arena (`FLAG_ACTIVE = 0`), and only tied leaders take the floor. Each subsequent sudden death round awards `+1` point exclusively to the round winner (`winnerSlot`) until one unique leader emerges.
+     * If one unique player satisfies `score >= targetScore`, transition to `MATCH_OVER`.
+     * Otherwise, transition to `PRACTICE` (`20.0s` break) before the next round.
+  7. **`MATCH_OVER` (`phaseEnum = 3`):** Present final match results and standings alongside host **PLAY AGAIN** and **RETURN TO LOBBY** controls.
 
 ### FR-5: Phone Controller Layout & Feedback
 * **Orientation:** Supports both `portrait` and `landscape` via the platform controller stage.
@@ -147,7 +157,7 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
 * If a phone disconnects or stops sending input (`>= 100ms` silence), the host loop zeroes that slot's `axisX`, `axisY`, and `buttons`. The scoreboard marks that human slot `AWAY`.
 * The disconnected puck decelerates naturally to rest under drag (`4.5 s⁻¹`) and stays on the arena.
 * **Territory Persistence:** All grid cells already painted by that player **remain claimed**. Opponents may paint over those cells during normal play, and any cells still owned by the disconnected player count toward their final percentage and rank. Rejoin never clears, resets, or rewrites the paint grid.
-* **In-Match Rejoin QR (shared `/screen` chrome):** During `COUNTDOWN` / `ROUND_ACTIVE` / `OVERTIME` / `FINAL_REVEAL` / `MATCH_OVER`, the primary holistic host tab keeps the shared top-left `<MatchRejoinQr/>` panel (`screen/src/score-rules.tsx`) labeled **`SCAN TO REJOIN`**. The QR targets the same room controller URL as the lobby. Color Clash must not invent a game-private rejoin QR.
+* **In-Match Rejoin QR (shared `/screen` chrome):** During `PRACTICE` / `COUNTDOWN` / `ROUND_ACTIVE` / `OVERTIME` / `ROUND_END` / `MATCH_OVER`, the primary holistic host tab keeps the shared top-left `<MatchRejoinQr/>` panel (`screen/src/score-rules.tsx`) labeled **`SCAN TO REJOIN`**. The QR targets the same room controller URL as the lobby. Color Clash must not invent a game-private rejoin QR.
 * **`sessionToken` Restore (LIVE-at-start only):** A phone that was **LIVE (connected) when the host started the match** stores its `sessionToken` in `localStorage` and may reconnect mid-match by scanning the rejoin QR (or refreshing). The relay restores that exact slot index, name, color, boost timers, and painted territory; control resumes immediately. The puck is never replaced by a bot.
 * **Rejected Joiners (`MATCH_IN_PROGRESS`):** Strangers with no valid token, unknown/forged tokens, and players who were **lobby-`AWAY` (disconnected) at match start** (not in the relay `activeMatchSlots` set) receive `room:rejected` with reason `MATCH_IN_PROGRESS` and the controller notice `MATCH IN PROGRESS — CANNOT JOIN MID-GAME`. They do not gain a slot, paint cells, or input path.
 * No bot replaces a disconnected human slot.
@@ -179,11 +189,11 @@ An empty bot slot calls `applyInput(botIndex, buttons, axisX, axisY)` at 60Hz in
 3. **Steering & Wall Margin:** Clamp the chosen sector center to `[-350, +350]` to prevent wall grinding. Turn the steer angle by a small slot-sided wobble of $\text{nerf}(0.26, -0.22, \text{share})$ radians. Scale stick magnitude to $\text{nerf}(0.55, 0.45, \text{share})$ of full `127`.
 4. **Dense-Cluster `BOOST` Trigger:** Sample the $5 \times 5$ cell cluster (`25` cells) centered `80` units ahead along the bot's steering vector. Count non-owned cells (`grid[c] !== botIndex + 1`). Fire `BOOST` (`Bit 0 = 1`) when `boostCooldown <= 0`, non-owned count $\ge \text{Math.round}(\text{nerf}(18, -6, \text{share}))$ (`12..18` cells), and alignment clears $\text{nerf}(0.92, -0.12, \text{share})$.
 
-### Scoreboard, Final Reveal & Podium
-* **Scoreboard Header:** Displays the live match clock (`TIME 00:45` during `ROUND_ACTIVE`, `OVERTIME 00:30` during sudden death, `FINAL SCORES` during `FINAL_REVEAL` / `MATCH_OVER`).
-* **Real-Time Ownership Rows:** Lists every joined player sorted by highest `paintCells` first (tie-broken by lower slot index). Each row renders the player's color dot, 2-letter tag, live percentage to one decimal (`HU 34.2%`), solid proportional coverage bar (`ratio = paintCells / 1600`), and `LIVE` / `AWAY` connection badge for human slots.
-* **Rules Card (`ScoreRulesPanel`):** Displays compact Neo-Brutalist rules (`MATCH: 45S`, `BOOST: 3S WIDE`, `TIE: 30S GOLDEN TILE`).
-* **Top Banner (`bannerCopy`):** Shows `3`, `2`, `1` during `COUNTDOWN`, `OVERTIME — CLAIM GOLDEN TILE` on overtime start, `<TAG> WINS · <PCT>%` during `FINAL_REVEAL`, and `<TAG> WINS` on `MATCH_OVER` podium.
+### Scoreboard, Round End & Match Over
+* **Scoreboard Header:** Displays `THRESHOLD: X` or `SUDDEN DEATH` (or `OVERTIME MM:SS` during golden tile sudden death).
+* **Real-Time Scoreboard Rows:** Lists joined players with their player puck color circle, short tag, current match score, and connection status (`LIVE` / `AWAY`).
+* **Rules Card (`ScoreRulesPanel`):** Displays rank payout rules (`1ST: +(N-1) PTS`, `2ND: +(N-2) PTS`, etc.) or `+1 PTS` during sudden death.
+* **Top Banner (`bannerCopy`):** Shows `BREAK X` during practice, `3`, `2`, `1` during `COUNTDOWN`, `OVERTIME — CLAIM GOLDEN TILE` on overtime start, `POINT` during `ROUND_END`, and `<TAG> WINS` on `MATCH_OVER`.
 
 ---
 
@@ -237,7 +247,7 @@ Pre-allocated once on game mount (`MAX_PLAYERS = 8`). Uses the exact 88-float pr
 * **Global Arena Header (Indices `0..7` — 32 bytes):**
   ```text
   [0] tickId            (monotonic fixed-step counter)
-  [1] phaseEnum         (0=COUNTDOWN, 1=ROUND_ACTIVE, 2=FINAL_REVEAL, 3=MATCH_OVER, 4=OVERTIME)
+  [1] phaseEnum         (0=COUNTDOWN, 1=ROUND_ACTIVE, 2=ROUND_END, 3=MATCH_OVER, 4=PRACTICE, 5=OVERTIME)
   [2] phaseTimer        (seconds remaining in current phase)
   [3] arenaSize         (800.0 world units, square side length)
   [4] goldenCell        (-1 when inactive; 0..1599 linear cell index during OVERTIME)
@@ -255,9 +265,9 @@ Pre-allocated once on game mount (`MAX_PLAYERS = 8`). Uses the exact 88-float pr
   [base + 4] angle            (facing angle in radians)
   [base + 5] boostCooldown    (0.0 .. 8.00s; ready when 0)
   [base + 6] boostActiveTimer (0.0 .. 3.00s; wide-trail active when > 0)
-  [base + 7] paintPct         (0.0 .. 100.0 cached ownership percentage = paintCells / 16)
+  [base + 7] paintPct         (0.0 .. 100.0 cached ownership percentage = cellCounts / 16)
   [base + 8] flags            (Bit0=ACTIVE, Bit1=BOOSTING, Bit2=IS_BOT, Bit3=CONTENDER)
-  [base + 9] paintCells       (exact integer count of owned grid cells, 0 .. 1600)
+  [base + 9] score            (accumulated match points)
   ```
   `flags` bit 0 is the source of truth for whether a puck is active on the floor. Header `activeMask` is rewritten from those bits every tick.
 
@@ -290,6 +300,11 @@ No new HTTP endpoints are required beyond the Console OS routes:
                          │
                          ▼
                  ┌───────────────┐
+                 │   PRACTICE    │ (30.0s opening / 20.0s mid-match break:
+                 └───────┬───────┘  move, boost freely, zero points)
+                         │ timer <= 0
+                         ▼
+                 ┌───────────────┐
                  │   COUNTDOWN   │ (3.0s: pucks locked on spawn circle,
                  └───────┬───────┘  blank 40x40 grid, facing only)
                          │ timer <= 0
@@ -312,15 +327,17 @@ No new HTTP endpoints are required beyond the Console OS routes:
               └──────────┬──────────┘
                          ▼
                  ┌───────────────┐
-                 │ FINAL_REVEAL  │ (3.0s: pucks + grid frozen,
-                 └───────┬───────┘  final % breakdown + winner banner)
-                         │ timer <= 0
-                         ▼
-                 ┌───────────────┐
-                 │  MATCH_OVER   │ (Podium + exact % standings
-                 └───────┬───────┘  + PLAY AGAIN / RETURN TO LOBBY)
+                 │   ROUND_END   │ (0.8s: award round points, check match
+                 └───────┬───────┘  target threshold & sudden death)
                          │
-              [color:rematch action]
+         ┌───────────────┴───────────────┐
+         │ [unique winner >= target]     │ [no unique winner yet]
+         ▼                               ▼
+ ┌───────────────┐               ┌───────────────┐
+ │  MATCH_OVER   │               │   PRACTICE    │
+ └───────┬───────┘               └───────────────┘
+         │
+[color:rematch action]
 ```
 
 ### B. Per-Puck Action FSM
@@ -331,7 +348,7 @@ No new HTTP endpoints are required beyond the Console OS routes:
 | `BOOSTING` | `boostActiveTimer <= 0` | `RECHARGING` | Restores normal stamp radius (`24`) and speed cap (`400`); clears `BOOSTING` bit. |
 | `RECHARGING` | `boostCooldown <= 0` | `MOVING` | Re-enables `BOOST` trigger. |
 | `MOVING` / `BOOSTING` / `RECHARGING` | `phase === OVERTIME` & slot is not tied for 1st | `PARKED_NON_CONTENDER` | Clears `ACTIVE` and `CONTENDER` bits; ignores inputs; keeps already-painted cells on the grid. |
-| *Any Active State* | `phase === FINAL_REVEAL` or `MATCH_OVER` | `FROZEN` | Ignores inputs; halts movement and stamping; preserves final grid and scores. |
+| *Any Active State* | `phase === ROUND_END` or `MATCH_OVER` | `FROZEN` | Ignores inputs; halts movement and stamping; preserves grid and scores. |
 
 ---
 
@@ -341,10 +358,10 @@ Every PR or AI-generated change to `color-clash` must preserve these invariants:
 
 1. **INV-1 (No NaN / Infinity State):** For all ticks $t$ and all indices $k \in [0, 87]$, `Number.isFinite(state[k]) === true`. Exact-center puck overlap falls back to deterministic separation normal $(\cos(i), \sin(i))$.
 2. **INV-2 (Box Boundary Containment):** For every active puck $i$ on every tick, $|x_i| \le 400 - r_{\text{puck}} = 376$ and $|y_i| \le 400 - r_{\text{puck}} = 376$, enforced via `clampBoxBoundary` from `@shared/physics-2d`.
-3. **INV-3 (Grid Domain & Count Conservation):** Every byte in `grid` (`Uint8Array(1600)`) satisfies `0 <= grid[c] <= 8`. For every slot `i`, `state[base + 9]` (`paintCells`) equals the exact count of cells where `grid[c] === i + 1`, and $\sum_{i=0}^{7} \text{paintCells}_i \le 1600$.
+3. **INV-3 (Grid Domain & Count Conservation):** Every byte in `grid` (`Uint8Array(1600)`) satisfies `0 <= grid[c] <= 8`. For every slot $i$, `state[base + 7]` (`paintPct`) equals `(cellCount * 100) / 1600`, and $\sum_{i=0}^{7} \text{cellCount}_i \le 1600$. `state[base + 9]` stores the player's accumulated match score.
 4. **INV-4 (Monotonic Boost Timers):** `boostActiveTimer` stays clamped to $[0, 3.00]$ and `boostCooldown` stays clamped to $[0, 8.00]$. While `boostActiveTimer > 0`, `boostCooldown >= boostActiveTimer`. Neither value ever goes negative.
 5. **INV-5 (Order-Independent Same-Tick Overlap):** When multiple pucks cover the same grid cell on the same tick, the winning owner depends only on `(boostActive, distSq, slotIndex)` — never on loop iteration direction.
-6. **INV-6 (Guaranteed Finite Termination):** Every match reaches `MATCH_OVER` within at most `3.0 + 45.0 + 30.0 + 3.0 = 81.0` simulated seconds, even when all players stay idle (`0` painted cells) or remain tied through `OVERTIME`.
+6. **INV-6 (Guaranteed Finite Termination):** Every round reaches `ROUND_END` within at most `3.0 + 45.0 + 30.0 = 78.0` simulated seconds (opening round adds `30.0s` practice, mid-match rounds add `20.0s` practice break). Deterministic tiebreak ordering and sudden death contender filtering ensure finite match termination even when players remain idle or tied.
 7. **INV-7 (Zero-Allocation Hot Path):** Executing `10,000` consecutive `simulation.step(1/120)` ticks and `writeHeuristic()` calls produces $0$ dynamic object allocations inside the physics and bot loops.
 8. **INV-8 (Bit-Exact Determinism):** Replaying the same 8-byte input sequence from the same starting roster in the same Chrome build produces bit-identical `Float32Array(88)` and `Uint8Array(1600)` buffers at tick $N$.
 9. **INV-9 (Strict View Isolation):** Mounting `color-clash` when a monitor is open on `/screen?view=team-1` never runs `ColorClashRenderer`; only `/screen?view=holistic` renders the arena.
@@ -354,16 +371,16 @@ Every PR or AI-generated change to `color-clash` must preserve these invariants:
 ## 7. Testing & Verification Plan
 
 ### 1. Deterministic Unit Tests (`vitest`)
-* **Grid Stamping & Count Conservation (`INV-3`):** Move a puck across the $40 \times 40$ grid, verify exact cell coordinates are marked with `slot + 1`, overwrite them with a second puck, and assert `paintCells` for both players matches a full brute-force count of `grid` and $\sum \text{paintCells}_i \le 1600$.
+* **Grid Stamping & Count Conservation (`INV-3`):** Move a puck across the $40 \times 40$ grid, verify exact cell coordinates are marked with `slot + 1`, overwrite them with a second puck, and assert cell counts for both players matches a full brute-force count of `grid` and $\sum \text{cellCounts}_i \le 1600$.
 * **Same-Tick Cell Overlap Resolution (`INV-5`):** Place two pucks equidistant and asymmetric over a shared cell on the same tick; verify the boosting puck beats a non-boosting puck, and the closer puck beats a farther puck regardless of slot order.
 * **Box Boundary Containment (`INV-2`):** Drive a puck at full boosted velocity into all four corners and walls; assert $|x| \le 376$, $|y| \le 376$, and outward velocity reflects by `WALL_BOUNCE = 0.35`.
 * **Boost Edge Trigger & 3s Wide Trail (`INV-4`):** Hold `Bit 0 = 1` across multiple ticks; verify only one `3.00s` boost fires on the `0 -> 1` rising edge, stamped cell footprint expands from radius `24` to `54`, and re-trigger stays locked until `boostCooldown` reaches `0` (`8.00s` total).
 * **Disconnect Persistence (`FR-6`):** Paint cells with slot 0, then feed zero inputs for 5 seconds; verify slot 0's puck decelerates to rest inside bounds and its painted cells remain owned until an opponent paints over them. Rejoin restore must not mutate `auxState` ownership for that slot except via normal opponent stamping.
-* **45s Match End & 30s Overtime Tiebreak (`INV-6`):**
-  * Unique leader at `45.0s` transitions directly to `FINAL_REVEAL` -> `MATCH_OVER`.
+* **Multi-Round Match End & 30s Overtime Tiebreak (`INV-6`):**
+  * Unique leader at `45.0s` transitions directly to `ROUND_END` (0.8s) -> `MATCH_OVER` (if target reached) or `PRACTICE` (20.0s break).
   * Tied leaders at `45.0s` transition to `OVERTIME` (`30.0s`) with a valid `goldenCell` (`0..1599`) and non-tied slots parked (`ACTIVE = 0`) while keeping their cells on the board.
-  * Moving a tied contender onto `goldenCell` awards an immediate win and enters `FINAL_REVEAL`.
-  * Letting `30.0s` expire resolves the winner by most painted cells (or deterministic tiebreak if still equal).
+  * Moving a tied contender onto `goldenCell` awards an immediate win and enters `ROUND_END`.
+  * Letting `30.0s` expire resolves the round winner by most painted cells (or deterministic tiebreak if still equal).
 * **Heuristic Bot Policy:**
   * Place a bot beside an unpainted cluster and assert it steers toward the unpainted sector and fires `BOOST` when facing a dense cluster.
   * During `OVERTIME`, assert a contender bot steers directly toward `goldenCell`.
@@ -371,7 +388,7 @@ Every PR or AI-generated change to `color-clash` must preserve these invariants:
 ### 2. State Machine & Property-Based / Fuzz Tests
 * **10,000-Tick Fuzz Simulation:** Feed deterministic pseudo-random 8-player binary inputs (`Uint8` bitmasks and `Int8` axes) into `ColorClashSimulation` across multiple full matches (including forced tiebreaks). Assert `INV-1` through `INV-6` after every tick.
 * **Determinism Replay Verification (`INV-8`):** Record a 45-second randomized 8-player input log, reset `ColorClashSimulation`, replay the bytes, and assert byte-for-byte equality on both `state` (`Float32Array`) and `auxState` (`Uint8Array`).
-* **Illegal FSM Transitions:** Verify `applyInput()` is a strict no-op during `COUNTDOWN`, `FINAL_REVEAL`, and `MATCH_OVER`, and for parked non-contenders during `OVERTIME`.
+* **Illegal FSM Transitions:** Verify `applyInput()` is a strict no-op during `COUNTDOWN`, `ROUND_END`, and `MATCH_OVER`, and for parked non-contenders during `OVERTIME`.
 
 ### 3. Hardware, Network & Latency Verification Checklist (M5 Pro Mac + Phones)
 * **Controller Paint Splash & Multi-Touch Check:** On both iPhone (Safari) and Android (Chrome), verify portrait and landscape layouts show the player's exact `PLAYER_COLORS` splash indicator, `<VirtualJoystick label="MOVE"/>`, and `<ArcadeButton label="BOOST"/>` inset $\ge 36\text{px}$ from screen edges. Steer continuously while tapping `BOOST`; verify zero lost joystick tracking and accurate `3s` active / `5s` recharge meter animation.

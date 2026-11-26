@@ -22,7 +22,7 @@ export const BOMB_CONSTANTS = {
   disconnectFuseFloor: 2.0,
   warnThreshold: 5.0,
   criticalThreshold: 2.0,
-  practiceInitial: 10.0,
+  practiceInitial: 30.0,
   practiceBreak: 20.0,
   countdown: 3.0,
   roundEnd: 0.8,
