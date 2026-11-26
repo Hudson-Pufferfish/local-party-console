@@ -102,3 +102,36 @@ test('AWAY disconnect leaves player idle with standbyBotLevel=0, and reconnect p
   for (let i = 0; i < 120; i += 1) sim.step(C.dt);
   expect(sim.state[b0 + CYBER_PLAYER_OFFSET.downTimer]).toBeCloseTo(timerStart, 4);
 });
+
+test('bot heuristic anchors to Core perimeter and refuses to chase distant enemies beyond 220u leash', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 70, 0, 0, 0, 0, 0, 0]); // Hard bot
+  sim.startMatch([0, 1], 808, { botMask, botLevels });
+  sim.jumpToWave(2);
+  sim.clearSpawnQueueForTest();
+
+  // Spawn a Brute far away in the outskirts (x=380, y=0)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 380, 0, 0, 9999);
+
+  const b1 = playerBase(1);
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  // Position Bot 1 at the edge of the Core leash (x=215, y=0)
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 215;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[CYBER_HEADER.tickId] = 100;
+
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 70, sim.auxState);
+  // Moving straight forward into the enemy (+X) would breach the 220u leash;
+  // bot should strafe or hold perimeter, not charge straight outward (+127 X)
+  expect(axisX[1]).toBeLessThan(60);
+
+  // If bot is pushed beyond the 220u leash (e.g. x=260), it must steer back inward toward Core (-X)
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 260;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 70, sim.auxState);
+  expect(axisX[1]).toBeLessThan(-80);
+});

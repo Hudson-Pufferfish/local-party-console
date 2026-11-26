@@ -146,7 +146,7 @@ function findPriorityEnemies(
   by: number,
   outResult: Int32Array,
 ): void {
-  // outResult[0] = nearest heavy (brute/boss) index, outResult[1] = enemy closest to Core index, outResult[2] = near count
+  // outResult[0] = threatening heavy (brute/boss) within defense range, outResult[1] = enemy closest to Core, outResult[2] = near count
   let bestHeavy = -1;
   let bestHeavyDistSq = Number.POSITIVE_INFINITY;
   let bestCore = -1;
@@ -159,6 +159,9 @@ function findPriorityEnemies(
     outResult[2] = 0;
     return;
   }
+
+  // Core danger threshold: 280 units (beyond this, heavy enemies are not an immediate Core breach threat)
+  const HEAVY_INTERCEPT_MAX_CORE_SQ = 280 * 280;
 
   for (let i = 0; i < AUX_LAYOUT.MAX_ENEMIES; i += 1) {
     const off = AUX_LAYOUT.ENEMIES_OFFSET + i * AUX_LAYOUT.ENEMY_STRIDE;
@@ -179,8 +182,9 @@ function findPriorityEnemies(
     const dSq = dx * dx + dy * dy;
     if (dSq < 140 * 140) nearCluster += 1;
 
+    // Only intercept Brutes or Bosses if they are encroaching on the Core
     if (type === ENEMY_TYPE.BRUTE || type === ENEMY_TYPE.BOSS) {
-      if (dSq < bestHeavyDistSq) {
+      if (coreDistSq <= HEAVY_INTERCEPT_MAX_CORE_SQ && dSq < bestHeavyDistSq) {
         bestHeavyDistSq = dSq;
         bestHeavy = i;
       }
@@ -276,6 +280,12 @@ export function writeHeuristic(
   const pace = 0.72 + share * 0.28;
   const role = roleBySlot[botIndex]!;
 
+  // Core Leash: Keep bots anchored around Core defense perimeter (~220 units) unless reviving
+  const CORE_LEASH_RADIUS = 220;
+  const CORE_LEASH_RADIUS_SQ = CORE_LEASH_RADIUS * CORE_LEASH_RADIUS;
+  const CORE_PERIMETER_ORBIT = 165;
+  const botDistSqFromCore = px * px + py * py;
+
   if (role === ROLE_REVIVE) {
     const tSlot = roleTargetSlot[botIndex]!;
     if (tSlot >= 0 && tSlot < SLOTS) {
@@ -308,6 +318,11 @@ export function writeHeuristic(
         steerY = -py / dist;
       }
     }
+  } else if (botDistSqFromCore > CORE_LEASH_RADIUS_SQ) {
+    // Core Anchor: Drifting past 220u tether -> immediately steer back toward Core perimeter
+    const dist = Math.sqrt(botDistSqFromCore);
+    steerX = -px / dist;
+    steerY = -py / dist;
   } else if (auxState !== undefined && auxState.byteLength >= AUX_LAYOUT.AUX_CORE_BYTES) {
     findPriorityEnemies(auxState, px, py, enemyScanScratch);
     const preferred =
@@ -347,8 +362,18 @@ export function writeHeuristic(
           steerX = ux * 0.5;
           steerY = uy * 0.5;
         } else if (dist > 155) {
-          steerX = ux;
-          steerY = uy;
+          // If moving forward would violate the 220u Core leash, clamp/steer around perimeter
+          const nextX = px + ux * 40;
+          const nextY = py + uy * 40;
+          if (nextX * nextX + nextY * nextY > CORE_LEASH_RADIUS_SQ) {
+            // Strafe along leash boundary rather than walking out
+            const side = botIndex % 2 === 0 ? 1 : -1;
+            steerX = -uy * side;
+            steerY = ux * side;
+          } else {
+            steerX = ux;
+            steerY = uy;
+          }
         } else if (dist < 95) {
           // Backpedal slightly while keeping facing toward target
           steerX = -ux * 0.5;
@@ -373,8 +398,8 @@ export function writeHeuristic(
     } else {
       // Orbit perimeter of Core ring ready for incoming flanks
       const orbitAngle = (botIndex / SLOTS) * Math.PI * 2;
-      const gx = Math.cos(orbitAngle) * 165;
-      const gy = Math.sin(orbitAngle) * 165;
+      const gx = Math.cos(orbitAngle) * CORE_PERIMETER_ORBIT;
+      const gy = Math.sin(orbitAngle) * CORE_PERIMETER_ORBIT;
       const dx = gx - px;
       const dy = gy - py;
       const dist = Math.hypot(dx, dy);
