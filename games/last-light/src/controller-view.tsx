@@ -33,11 +33,12 @@ export function reduceLightControl(
   if (message === null) return prev;
   const bit = slot >= 0 && slot < 8 ? 1 << slot : 0;
 
-  if (message.type === 'light:practice_start') {
+  if (message.type === 'light:practice_start' || message.type === 'light:rematch') {
     return {
       ...prev,
       phase: P.practice,
       status: 'IN',
+      score: 0,
     };
   }
 
@@ -130,7 +131,10 @@ export function hapticForLightControl(
   _slot: number,
 ): number | null {
   if (message === null) return null;
-  if (message.type === 'light:blowout') return BLOWOUT_VIBRATE_MS;
+  if (message.type === 'light:blowout') {
+    const isPractice = (message.payload as { practice?: unknown })?.practice === true;
+    return isPractice ? null : BLOWOUT_VIBRATE_MS;
+  }
   return null;
 }
 

@@ -1,6 +1,6 @@
 # Last Light (`last-light`) — Tap-to-Lock Lamp Game Specification
 
-> **AI Agent Instruction:** Read `../SPEC.md` and `./README.md` first. Last Light is a self-contained party game plugin under `/games/last-light` conforming to the platform `GameDefinition` contract. Never leak game-specific lamp, lock-in, or timing logic into `/server`, `/screen` or `/controller` shells. Status: design only. Nothing in this file is implemented yet.
+> **AI Agent Instruction:** Read `../SPEC.md` and `./README.md` first. Last Light is a self-contained party game plugin under `/games/last-light` conforming to the platform `GameDefinition` contract. Never leak game-specific lamp, lock-in, or timing logic into `/server`, `/screen` or `/controller` shells. Status: Live. Fully implemented under `/games/last-light`.
 
 ---
 
