@@ -67,6 +67,7 @@ export function reduceLightControl(
   if (message.type === 'light:blowout') {
     const lockedMask = readIntField(message.payload, 'lockedMask') ?? 0;
     const outMask = readIntField(message.payload, 'outMask') ?? 0;
+    const isPractice = (message.payload as { practice?: unknown })?.practice === true;
     let nextStatus = prev.status;
     if (bit !== 0 && (outMask & bit) !== 0) {
       nextStatus = 'OUT';
@@ -76,7 +77,8 @@ export function reduceLightControl(
     return {
       ...prev,
       status: nextStatus,
-      flashSeq: prev.flashSeq + 1,
+      // Suppress full-screen flash and haptic sequence during practice mode
+      flashSeq: isPractice ? prev.flashSeq : prev.flashSeq + 1,
     };
   }
 

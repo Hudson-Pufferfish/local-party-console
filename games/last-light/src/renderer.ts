@@ -100,7 +100,7 @@ export function createLastLightRenderer(
     const blowouts = state[H.blowoutCount] ?? 0;
 
     if (blowouts > lastBlowoutCount) {
-      flashFrames = 4;
+      flashFrames = 6;
     }
     lastBlowoutCount = blowouts;
 
@@ -122,7 +122,7 @@ export function createLastLightRenderer(
 
     // 1. Backdrop: shifts smoothly with dimming curve, snaps to deep blackout, flashes white on blowout beat.
     let bgColor = blackoutHex;
-    if (flashFrames > 2) {
+    if (flashFrames > 3) {
       bgColor = WHITE;
     } else if (!isBlown) {
       const normalized = (lum - 0.12) / 0.88;
