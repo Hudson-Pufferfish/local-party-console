@@ -64,16 +64,17 @@ export function scoreboardHeader(state: Float32Array): string {
 export function scoreRules(_state: Float32Array): ScoreRules {
   return {
     guide: [
-      'AUTO-FIRE AT CLOSEST ENEMY IN FRONT CONE',
-      'DEFEND CENTER CORE (SQUAD LOSES AT 0% HP)',
-      'SUPER BOMB (EMP): ENTER BLUE RING & PRESS Y TOGETHER',
-      'REVIVE: STAND NEAR DOWNED ALLY & HOLD Y',
+      'AUTO-FIRE: SHIPS AUTO-SHOOT CLOSEST ENEMY IN FRONT 60° CONE (NO BUTTON NEEDED)',
+      'MISSION: DEFEND THE CENTER CORE ACROSS 8 WAVES (SQUAD FAILS IF CORE HP REACHES 0%)',
+      'SUPER BOMB (EMP): GATHER >=50% OF SQUAD IN BLUE CIRCLE & PRESS Y TO DETONATE',
+      'REVIVAL: STAND NEXT TO A DOWNED ALLY (OUTSIDE BLUE RING) & HOLD Y FOR 2.5s',
+      'ENEMIES: BRUTES BLOCK HEAD-ON ATTACKS WITH SHIELDS; FLANK THEM FROM BEHIND',
     ],
     rows: [
-      { label: 'A', value: 'PIERCE LASER — CUTS WHOLE ROW (2.5s CD)' },
-      { label: 'B', value: 'DASH — DODGE & FLANK BRUTES (1.8s CD)' },
-      { label: 'X', value: 'BARRIER — BLOCKS ENEMY MARCH FOR 8s (1.5s CD)' },
-      { label: 'Y', value: 'REVIVE ALLY (2.5s HOLD) / PRESS IN RING FOR BOMB' },
+      { label: 'A', value: 'PIERCE LASER — CUTS ENTIRE ROW & STUNS (90 DMG, 2.5s CD)' },
+      { label: 'B', value: 'DASH ESCAPE — SPEED BURST; DODGES & STAGGERS BRUTES (1.8s CD)' },
+      { label: 'X', value: 'ENERGY BARRIER — PLACES WALL THAT BLOCKS FOES FOR 8s (1.5s CD)' },
+      { label: 'Y', value: 'REVIVE / BOMB — HOLD 2.5s NEAR ALLY OR PRESS IN BLUE RING FOR BOMB' },
     ],
   };
 }

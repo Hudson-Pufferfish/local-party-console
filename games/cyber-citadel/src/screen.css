@@ -4,27 +4,33 @@
 
 .match[data-game="cyber-citadel"] .score-rules {
   min-width: 320px;
-  max-width: 380px;
+  max-width: 400px;
   width: max-content;
 }
 
+.match[data-game="cyber-citadel"] .score-rules-heading {
+  padding: 10px 14px 8px;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
 .match[data-game="cyber-citadel"] .score-guide-list {
-  padding: 10px 14px;
-  gap: 7px;
+  padding: 12px 14px;
+  gap: 10px;
 }
 
 .match[data-game="cyber-citadel"] .score-guide-item {
   white-space: normal;
-  line-height: 1.35;
-  font-size: clamp(11px, 0.95dvw, 13px);
+  line-height: 1.4;
+  font-size: clamp(10px, 0.9dvw, 12px);
   word-break: break-word;
 }
 
 .match[data-game="cyber-citadel"] .score-rules-list {
   display: flex;
   flex-direction: column;
-  padding: 10px 14px;
-  gap: 8px;
+  padding: 12px 14px;
+  gap: 10px;
 }
 
 .match[data-game="cyber-citadel"] .score-rule-row {
@@ -33,13 +39,14 @@
   justify-content: flex-start;
   gap: 8px;
   white-space: normal;
-  line-height: 1.3;
-  font-size: clamp(11px, 0.95dvw, 13px);
+  line-height: 1.35;
+  font-size: clamp(10px, 0.9dvw, 12px);
 }
 
 .match[data-game="cyber-citadel"] .score-rule-rank {
   font-weight: 700;
-  min-width: 20px;
+  min-width: 22px;
+  color: var(--ink, #111111);
 }
 
 .match[data-game="cyber-citadel"] .score-rule-pts {
