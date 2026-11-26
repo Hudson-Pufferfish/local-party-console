@@ -6,7 +6,7 @@
 
 ## 1. Overview & `GameManifest` Contract
 
-**Color Clash** is a 2-to-8 player top-down 2D territory painter. Neo-Brutalist pucks glide across a square matte studio floor and stamp their player color onto a $40 \times 40$ paint grid (`1,600` cells). Players trigger a 3-second **BOOST** charge to carve a wide paint trail across unpainted tiles and steal rival turf. Matches run for **45 seconds**. There is no elimination. The player who owns the highest percentage of the grid when the clock hits zero wins. A tie for first place triggers a **30-second Tiebreak Sudden Death (`OVERTIME`)** with a Golden Tile instant-win objective or most painted cells at expiry.
+**Color Clash** is a 2-to-8 player top-down 2D territory painter. Neo-Brutalist pucks glide across a square matte studio floor and stamp their player color onto a $40 \times 40$ paint grid (`1,600` cells). Players trigger a 3-second **BOOST** charge to carve a wide paint trail across unpainted tiles and steal rival turf. Matches run in a multi-round format with 45-second scored rounds until a player reaches the match target. There is no elimination. The player who owns the highest percentage of the grid when the clock hits zero wins the round. A tie for first place triggers a **30-second Tiebreak Sudden Death (`OVERTIME`)** with a Golden Tile instant-win objective or most painted cells at expiry.
 
 ### Declarative Manifest (`manifest.ts`)
 ```typescript
@@ -137,7 +137,7 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
      * Freeze puck velocities and award round points.
      * **Point Allocation:** For $N$ joined players, 1st place (`winnerSlot`) receives $N - 1$ points. Other players receive points ranked by cell coverage ($N - 1 - \text{better}$).
      * **Match Target:** `targetScore = max(3, (N - 1) * 3)`.
-     * **Decisive Sudden Death:** If multiple players tie at or above the threshold (`score >= targetScore`), the match enters Sudden Death: each subsequent round awards `+1` point exclusively to the round winner (`winnerSlot`) until one unique leader emerges.
+     * **Decisive Sudden Death:** If multiple players tie at or above the threshold (`score >= targetScore`), the match enters Sudden Death: non-contenders below the top score are parked off-arena (`FLAG_ACTIVE = 0`), and only tied leaders take the floor. Each subsequent sudden death round awards `+1` point exclusively to the round winner (`winnerSlot`) until one unique leader emerges.
      * If one unique player satisfies `score >= targetScore`, transition to `MATCH_OVER`.
      * Otherwise, transition to `PRACTICE` (`20.0s` break) before the next round.
   7. **`MATCH_OVER` (`phaseEnum = 3`):** Present final match results and standings alongside host **PLAY AGAIN** and **RETURN TO LOBBY** controls.
@@ -361,7 +361,7 @@ Every PR or AI-generated change to `color-clash` must preserve these invariants:
 3. **INV-3 (Grid Domain & Count Conservation):** Every byte in `grid` (`Uint8Array(1600)`) satisfies `0 <= grid[c] <= 8`. For every slot $i$, `state[base + 7]` (`paintPct`) equals `(cellCount * 100) / 1600`, and $\sum_{i=0}^{7} \text{cellCount}_i \le 1600$. `state[base + 9]` stores the player's accumulated match score.
 4. **INV-4 (Monotonic Boost Timers):** `boostActiveTimer` stays clamped to $[0, 3.00]$ and `boostCooldown` stays clamped to $[0, 8.00]$. While `boostActiveTimer > 0`, `boostCooldown >= boostActiveTimer`. Neither value ever goes negative.
 5. **INV-5 (Order-Independent Same-Tick Overlap):** When multiple pucks cover the same grid cell on the same tick, the winning owner depends only on `(boostActive, distSq, slotIndex)` — never on loop iteration direction.
-6. **INV-6 (Guaranteed Finite Termination):** Every match reaches `MATCH_OVER` within at most `3.0 + 45.0 + 30.0 + 3.0 = 81.0` simulated seconds, even when all players stay idle (`0` painted cells) or remain tied through `OVERTIME`.
+6. **INV-6 (Guaranteed Finite Termination):** Every round reaches `ROUND_END` within at most `3.0 + 45.0 + 30.0 = 78.0` simulated seconds (opening round adds `30.0s` practice, mid-match rounds add `20.0s` practice break). Deterministic tiebreak ordering and sudden death contender filtering ensure finite match termination even when players remain idle or tied.
 7. **INV-7 (Zero-Allocation Hot Path):** Executing `10,000` consecutive `simulation.step(1/120)` ticks and `writeHeuristic()` calls produces $0$ dynamic object allocations inside the physics and bot loops.
 8. **INV-8 (Bit-Exact Determinism):** Replaying the same 8-byte input sequence from the same starting roster in the same Chrome build produces bit-identical `Float32Array(88)` and `Uint8Array(1600)` buffers at tick $N$.
 9. **INV-9 (Strict View Isolation):** Mounting `color-clash` when a monitor is open on `/screen?view=team-1` never runs `ColorClashRenderer`; only `/screen?view=holistic` renders the arena.
@@ -371,7 +371,7 @@ Every PR or AI-generated change to `color-clash` must preserve these invariants:
 ## 7. Testing & Verification Plan
 
 ### 1. Deterministic Unit Tests (`vitest`)
-* **Grid Stamping & Count Conservation (`INV-3`):** Move a puck across the $40 \times 40$ grid, verify exact cell coordinates are marked with `slot + 1`, overwrite them with a second puck, and assert `paintCells` for both players matches a full brute-force count of `grid` and $\sum \text{paintCells}_i \le 1600$.
+* **Grid Stamping & Count Conservation (`INV-3`):** Move a puck across the $40 \times 40$ grid, verify exact cell coordinates are marked with `slot + 1`, overwrite them with a second puck, and assert cell counts for both players matches a full brute-force count of `grid` and $\sum \text{cellCounts}_i \le 1600$.
 * **Same-Tick Cell Overlap Resolution (`INV-5`):** Place two pucks equidistant and asymmetric over a shared cell on the same tick; verify the boosting puck beats a non-boosting puck, and the closer puck beats a farther puck regardless of slot order.
 * **Box Boundary Containment (`INV-2`):** Drive a puck at full boosted velocity into all four corners and walls; assert $|x| \le 376$, $|y| \le 376$, and outward velocity reflects by `WALL_BOUNCE = 0.35`.
 * **Boost Edge Trigger & 3s Wide Trail (`INV-4`):** Hold `Bit 0 = 1` across multiple ticks; verify only one `3.00s` boost fires on the `0 -> 1` rising edge, stamped cell footprint expands from radius `24` to `54`, and re-trigger stays locked until `boostCooldown` reaches `0` (`8.00s` total).

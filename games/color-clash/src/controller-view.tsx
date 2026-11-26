@@ -105,6 +105,10 @@ export const ColorClashController: VoidComponent<{
       if (percents !== null && props.slot >= 0 && props.slot < 8) {
         setPct(percents[props.slot] ?? 0);
       }
+      const scores = readScores(message.payload);
+      if (scores !== null && props.slot >= 0 && props.slot < 8) {
+        setScore(scores[props.slot] ?? 0);
+      }
       return;
     }
     if (message.type === 'color:overtime') {

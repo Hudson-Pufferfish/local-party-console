@@ -123,12 +123,46 @@ export function createColorClashSimulation(): ColorClashSimulation {
     }
   }
 
+  function parkNonContender(slot: number): void {
+    inputs[slot].edge = 0;
+    inputs[slot].axisX = 0;
+    inputs[slot].axisY = 0;
+    inputs[slot].buttons = 0;
+    const base = PLAYER + slot * STRIDE;
+    state[base] = OFFSCREEN;
+    state[base + 1] = OFFSCREEN;
+    state[base + 2] = 0;
+    state[base + 3] = 0;
+    state[base + 5] = 0;
+    state[base + 6] = 0;
+    state[base + 7] = 0;
+    state[base + 8] = 0;
+  }
+
   function placeSpawn(): void {
     if (joinedCount === 0) return;
+    const sudden = isSuddenDeath(state, matchTarget);
+    const topScore = sudden ? maxScoreForState(state) : 0;
+    let count = joinedCount;
+    if (sudden) {
+      count = 0;
+      for (let i = 0; i < joinedCount; i += 1) {
+        const slot = spawnOrder[i];
+        if (state[PLAYER + slot * STRIDE + 9] === topScore) {
+          count += 1;
+        }
+      }
+    }
+    if (count === 0) return;
+    let placed = 0;
     for (let spawn = 0; spawn < joinedCount; spawn += 1) {
       const slot = spawnOrder[spawn];
       const base = PLAYER + slot * STRIDE;
-      const theta = (Math.PI * 2 * spawn) / joinedCount;
+      if (sudden && state[base + 9] !== topScore) {
+        parkNonContender(slot);
+        continue;
+      }
+      const theta = (Math.PI * 2 * placed) / count;
       state[base] = C.rSpawn * Math.cos(theta);
       state[base + 1] = C.rSpawn * Math.sin(theta);
       state[base + 2] = 0;
@@ -138,6 +172,7 @@ export function createColorClashSimulation(): ColorClashSimulation {
       state[base + 6] = 0;
       state[base + 7] = 0;
       state[base + 8] = FLAG_ACTIVE;
+      placed += 1;
       // Note: state[base + 9] is overall match points, preserved across rounds
     }
   }
