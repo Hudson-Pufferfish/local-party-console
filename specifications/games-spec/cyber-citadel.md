@@ -76,20 +76,32 @@ The `stick-diamond` preset and `ButtonSpec` definition exist in `shared/src/cont
 * **Wave Break Resupply:** When a wave concludes, all dead or downed players respawn immediately, and the Core automatically recovers 10% of its max HP.
 * **Solo Rule:** When the weighted squad size $W < 1.5$, bleed-out is shortened to 5 seconds and respawn delay is reduced to 4 seconds, while preserving the 3% Core HP cost.
 
-### FR-3: Auto-Fire & Buttons (RAIL, DASH, SHIELD, REVIVE/EMP)
+### FR-3: Auto-Fire & Buttons (LASER, DASH, WALL, BOMB/REVIVE)
 
 Tactical controls follow these explicit rules:
 
 | Input | Rule |
 | :--- | :--- |
 | **Auto-fire** | Automatic. Targets the enemy closest to the Core inside player weapon range and within a 60° forward cone along heading. Range and damage: TBD (tune in playtest). Default implementation uses hitscan with a short tracer line without bullet heap allocations. |
-| **A (bit 0) RAIL** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 15° priority snap onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Zero energy meter and zero spread. |
+| **A (bit 0) LASER** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 15° priority snap onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Zero energy meter and zero spread. |
 | **B (bit 1) DASH** | Tap. Repulsor thrust providing crowd stagger and mobility. Colliding with a shielded brute body-checks it, spinning it for 1.0s to expose its unshielded rear to auto-fire. DASH does not pierce frontal shields. Dash distance, speed, and cooldown: TBD (tune in playtest). |
-| **X (bit 2) SHIELD** | Tap. Deploys a stationary kinetic barricade. Each player can maintain at most 2 concurrent active barricades, each lasting 8.0s and blocking traversal cells on the $40 \times 40$ path grid. |
-| **Y (bit 3) REVIVE/EMP** | Tap. Context-sensitive action: initiates revive if a downed teammate is in range, otherwise joins the Core EMP charge if inside the Core ring. The phone displays the active context label received via `pad:state` (proposal). |
-| **EMP input** | Joined by tapping Y while positioned inside the Core ring. After tapping, the player remains registered in the EMP charge until exiting the ring, being downed, or going AWAY. |
-| **EMP gather rule** | EMP charges while at least half of the living squad (with at least 1 human) stands within the Core ring and has tapped Y to join. Can be fired at most once per wave. |
-| **EMP effect** | Effect radius, damage, charge duration, and stun timing: TBD (tune in playtest). |
+| **X (bit 2) WALL** | Tap. Deploys a stationary kinetic barricade. Each player can maintain at most 2 concurrent active barricades, each lasting 8.0s and blocking traversal cells on the $40 \times 40$ path grid. |
+| **Y (bit 3) BOMB / REVIVE** | Tap. Context-sensitive action driven by the Button Y State Machine (below). Displays dynamic label (`BOMB`, `JOINED`, `REVIVE`) sent via slot-scoped `pad:state` events. |
+
+#### Complete Button Y State Machine
+
+Button Y switches dynamically depending on player proximity to downed allies and the Core's blue Super Bomb ring:
+
+| Context / Location | Downed Ally in Reach ($< 60\text{px}$)? | Button Y Label | Button State | Stylistic Treatment / Visual Feedback |
+| :--- | :---: | :---: | :---: | :--- |
+| **Anywhere in Arena** | **YES** | `REVIVE` | Enabled | 100% full opacity, bright theme accent. Highest priority action; revives fallen teammate immediately over bombing. |
+| **Inside Blue Core Ring** | NO | `BOMB` | Enabled | 100% full opacity, glowing prompt. Tap to join the Super Bomb charge. |
+| **Inside Blue Core Ring (Tapped)** | NO | `JOINED` | Active / Held | Stays joined until exiting ring, becoming downed, or when Super Bomb discharges. |
+| **Outside Blue Ring (No Downed Ally)** | NO | `REVIVE` | Disabled | **30% vague opacity** (`opacity: 0.3`). Un-pressable affordance informing player of the revive capability without visual distraction. |
+
+* **Super Bomb Gather Rule:** The Super Bomb charges when at least half of the living squad (with $\ge 1$ human) stands within the blue Core ring and has tapped Y (`JOINED`). Can be fired at most once per wave.
+* **Super Bomb Screen Readout:** When the blast fires, controller readout displays `WAVE X/8 · SUPER BOMB`.
+* **Cooldown Policy on Wave Transition:** When a wave concludes, all dead or downed players respawn immediately, and ability cooldowns are refreshed for the incoming wave.
 
 Cooldowns are tracked and enforced in the simulation, not on the phone. Inputs pressed during an active cooldown are ignored without queuing.
 
