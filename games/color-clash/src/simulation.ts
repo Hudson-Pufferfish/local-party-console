@@ -648,6 +648,7 @@ export function createColorClashSimulation(): ColorClashSimulation {
         let leaderCount = 0;
         for (let i = 0; i < C.maxPlayers; i += 1) {
           if (joined[i] === 0) continue;
+          if ((state[PLAYER + i * STRIDE + 8] & FLAG_ACTIVE) === 0) continue;
           const cells = cellCounts[i];
           if (cells > maxCells) {
             maxCells = cells;

@@ -22,13 +22,13 @@ test('eventsFromHeaderDiff generates round_start, round_end, match_start, boost,
   const prev = new Float32Array(88);
   const next = new Float32Array(88);
 
-  // Transition from PRACTICE to COUNTDOWN
+  // Transition from PRACTICE to COUNTDOWN on round 1 (scores 0)
   prev[PHASE] = PHASE_PRACTICE;
   prev[TICK] = 100;
   next[PHASE] = PHASE_COUNTDOWN;
   next[TICK] = 101;
-  next[PLAYER + 0 * STRIDE + SCORE] = 2;
-  next[PLAYER + 1 * STRIDE + SCORE] = 1;
+  next[PLAYER + 0 * STRIDE + SCORE] = 0;
+  next[PLAYER + 1 * STRIDE + SCORE] = 0;
 
   let envelopes = eventsFromHeaderDiff(prev, next);
   expect(envelopes.some((e) => e.type === 'color:round_start')).toBe(true);
@@ -36,8 +36,19 @@ test('eventsFromHeaderDiff generates round_start, round_end, match_start, boost,
   const roundStart = envelopes.find((e) => e.type === 'color:round_start');
   expect(roundStart?.payload).toMatchObject({
     countdownMs: 3000,
-    scores: [2, 1, 0, 0, 0, 0, 0, 0],
+    scores: [0, 0, 0, 0, 0, 0, 0, 0],
   });
+
+  // Subsequent round: round_start fires, match_start does not
+  prev[PHASE] = PHASE_PRACTICE;
+  prev[TICK] = 200;
+  next[PHASE] = PHASE_COUNTDOWN;
+  next[TICK] = 201;
+  next[PLAYER + 0 * STRIDE + SCORE] = 2;
+  next[PLAYER + 1 * STRIDE + SCORE] = 1;
+  envelopes = eventsFromHeaderDiff(prev, next);
+  expect(envelopes.some((e) => e.type === 'color:round_start')).toBe(true);
+  expect(envelopes.some((e) => e.type === 'color:match_start')).toBe(false);
 
   // Boost event on rising edge
   prev[PHASE] = PHASE_ROUND_ACTIVE;

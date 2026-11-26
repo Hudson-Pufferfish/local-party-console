@@ -13,6 +13,7 @@ import { hasUniqueWinner } from './scoreboard.ts';
 const TICK = 0;
 const PHASE = 1;
 const GOLDEN = 4;
+const MASK = 5;
 const HIT = 6;
 const WINNER = 7;
 const PLAYER = 8;
@@ -37,11 +38,14 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
     events.push(envelope('color:round_start', {
       countdownMs: C.countdown * 1000,
       scores: scoreList(next),
+      activeMask: Math.trunc(next[MASK] ?? 0),
     }));
-    events.push(envelope('color:match_start', {
-      durationMs: C.roundDuration * 1000,
-      countdownMs: C.countdown * 1000,
-    }));
+    if (prevTick === 0 || scoreSum(next) === 0) {
+      events.push(envelope('color:match_start', {
+        durationMs: C.roundDuration * 1000,
+        countdownMs: C.countdown * 1000,
+      }));
+    }
   }
 
   for (let index = 0; index < SLOTS; index += 1) {
@@ -99,7 +103,7 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
       winnerIndex: Math.trunc(next[WINNER] ?? -1),
       percents: percentList(next),
       scores: scoreList(next),
-      overtime: prevPhase === PHASE_OVERTIME,
+      overtime: (prev[GOLDEN] ?? -1) >= 0 || prevPhase === PHASE_OVERTIME,
     }));
   }
 
@@ -118,6 +122,14 @@ export function eventsFromHeaderDiff(prev: Float32Array, next: Float32Array): En
 
 function envelope(type: string, payload: unknown): Envelope {
   return { type, roomId: '', payload };
+}
+
+function scoreSum(state: Float32Array): number {
+  let sum = 0;
+  for (let index = 0; index < SLOTS; index += 1) {
+    sum += state[PLAYER + index * STRIDE + SCORE] ?? 0;
+  }
+  return sum;
 }
 
 function percentList(state: Float32Array): number[] {

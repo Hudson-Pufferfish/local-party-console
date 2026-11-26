@@ -381,7 +381,6 @@ describe('ColorClashSimulation', () => {
     expect(sim.state[1]).toBe(PHASE_MATCH_OVER);
     expect(sim.state[7]).toBe(1);
   });
-  });
 
   test('sudden death only activates tied leaders and parks non-leaders (Sumo rule)', () => {
     const sim = createColorClashSimulation();

@@ -22,6 +22,57 @@ export function formatColorReadout(
   return `${scorePrefix}${safePct.toFixed(1)}% · ${status}`;
 }
 
+export function reduceColorControl(
+  prev: { pct: number; score: number; boostState: BoostUiState; overtime: boolean; watching: boolean },
+  message: { type: string; payload: unknown } | null,
+  slot: number,
+): { pct: number; score: number; boostState: BoostUiState; overtime: boolean; watching: boolean } {
+  if (message === null) return prev;
+  if (message.type === 'color:match_start' || message.type === 'color:round_start') {
+    const scores = readScores(message.payload);
+    const score = scores !== null && slot >= 0 && slot < 8 ? (scores[slot] ?? prev.score) : prev.score;
+    const mask = readNumber(message.payload, 'activeMask', -1);
+    const watching = mask >= 0 && slot >= 0 && slot < 8 ? (mask & (1 << slot)) === 0 : false;
+    return {
+      pct: 0,
+      score,
+      boostState: 'ready',
+      overtime: false,
+      watching,
+    };
+  }
+  if (message.type === 'color:scores') {
+    const percents = readPercents(message.payload);
+    const pct = percents !== null && slot >= 0 && slot < 8 ? (percents[slot] ?? prev.pct) : prev.pct;
+    const scores = readScores(message.payload);
+    const score = scores !== null && slot >= 0 && slot < 8 ? (scores[slot] ?? prev.score) : prev.score;
+    return { ...prev, pct, score };
+  }
+  if (message.type === 'color:overtime') {
+    const mask = readNumber(message.payload, 'contenderMask', 0xff);
+    const isContender = slot >= 0 && slot < 8 && (mask & (1 << slot)) !== 0;
+    return {
+      ...prev,
+      boostState: 'ready',
+      overtime: true,
+      watching: !isContender,
+    };
+  }
+  if (message.type === 'color:round_end') {
+    const scores = readScores(message.payload);
+    const score = scores !== null && slot >= 0 && slot < 8 ? (scores[slot] ?? prev.score) : prev.score;
+    return { ...prev, boostState: 'ready', score };
+  }
+  if (message.type === 'color:match_end') {
+    const percents = readPercents(message.payload);
+    const pct = percents !== null && slot >= 0 && slot < 8 ? (percents[slot] ?? prev.pct) : prev.pct;
+    const scores = readScores(message.payload);
+    const score = scores !== null && slot >= 0 && slot < 8 ? (scores[slot] ?? prev.score) : prev.score;
+    return { ...prev, boostState: 'ready', pct, score };
+  }
+  return prev;
+}
+
 export const ColorClashController: VoidComponent<{
   color: string;
   name: string;
@@ -30,11 +81,16 @@ export const ColorClashController: VoidComponent<{
   onAxes: (x: number, y: number, timeStamp: number) => void;
   onButton: (down: boolean, timeStamp: number, bit?: number) => void;
 }> = (props) => {
-  const [pct, setPct] = createSignal(0);
-  const [score, setScore] = createSignal(0);
-  const [boostState, setBoostState] = createSignal<BoostUiState>('ready');
-  const [overtime, setOvertime] = createSignal(false);
-  const [watching, setWatching] = createSignal(false);
+  const initial = reduceColorControl(
+    { pct: 0, score: 0, boostState: 'ready', overtime: false, watching: false },
+    props.control,
+    props.slot,
+  );
+  const [pct, setPct] = createSignal(initial.pct);
+  const [score, setScore] = createSignal(initial.score);
+  const [boostState, setBoostState] = createSignal<BoostUiState>(initial.boostState);
+  const [overtime, setOvertime] = createSignal(initial.overtime);
+  const [watching, setWatching] = createSignal(initial.watching);
 
   let activeTimer: ReturnType<typeof setTimeout> | null = null;
   let coolTimer: ReturnType<typeof setTimeout> | null = null;
@@ -84,10 +140,15 @@ export const ColorClashController: VoidComponent<{
       setPct(0);
       setBoostState('ready');
       setOvertime(false);
-      setWatching(false);
       const scores = readScores(message.payload);
       if (scores !== null && props.slot >= 0 && props.slot < 8) {
         setScore(scores[props.slot] ?? 0);
+      }
+      const mask = readNumber(message.payload, 'activeMask', -1);
+      if (mask >= 0 && props.slot >= 0 && props.slot < 8) {
+        setWatching((mask & (1 << props.slot)) === 0);
+      } else {
+        setWatching(false);
       }
       return;
     }
