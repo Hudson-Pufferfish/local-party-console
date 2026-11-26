@@ -1,7 +1,6 @@
 import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
 import { COLOR_CLASH_MANIFEST } from '../../games/color-clash/src/manifest.ts';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
-import { GameRegistry } from '../../shared/src/registry.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
 import type { BotLevels, WriteBotInput } from './bot-fill.ts';
@@ -34,7 +33,7 @@ export interface ScoreRules {
 export interface ScreenGameRuntime {
   createSim(): ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array) => Envelope[];
-  createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array) => ArenaRenderer;
+  createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array, readAux?: () => Uint8Array | null) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
   scoreboardHeader?: (state: Float32Array) => string;
@@ -188,9 +187,3 @@ export const screenGames = createScreenGameLoader([
 export function listScreenManifests(): GameManifest[] {
   return screenGames.listManifests();
 }
-
-export const GAME_REGISTRY = new GameRegistry([
-  SUMO_DASH_MANIFEST,
-  BOMB_PASS_MANIFEST,
-  COLOR_CLASH_MANIFEST,
-]);

@@ -47,7 +47,7 @@ Do not commit `.cursor/mcp.json` or secrets.
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
 - Grow the system in layers. Ship the smallest version that works end to end (v1 shell + `sumo-dash`), then add Stretch capabilities from `SPEC.md` on top of a product that already works. Never trade a working product for unfinished complexity.
 - Day-1 seams in `SPEC.md` (`GameTransport`, `GameSimulation`, `GameDefinition`) are intentional upgrade paths, not throwaway shims. Implement the seam; do not hardcode a Stretch-2 design into Day-1 code.
-- **Multi-game from day one in structure, not in scope.** `sumo-dash` is only the first registered game. More games (different genres, Phaser/Three renderers, controller layouts, player/bot caps, `holistic` vs `team-exclusive` views) will be added. Design the Console OS and `GameRegistry` so a new game is a new module + `games-spec/<id>.md` entry — never a fork of platform code. Do not hardcode `sumo-dash` rules, physics, controllers, or camera logic into `/server`, `/screen`, or `/controller`.
+- **Multi-game from day one in structure, not in scope.** `sumo-dash` is only the first registered game. More games (different genres, Phaser/Three renderers, controller layouts, player/bot caps, `holistic` vs `team-exclusive` views) will be added. Design the Console OS so a new game is a new module + `games-spec/<id>.md` entry — never a fork of platform code. Do not hardcode `sumo-dash` rules, physics, controllers, or camera logic into `/server`, `/screen`, or `/controller`.
 - Whenever writing or modifying code in relevant areas, check all `TODO(@agents)` markers to verify if adjacent multi-screen or coordinated behaviors need implementation.
 - Keep components modular and concerns clearly separated. Games are plugins under `/games/<id>`. Do not leak game logic into shells.
 - Prefer established, well-maintained libraries when they reduce overall complexity or improve reliability. Do not reimplement common functionality without a clear reason.
@@ -87,6 +87,6 @@ Do not commit `.cursor/mcp.json` or secrets.
 - Stack (see `SPEC.md`): TypeScript + Vite, SolidJS 2, Tailwind, Phaser 4 / Three.js, Fastify + raw `ws`, WebRTC DataChannel whose peer is the host Chrome tab.
 - v1: shell + `sumo-dash` (holistic, zero-buffer, humans only). v1.1 heuristic bots. Stretch 1 HUD and RF timing. Stretch 2 SharedWorker / SAB / WASM. Stretch 3 flight recorder. Stretch 4 ONNX. Do not pull a later phase into v1.
 - More games ship later through `GameDefinition` (`games-spec/` index).
-- When adding a game: follow `games-spec/README.md` (manifest, sim, renderer, controller), register in the index + `GameRegistry`, keep platform shells game-agnostic.
+- When adding a game: follow `games-spec/README.md` (manifest, sim, renderer, controller), register the manifest and loader in `screen/src/register-games.ts` (the `screenGames` array) and add it to the `controllerGames` map in `controller/src/register-games.ts`, keep platform shells game-agnostic.
 - Source of truth: `specifications/`. Evergreen setup/ops docs will live under `docs/` when added. Do not treat chat history as authority over specs.
 - Do not commit secrets, `.env`, private keys, or local MCP config.

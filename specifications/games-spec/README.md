@@ -83,4 +83,4 @@ When introducing a new game to `games-spec/`:
    * Phone controller layout and byte-level mapping for `Byte 5` (buttons) and `Bytes 6..7` (axes).
    * Bot rules only when `supportsBots` is true. `sumo-dash` sets `supportsBots: true`. The heuristic is in that file.
 2. Add the game to the **Active Game Index** table above.
-3. Register the module in the platform's central `GameRegistry` so it automatically appears in the monitor lobby carousel.
+3. Register the game in `screen/src/register-games.ts` by adding an entry to the `screenGames` array (manifest and load function), and in `controller/src/register-games.ts` by calling `controllerGames.set()` with the manifest and controller View component.
