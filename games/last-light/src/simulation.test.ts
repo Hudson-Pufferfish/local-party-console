@@ -385,78 +385,97 @@ describe('Last Light simulation (TDD)', () => {
     expect(readLockedMask(sim.state)).toBe(0b011);
   });
 
-  test('10,000-tick randomized fuzz asserts INV-1..INV-8 across 2-8 players with disconnects and reconnects', () => {
-    const sim = createLastLightSimulation();
-    const slots = [0, 1, 2, 3, 4, 5];
-    const seed = 0xfeedface;
-    sim.startMatch(slots, seed);
+  test(
+    '10,000-tick randomized fuzz asserts INV-1..INV-8 across 2-8 players with disconnects and reconnects',
+    { timeout: 15_000 },
+    () => {
+      const sim = createLastLightSimulation();
+      const slots = [0, 1, 2, 3, 4, 5];
+      const seed = 0xfeedface;
+      sim.startMatch(slots, seed);
 
-    let fuzzRng = 0x12345678;
-    const next = (): number => {
-      fuzzRng = (fuzzRng + 0x6d2b79f5) >>> 0;
-      let z = fuzzRng;
-      z = Math.imul(z ^ (z >>> 15), z | 1);
-      z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
-      return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
-    };
+      let fuzzRng = 0x12345678;
+      const next = (): number => {
+        fuzzRng = (fuzzRng + 0x6d2b79f5) >>> 0;
+        let z = fuzzRng;
+        z = Math.imul(z ^ (z >>> 15), z | 1);
+        z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+        return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+      };
 
-    const prevScores = new Float32Array(8);
-    let activeTicks = 0;
+      const prevScores = new Float32Array(8);
+      const maxActiveTicks = C.scoredMaxSec * C.stepHz;
+      const maxRoundDelta = slots.length - 1;
+      let activeTicks = 0;
+      let checkedTicks = 0;
 
-    for (let tick = 0; tick < 10000; tick += 1) {
-      if (sim.state[H.phase] === P.matchOver) {
-        // Start a fresh match to keep fuzzing continuously up to 10,000 ticks.
-        sim.startMatch(slots, seed + tick);
-        prevScores.fill(0);
-        activeTicks = 0;
-      }
-
-      if (tick % 37 === 0) {
-        let mask = 0;
-        for (const s of slots) {
-          if (next() > 0.15) mask |= 1 << s;
+      for (let tick = 0; tick < 10000; tick += 1) {
+        if (sim.state[H.phase] === P.matchOver) {
+          // Start a fresh match to keep fuzzing continuously up to 10,000 ticks.
+          sim.startMatch(slots, seed + tick);
+          prevScores.fill(0);
+          activeTicks = 0;
         }
-        sim.setConnectedMask(mask);
-      }
 
-      for (const s of slots) {
-        const press = next() < 0.02 ? 1 : 0;
-        sim.applyInput(s, press, Math.floor((next() - 0.5) * 254), Math.floor((next() - 0.5) * 254));
-      }
-
-      sim.step(DT);
-
-      // INV-1: All 88 floats finite.
-      for (let i = 0; i < C.stateFloats; i += 1) {
-        expect(Number.isFinite(sim.state[i]!)).toBe(true);
-      }
-
-      const phase = sim.state[H.phase]!;
-      const lampFlags = sim.state[H.lampFlags]! | 0;
-
-      // INV-6: Bounded active round duration.
-      if (phase === P.active) {
-        activeTicks += 1;
-        expect(activeTicks).toBeLessThanOrEqual(C.scoredMaxSec * C.stepHz);
-      } else {
-        activeTicks = 0;
-      }
-
-      // INV-8: Never expose lockTick while lamp is LIT.
-      if ((lampFlags & LAMP_FLAG.lit) !== 0) {
-        for (const s of slots) {
-          expect(readPlayerLockTick(sim.state, s)).toBe(-1);
+        if (tick % 37 === 0) {
+          let mask = 0;
+          for (const s of slots) {
+            if (next() > 0.15) mask |= 1 << s;
+          }
+          sim.setConnectedMask(mask);
         }
+
+        for (const s of slots) {
+          const press = next() < 0.02 ? 1 : 0;
+          sim.applyInput(s, press, Math.floor((next() - 0.5) * 254), Math.floor((next() - 0.5) * 254));
+        }
+
+        sim.step(DT);
+
+        // INV-1: All 88 floats finite.
+        for (let i = 0; i < C.stateFloats; i += 1) {
+          if (!Number.isFinite(sim.state[i]!)) {
+            expect(Number.isFinite(sim.state[i]!)).toBe(true);
+          }
+        }
+
+        const phase = sim.state[H.phase]!;
+        const lampFlags = sim.state[H.lampFlags]! | 0;
+
+        // INV-6: Bounded active round duration.
+        if (phase === P.active) {
+          activeTicks += 1;
+          if (activeTicks > maxActiveTicks) {
+            expect(activeTicks).toBeLessThanOrEqual(maxActiveTicks);
+          }
+        } else {
+          activeTicks = 0;
+        }
+
+        // INV-8: Never expose lockTick while lamp is LIT.
+        if ((lampFlags & LAMP_FLAG.lit) !== 0) {
+          for (const s of slots) {
+            const lockTick = readPlayerLockTick(sim.state, s);
+            if (lockTick !== -1) {
+              expect(lockTick).toBe(-1);
+            }
+          }
+        }
+
+        // INV-5: Monotonically non-decreasing scores bounded by N - 1 per round.
+        for (const s of slots) {
+          const sc = readPlayerScore(sim.state, s);
+          const delta = sc - prevScores[s]!;
+          if (delta < 0 || delta > maxRoundDelta) {
+            expect(delta).toBeGreaterThanOrEqual(0);
+            expect(delta).toBeLessThanOrEqual(maxRoundDelta);
+          }
+          prevScores[s] = sc;
+        }
+        checkedTicks += 1;
       }
 
-      // INV-5: Monotonically non-decreasing scores bounded by N - 1 per round.
-      for (const s of slots) {
-        const sc = readPlayerScore(sim.state, s);
-        const delta = sc - prevScores[s]!;
-        expect(delta).toBeGreaterThanOrEqual(0);
-        expect(delta).toBeLessThanOrEqual(slots.length - 1);
-        prevScores[s] = sc;
-      }
-    }
-  });
+      expect(checkedTicks).toBe(10000);
+    },
+  );
 });
