@@ -32,10 +32,10 @@ Keep `<canvas width={800} height={800}>` as a direct child of `<section class="m
 
 ### Round Ranking Panel
 
-Games that provide `createRoundRanking` in their `ScreenGameRuntime` (Color Clash and Sumo Dash) get a live round ranking panel under the guide on the left side. The panel shows:
+Games that provide `createRoundRanking` in their `ScreenGameRuntime` (Color Clash, Sumo Dash, and Bomb Pass) get a live round ranking panel under the guide on the left side. The panel shows:
 
 - **Stage**: `idle` (practice or countdown), `live` (round running), or `final` (round over).
-- During a live round: player rankings by the game metric (e.g. paint percent in Color Clash, live survival and bottom-up knockout locks in Sumo Dash), with a preview of points each place pays.
+- During a live round: player rankings by the game metric (paint percent in Color Clash, live survival and bottom-up knockout locks in Sumo Dash, blast locks with a `BOMB` marker and a `REPLAY` marker after a no-survivor blast in Bomb Pass), with a preview of points each place pays.
 - At round end: the ranking freezes for 2.0 s, showing real earned points per player, then updates and re-sorts the right column by match total.
 - During breaks and practice: the last round's final result stays visible, while `LIVE` / `AWAY` status updates in real time.
 

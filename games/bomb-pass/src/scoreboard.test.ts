@@ -45,6 +45,12 @@ test('scoreboard formats threshold, sudden death, 6-char shortTag rows, and scor
 
   expect(scoreboardHeader(s)).toBe('THRESHOLD: 6');
   expect(scoreRules(s)).toEqual({
+    guide: [
+      'TOUCH A PLAYER TO PASS THE BOMB',
+      'DASH, 1.5S RECHARGE',
+      'THE HOLDER BLOWS UP WHEN THE FUSE ENDS',
+      'LAST ONE ALIVE WINS THE ROUND',
+    ],
     rows: [
       { label: '1ST', value: '+2 PTS' },
       { label: '2ND', value: '+1 PTS' },
@@ -71,7 +77,15 @@ test('scoreboard formats threshold, sudden death, 6-char shortTag rows, and scor
   s[PLAYER + 1 * STRIDE + 9] = 6;
   s[H.roundFlags] = RF.matchSuddenDeath;
   expect(scoreboardHeader(s)).toBe('SUDDEN DEATH');
-  expect(scoreRules(s)).toEqual({ rows: [{ label: '1ST', value: '+1 PTS' }] });
+  expect(scoreRules(s)).toEqual({
+    guide: [
+      'TOUCH A PLAYER TO PASS THE BOMB',
+      'DASH, 1.5S RECHARGE',
+      'THE HOLDER BLOWS UP WHEN THE FUSE ENDS',
+      'LAST ONE ALIVE WINS THE ROUND',
+    ],
+    rows: [{ label: '1ST', value: '+1 PTS' }],
+  });
 });
 
 test('banner formats BREAK, countdown, BOMB fuse, BOOM!, SUDDEN DEATH, and <TAG> WINS', () => {
