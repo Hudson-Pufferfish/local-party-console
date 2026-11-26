@@ -113,7 +113,7 @@ test('buildCyberRehydrateEvents emits slot-scoped pad:state with remaining coold
     cooldownEndsAt: number[];
   };
   expect(payload.slot).toBe(0);
-  expect(payload.labels[3]).toBe('EMP');
+  expect(payload.labels[3]).toBe('BOMB');
   expect(payload.disabled & 0x08).toBe(0);
   expect(payload.cooldownEndsAt[0]).toBe(now + 1500);
 });

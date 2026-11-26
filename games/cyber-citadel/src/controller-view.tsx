@@ -7,7 +7,7 @@ import { CYBER_CITADEL_MANIFEST } from './manifest.ts';
 
 export function formatCyberReadout(wave: number, downed: boolean, empFlash: boolean): string {
   const safeWave = Math.max(1, Math.min(C.totalWaves, Math.trunc(wave || 1)));
-  if (empFlash) return `WAVE ${safeWave}/${C.totalWaves} · EMP BLAST`;
+  if (empFlash) return `WAVE ${safeWave}/${C.totalWaves} · SUPER BOMB`;
   if (downed) return `WAVE ${safeWave}/${C.totalWaves} · DOWNED`;
   return `WAVE ${safeWave}/${C.totalWaves}`;
 }

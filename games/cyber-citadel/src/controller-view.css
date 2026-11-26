@@ -2,6 +2,10 @@
   position: relative;
 }
 
+.cyber-board .arcade-button:disabled {
+  opacity: 0.3;
+}
+
 .cyber-board[data-emp-flash="true"]::after {
   content: "";
   position: fixed;

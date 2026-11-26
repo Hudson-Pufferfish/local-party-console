@@ -61,7 +61,7 @@ function computeSlotPadContext(
   const x = state[base + CYBER_PLAYER_OFFSET.x] ?? 0;
   const y = state[base + CYBER_PLAYER_OFFSET.y] ?? 0;
   if (!empFiredThisWave && x * x + y * y <= EMP_RING_SQ) {
-    return { yLabel: 'EMP', disabled };
+    return { yLabel: 'BOMB', disabled };
   }
   return { yLabel: 'REVIVE', disabled: disabled | 0x08 };
 }
@@ -81,7 +81,7 @@ export function buildCyberRehydrateEvents(
   const dashCd = state[base + CYBER_PLAYER_OFFSET.dashCooldown] ?? 0;
   const payload: PadStatePayload = {
     slot,
-    labels: ['RAIL', 'DASH', 'SHIELD', ctx.yLabel],
+    labels: ['LASER', 'DASH', 'WALL', ctx.yLabel],
     disabled: ctx.disabled,
     cooldownEndsAt: [
       railCd > 0 ? Math.round(nowMs + railCd * 1000) : 0,
@@ -175,7 +175,7 @@ export function createCyberEventsDiff(): (prev: Float32Array, next: Float32Array
         lastDisabled[s] = ctx.disabled;
         const payload: PadStatePayload = {
           slot: s,
-          labels: ['RAIL', 'DASH', 'SHIELD', ctx.yLabel],
+          labels: ['LASER', 'DASH', 'WALL', ctx.yLabel],
           disabled: ctx.disabled,
           ...(railChanged || dashChanged
             ? {

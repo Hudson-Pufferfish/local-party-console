@@ -17,9 +17,9 @@ export const CYBER_CITADEL_MANIFEST: GameManifest = {
   controllerLayout: {
     preset: 'stick-diamond',
     buttons: [
-      { bit: 0, glyph: 'A', label: 'RAIL', kind: 'tap', cooldownMs: 2500, hapticMs: 25 },
+      { bit: 0, glyph: 'A', label: 'LASER', kind: 'tap', cooldownMs: 2500, hapticMs: 25 },
       { bit: 1, glyph: 'B', label: 'DASH', kind: 'tap', hapticMs: 18 },
-      { bit: 2, glyph: 'X', label: 'SHIELD', kind: 'tap', hapticMs: 14 },
+      { bit: 2, glyph: 'X', label: 'WALL', kind: 'tap', hapticMs: 14 },
       { bit: 3, glyph: 'Y', label: 'REVIVE', kind: 'tap', hapticMs: 18 },
     ],
   },

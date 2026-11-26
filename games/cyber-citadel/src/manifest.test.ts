@@ -18,7 +18,7 @@ test('CYBER_CITADEL_MANIFEST satisfies holistic zero-buffer stick-diamond co-op 
   expect(CYBER_CITADEL_MANIFEST.controllerLayout.buttons[0]).toMatchObject({
     bit: 0,
     glyph: 'A',
-    label: 'RAIL',
+    label: 'LASER',
     kind: 'tap',
     cooldownMs: 2500,
   });
@@ -31,7 +31,7 @@ test('CYBER_CITADEL_MANIFEST satisfies holistic zero-buffer stick-diamond co-op 
   expect(CYBER_CITADEL_MANIFEST.controllerLayout.buttons[2]).toMatchObject({
     bit: 2,
     glyph: 'X',
-    label: 'SHIELD',
+    label: 'WALL',
     kind: 'tap',
   });
   expect(CYBER_CITADEL_MANIFEST.controllerLayout.buttons[3]).toMatchObject({
