@@ -7,6 +7,11 @@ import { tierFor } from '../../shared/src/sync/tier.ts';
 import { playerStyleVars } from '../../shared/src/theme.ts';
 import type { RoomPhase } from '../../shared/src/types/envelope.ts';
 import {
+  PAD_STATE_TYPE,
+  parsePadStatePayload,
+  type PadStatePayload,
+} from '../../shared/src/types/game-control.ts';
+import {
   ArcadeButton,
   GameCard,
   HudModal,
@@ -148,6 +153,7 @@ export const App: VoidComponent = () => {
   const [phase, setPhase] = createSignal<RoomPhase>('lobby');
   const [theme, setTheme] = createSignal<ThemeVars>({});
   const [control, setControl] = createSignal<ControllerControl | null>(null);
+  const [padState, setPadState] = createSignal<PadStatePayload | null>(null);
   let link: PhoneLink | undefined;
   let knownSlot = -1;
   let joinPending = false;
@@ -254,10 +260,12 @@ export const App: VoidComponent = () => {
           setPhase('lobby');
           setTheme({});
           setControl(null);
+          setPadState(null);
           setNotice('TYPE YOUR NAME AND TAP JOIN');
         },
         onMount: (id) => {
           if (!joined()) return;
+          setPadState(null);
           setTheme(localTheme(id));
           setGameId(id);
           window.scrollTo(0, 0);
@@ -266,6 +274,7 @@ export const App: VoidComponent = () => {
           setGameId('');
           setTheme({});
           setControl(null);
+          setPadState(null);
         },
         onPhase: (nextPhase) => {
           setPhase(nextPhase);
@@ -273,8 +282,17 @@ export const App: VoidComponent = () => {
           setGameId('');
           setTheme({});
           setControl(null);
+          setPadState(null);
         },
         onControl: (type, payload) => {
+          if (type === PAD_STATE_TYPE) {
+            const parsed = parsePadStatePayload(payload);
+            if (parsed !== null && parsed.slot === knownSlot) {
+              setPadState(parsed);
+              setControl({ type, payload });
+            }
+            return;
+          }
           setControl({ type, payload });
         },
         onPong: (sent, received) => {
@@ -367,6 +385,7 @@ export const App: VoidComponent = () => {
     setPhase('lobby');
     setTheme({});
     setControl(null);
+    setPadState(null);
     setNotice('');
     window.scrollTo(0, 0);
   }
@@ -494,6 +513,7 @@ export const App: VoidComponent = () => {
             name={name()}
             slot={slot()}
             control={control()}
+            padState={padState()}
             onAxes={sendAxes}
             onButton={sendButton}
           />

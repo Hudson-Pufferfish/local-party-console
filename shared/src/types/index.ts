@@ -24,7 +24,12 @@ export type {
 } from '../controller/layout.ts';
 export {
   ALLOWED_GAME_PREFIXES,
+  PAD_STATE_TYPE,
   isGameControlMessageType,
   isGameControlPrefix,
+  parsePadStatePayload,
+  readPadStateMessage,
   type AllowedGamePrefix,
+  type GameControlMessage,
+  type PadStatePayload,
 } from './game-control.ts';
