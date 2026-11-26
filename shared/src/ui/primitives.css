@@ -36,6 +36,13 @@
   transition: transform 35ms cubic-bezier(0.2, 0, 0, 1);
 }
 
+.arcade-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: 0px 2px 0px #111111;
+  transform: translate3d(0, 4px, 0);
+}
+
 .joystick,
 .swipe-zone {
   position: relative;

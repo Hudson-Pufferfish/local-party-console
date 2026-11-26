@@ -7,6 +7,7 @@ import { COLOR_CLASH_MANIFEST } from '../../games/color-clash/src/manifest.ts';
 import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import type { ControllerOrientation, GameManifest } from '../../shared/src/types/game.ts';
+import type { PadStatePayload } from '../../shared/src/types/game-control.ts';
 
 export interface ControllerControl {
   type: string;
@@ -18,6 +19,7 @@ export interface ControllerViewProps {
   name: string;
   slot: number;
   control: ControllerControl | null;
+  padState?: PadStatePayload | null;
   onAxes: (x: number, y: number, timeStamp: number) => void;
   onButton: (down: boolean, timeStamp: number, buttonIndex?: number) => void;
 }

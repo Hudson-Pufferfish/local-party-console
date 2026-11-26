@@ -137,4 +137,71 @@ describe('ControllerShell', () => {
     expect(html).toContain('data-active="false"');
     expect(html).toContain('transition-duration:0ms');
   });
+
+  test('ControllerShell applies pad:state dynamic Button Y label and disabled mask only for matching slot', () => {
+    const empHtml = renderToString(() => (
+      <ControllerShell
+        color="#00C853"
+        name="Hudson"
+        slot={1}
+        layout={diamondLayout}
+        control={{
+          type: 'pad:state',
+          payload: {
+            slot: 1,
+            labels: ['', '', '', 'EMP'],
+            disabled: 0,
+          },
+        }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    expect(empHtml).toContain('A RAIL');
+    expect(empHtml).toContain('B DASH');
+    expect(empHtml).toContain('X SHIELD');
+    expect(empHtml).toContain('Y EMP');
+    expect(empHtml).not.toContain('Y REVIVE');
+
+    // Dimmed/disabled Button Y via disabled bitmask (bit 3 = 8)
+    const dimmedHtml = renderToString(() => (
+      <ControllerShell
+        color="#00C853"
+        name="Hudson"
+        slot={1}
+        layout={diamondLayout}
+        padState={{
+          slot: 1,
+          labels: ['RAIL', 'DASH', 'SHIELD', 'JOINED'],
+          disabled: 1 << 3,
+        }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    expect(dimmedHtml).toContain('Y JOINED');
+    expect(dimmedHtml).toMatch(/disabled[^>]*>Y JOINED</);
+
+    // Mismatched slot ignores pad:state override and keeps manifest default label.
+    const otherSlotHtml = renderToString(() => (
+      <ControllerShell
+        color="#00C853"
+        name="Hudson"
+        slot={1}
+        layout={diamondLayout}
+        control={{
+          type: 'pad:state',
+          payload: {
+            slot: 3,
+            labels: ['', '', '', 'EMP'],
+            disabled: 1 << 3,
+          },
+        }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    expect(otherSlotHtml).toContain('Y REVIVE');
+    expect(otherSlotHtml).not.toContain('Y EMP');
+  });
 });

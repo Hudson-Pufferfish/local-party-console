@@ -163,3 +163,31 @@ test('RoundRanking marks bomb holder with data-bomb on rank value and avoids ext
   expect(html).toContain('class="round-rank-value" data-bomb="true"');
   expect(html).not.toContain('class="round-rank-marker"');
 });
+
+test('8-player match HUD clamps gaps and uses dynamic clamp(14px, 2.2dvh, 28px) row heights for 1080p and 720p fit', () => {
+  const rows = Array.from({ length: 8 }, (_, slot) => ({
+    slot,
+    color: '#FF4D00',
+    name: `P${slot + 1}`,
+    score: `${100 - slot * 5}%`,
+    ratio: (100 - slot * 5) / 100,
+    status: (slot % 2 === 0 ? 'LIVE' : 'AWAY') as 'LIVE' | 'AWAY',
+  }));
+  const html = renderToString(() => <ScoreboardPanel header="WAVE 4/8" rows={rows} />);
+  expect((html.match(/class="score-row"/g) ?? []).length).toBe(8);
+
+  const matchCss = fs.readFileSync(path.resolve(import.meta.dirname, 'styles/match.css'), 'utf8');
+  const matchBlock = matchCss.match(/(?:^|\n)\.match\s*\{[^}]*\}/)?.[0] ?? '';
+  const matchSideBlock = matchCss.match(/\.match-side\s*\{[^}]*\}/)?.[0] ?? '';
+  const scoreboardPanelBlock = matchCss.match(/(?:^|\n)\.scoreboard-panel\s*\{[^}]*\}/)?.[0] ?? '';
+  const scoreboardBlock = matchCss.match(/(?:^|\n)\.scoreboard\s*\{[^}]*\}/)?.[0] ?? '';
+  const scoreRowBlock = matchCss.match(/(?:^|\n)\.score-row\s*\{[^}]*\}/)?.[0] ?? '';
+  const roundRankRowBlock = matchCss.match(/(?:^|\n)\.round-rank-row\s*\{[^}]*\}/)?.[0] ?? '';
+
+  expect(matchBlock).toMatch(/row-gap:\s*clamp\(/);
+  expect(matchSideBlock).toMatch(/gap:\s*clamp\(/);
+  expect(scoreboardPanelBlock).toMatch(/gap:\s*clamp\(/);
+  expect(scoreboardBlock).toContain('clamp(14px, 2.2dvh, 28px)');
+  expect(scoreRowBlock).toContain('clamp(14px, 2.2dvh, 28px)');
+  expect(roundRankRowBlock).toContain('clamp(14px, 2.2dvh, 28px)');
+});

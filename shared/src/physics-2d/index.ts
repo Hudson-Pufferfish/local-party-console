@@ -6,4 +6,9 @@ export {
   type CircleBufferPairHooks,
   type CirclePairModifier,
 } from './circle-collision';
+export {
+  UniformGridHash,
+  type GridQueryBuffer,
+  type UniformGridConfig,
+} from './grid-hash';
 export { integrateMotion, type PhysicsBody2D } from './motion';
