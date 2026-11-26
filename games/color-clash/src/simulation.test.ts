@@ -270,6 +270,56 @@ describe('ColorClashSimulation', () => {
     assertInvariants(simExpire);
   });
 
+  test('BOOST held through countdown does not fire on the first ROUND_ACTIVE frame; a fresh press still does (issue #23)', () => {
+    const sim = createColorClashSimulation();
+    sim.startMatch([0, 1]);
+    let guard = 0;
+    while (sim.state[1] === PHASE_COUNTDOWN && guard < 1000) {
+      sim.applyInput(0, 1, 0, 0);
+      sim.step(DT);
+      guard += 1;
+    }
+    expect(sim.state[1]).toBe(PHASE_ROUND_ACTIVE);
+
+    sim.applyInput(0, 1, 0, 0);
+    sim.step(DT);
+    expect(sim.state[baseOf(0) + 6]).toBe(0);
+    expect(sim.state[baseOf(0) + 8] & 2).toBe(0);
+
+    sim.applyInput(0, 0, 0, 0);
+    sim.step(DT);
+    sim.applyInput(0, 1, 0, 0);
+    sim.step(DT);
+    expect(sim.state[baseOf(0) + 6]).toBeCloseTo(C.boostActive, 2);
+    expect(sim.state[baseOf(0) + 8] & 2).toBe(2);
+  });
+
+  test('BOOST held into OVERTIME does not fire on the first overtime frame; a fresh press still does (issue #23)', () => {
+    const sim = createColorClashSimulation();
+    sim.startMatch([0, 1]);
+    let guard = 0;
+    while (sim.state[1] !== PHASE_OVERTIME && guard < 120 * 50) {
+      sim.applyInput(0, 1, 0, 0);
+      sim.applyInput(1, 1, 0, 0);
+      sim.step(DT);
+      guard += 1;
+    }
+    expect(sim.state[1]).toBe(PHASE_OVERTIME);
+
+    sim.applyInput(0, 1, 0, 0);
+    sim.applyInput(1, 1, 0, 0);
+    sim.step(DT);
+    expect(sim.state[baseOf(0) + 6]).toBe(0);
+    expect(sim.state[baseOf(0) + 8] & 2).toBe(0);
+
+    sim.applyInput(0, 0, 0, 0);
+    sim.step(DT);
+    sim.applyInput(0, 1, 0, 0);
+    sim.step(DT);
+    expect(sim.state[baseOf(0) + 6]).toBeCloseTo(C.boostActive, 2);
+    expect(sim.state[baseOf(0) + 8] & 2).toBe(2);
+  });
+
   test('10,000-tick fuzz holds invariants INV-1..6 and replay is bit-exact (INV-8)', () => {
     function runScripted(ticks: number) {
       const sim = createColorClashSimulation();
