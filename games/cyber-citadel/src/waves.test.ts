@@ -172,3 +172,78 @@ test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wav
   expect(w8Boss).not.toBeNull();
   expect(w8Boss!.y).toBeLessThan(-320);
 });
+
+test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E&W@35s) alongside 0.9s minion cadence', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 8888);
+  sim.jumpToWave(8);
+  const view = createAuxView(sim.auxState);
+
+  const def8 = getWaveDefinition(8);
+  const mult = waveCountMultiplier(sim.getSquadWeight());
+  const expectedMinions =
+    Math.max(1, Math.round(def8.drones * mult)) +
+    Math.max(1, Math.round(def8.fastDrones * mult)) +
+    Math.max(1, Math.round(def8.brutes * mult));
+  expect(sim.getDebugStats().queuedEnemies).toBe(expectedMinions + 4);
+
+  const collectBosses = () => {
+    const bosses: Array<{ id: number; x: number; y: number; flankId: number }> = [];
+    for (let i = 0; i < AUX_LAYOUT.MAX_ENEMIES; i += 1) {
+      const e = readEnemy(view, i);
+      if (e.hpPct > 0 && e.type === ENEMY_TYPE.BOSS) {
+        bosses.push({ id: i, x: e.x, y: e.y, flankId: e.flankId });
+      }
+    }
+    return bosses;
+  };
+
+  let tick = 0;
+  const advanceToSec = (targetSec: number) => {
+    const targetTicks = Math.ceil(targetSec / C.dt);
+    while (tick < targetTicks) {
+      if (tick % 60 === 0) sim.state[CYBER_HEADER.coreHp] = C.coreMaxHp;
+      sim.step(C.dt);
+      tick += 1;
+    }
+  };
+
+  // At t = 2.1s: Boss 1 (North, flank 0) has spawned
+  advanceToSec(2.1);
+  let bosses = collectBosses();
+  expect(bosses.length).toBe(1);
+  expect(bosses[0]!.flankId).toBe(0);
+  expect(bosses[0]!.y).toBeLessThan(-320);
+
+  // At t = 10.0s: Minions are trickling in (not blocked by Boss 2 at 20s), still only 1 boss
+  advanceToSec(10.0);
+  expect(collectBosses().length).toBe(1);
+  expect(sim.getDebugStats().activeEnemies).toBeGreaterThan(3);
+
+  // At t = 19.8s: Boss 2 has not spawned yet
+  advanceToSec(19.8);
+  expect(collectBosses().length).toBe(1);
+
+  // At t = 20.1s: Boss 2 (South, flank 2) has spawned
+  advanceToSec(20.1);
+  bosses = collectBosses();
+  expect(bosses.length).toBe(2);
+  const southBoss = bosses.find((b) => b.flankId === 2);
+  expect(southBoss).toBeDefined();
+  expect(southBoss!.y).toBeGreaterThan(320);
+
+  // At t = 34.8s: Boss 3 & Boss 4 have not spawned yet
+  advanceToSec(34.8);
+  expect(collectBosses().length).toBe(2);
+
+  // At t = 35.1s: Boss 3 (East, flank 1) and Boss 4 (West, flank 3) spawn simultaneously
+  advanceToSec(35.1);
+  bosses = collectBosses();
+  expect(bosses.length).toBe(4);
+  const eastBoss = bosses.find((b) => b.flankId === 1);
+  const westBoss = bosses.find((b) => b.flankId === 3);
+  expect(eastBoss).toBeDefined();
+  expect(westBoss).toBeDefined();
+  expect(eastBoss!.x).toBeGreaterThan(320);
+  expect(westBoss!.x).toBeLessThan(-320);
+});

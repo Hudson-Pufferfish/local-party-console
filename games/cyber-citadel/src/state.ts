@@ -59,6 +59,12 @@ export interface MetaTrailer {
   empRingRequiredCount: number;
 }
 
+export interface BossSlotMeta {
+  enemyIdx: number;
+  weakMask: number;
+  laserAngleU16: number;
+}
+
 export interface FreeList {
   readonly capacity: number;
   acquire(): number;
@@ -332,6 +338,30 @@ export function readMetaTrailer(view: DataView): MetaTrailer {
     enemiesRemaining: view.getUint16(AUX_LAYOUT.META_ENEMIES_REMAINING, true),
     empRingJoinedCount: view.getUint8(AUX_LAYOUT.META_EMP_JOINED),
     empRingRequiredCount: view.getUint8(AUX_LAYOUT.META_EMP_REQUIRED),
+  };
+}
+
+/** Zero-allocation hot-path per-boss slot writer (4 slots x 4 bytes in META_BOSS_SLOTS). */
+export function writeBossSlotMetaRaw(
+  view: DataView,
+  bossSlot: number,
+  enemyIdx: number,
+  weakMask: number,
+  laserAngleU16: number,
+): void {
+  const off = AUX_LAYOUT.META_BOSS_SLOTS + bossSlot * AUX_LAYOUT.META_BOSS_SLOT_STRIDE;
+  view.setUint8(off, enemyIdx >= 0 ? (enemyIdx + 1) & 0xff : 0);
+  view.setUint8(off + 1, weakMask & 0xff);
+  view.setUint16(off + 2, laserAngleU16 & 0xffff, true);
+}
+
+export function readBossSlotMeta(view: DataView, bossSlot: number): BossSlotMeta {
+  const off = AUX_LAYOUT.META_BOSS_SLOTS + bossSlot * AUX_LAYOUT.META_BOSS_SLOT_STRIDE;
+  const rawIdx = view.getUint8(off);
+  return {
+    enemyIdx: rawIdx === 0 ? -1 : rawIdx - 1,
+    weakMask: view.getUint8(off + 1),
+    laserAngleU16: view.getUint16(off + 2, true),
   };
 }
 

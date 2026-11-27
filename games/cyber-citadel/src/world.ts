@@ -17,6 +17,7 @@ import {
   encodeFacingSector4,
   encodeHpPctU8,
   writeBarricadeRaw,
+  writeBossSlotMetaRaw,
   writeEnemyRaw,
   writeMetaTrailerRaw,
   writeProjectileRaw,
@@ -60,7 +61,7 @@ export interface CyberWorld {
   readonly pReviveTarget: Int8Array; // for reviver slot -> downed target slot (-1 none)
   readonly pDisconnectTimer: Float32Array;
   readonly pPendingDamage: Float32Array;
-  readonly pBossThreat: Float32Array;
+  readonly bossThreat: Float32Array; // C.maxBosses * C.maxPlayers (4 * 8 = 32)
 
   // Enemy SoA (160 cap)
   readonly enemyPool: FreeList;
@@ -118,17 +119,18 @@ export interface CyberWorld {
   waveElapsed: number;
   waveActiveFlanks: number;
 
-  // Boss runtime state
-  bossEnemyIdx: number;
-  bossLaserAngle: number;
-  bossLaserTimer: number;
-  bossLaserActive: boolean;
-  bossCarrierTimer: number;
-  bossFirstDashSlot: number;
-  bossFirstDashAngle: number;
-  bossDualDashTimer: number;
-  bossVulnerableTimer: number;
-  bossWeakMask: number;
+  // Multi-Boss runtime SoA (4 fixed pre-allocated boss slots)
+  readonly bossEnemyIdx: Int16Array;
+  readonly bossLaserAngle: Float32Array;
+  readonly bossLaserTimer: Float32Array;
+  readonly bossLaserActive: Uint8Array;
+  readonly bossCarrierTimer: Float32Array;
+  readonly bossFirstDashSlot: Int8Array;
+  readonly bossFirstDashAngle: Float32Array;
+  readonly bossDualDashTimer: Float32Array;
+  readonly bossVulnerableTimer: Float32Array;
+  readonly bossWeakMask: Uint8Array;
+  readonly bossPhase: Uint8Array;
 
   // Match scalar state
   rngState: number;
@@ -190,7 +192,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
     pReviveTarget: new Int8Array(C.maxPlayers),
     pDisconnectTimer: new Float32Array(C.maxPlayers),
     pPendingDamage: new Float32Array(C.maxPlayers),
-    pBossThreat: new Float32Array(C.maxPlayers),
+    bossThreat: new Float32Array(C.maxBosses * C.maxPlayers),
 
     enemyPool: createFreeList(maxE),
     eType: new Uint8Array(maxE),
@@ -244,16 +246,17 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
     waveElapsed: 0,
     waveActiveFlanks: 1,
 
-    bossEnemyIdx: -1,
-    bossLaserAngle: 0,
-    bossLaserTimer: 0,
-    bossLaserActive: false,
-    bossCarrierTimer: 0,
-    bossFirstDashSlot: -1,
-    bossFirstDashAngle: 0,
-    bossDualDashTimer: 0,
-    bossVulnerableTimer: 0,
-    bossWeakMask: 0,
+    bossEnemyIdx: new Int16Array(C.maxBosses).fill(-1),
+    bossLaserAngle: new Float32Array(C.maxBosses),
+    bossLaserTimer: new Float32Array(C.maxBosses),
+    bossLaserActive: new Uint8Array(C.maxBosses),
+    bossCarrierTimer: new Float32Array(C.maxBosses),
+    bossFirstDashSlot: new Int8Array(C.maxBosses).fill(-1),
+    bossFirstDashAngle: new Float32Array(C.maxBosses),
+    bossDualDashTimer: new Float32Array(C.maxBosses),
+    bossVulnerableTimer: new Float32Array(C.maxBosses),
+    bossWeakMask: new Uint8Array(C.maxBosses),
+    bossPhase: new Uint8Array(C.maxBosses),
 
     rngState: C.defaultSeed,
     connectedMask: 0,
@@ -266,6 +269,24 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
     corePendingDamage: 0,
     matchWon: false,
   };
+}
+
+/** Reset one boss slot, including that slot's per-player threat row. */
+export function clearBossSlot(w: CyberWorld, bossSlot: number): void {
+  w.bossEnemyIdx[bossSlot] = -1;
+  w.bossLaserAngle[bossSlot] = 0;
+  w.bossLaserTimer[bossSlot] = 3.0;
+  w.bossLaserActive[bossSlot] = 0;
+  w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
+  w.bossFirstDashSlot[bossSlot] = -1;
+  w.bossFirstDashAngle[bossSlot] = 0;
+  w.bossDualDashTimer[bossSlot] = 0;
+  w.bossVulnerableTimer[bossSlot] = 0;
+  w.bossWeakMask[bossSlot] = 0;
+  w.bossPhase[bossSlot] = 0;
+
+  const threatOffset = bossSlot * C.maxPlayers;
+  w.bossThreat.fill(0, threatOffset, threatOffset + C.maxPlayers);
 }
 
 /** Deterministic Mulberry32 PRNG matching bomb-pass. */
@@ -359,14 +380,39 @@ export function tickAndSyncAuxState(w: CyberWorld): void {
     );
   }
 
-  const bossIdx = w.bossEnemyIdx;
-  const bossHpPct =
-    bossIdx >= 0 && w.enemyPool.isActive(bossIdx)
-      ? encodeHpPctU8(w.eHp[bossIdx]!, w.eMaxHp[bossIdx]!)
-      : 0;
   const twoPi = Math.PI * 2;
-  const normLaser = ((w.bossLaserAngle % twoPi) + twoPi) % twoPi;
-  const laserU16 = Math.round((normLaser / twoPi) * 65535) & 0xffff;
+  let totalBossHp = 0;
+  let totalBossMaxHp = 0;
+  let combinedWeakMask = 0;
+  let repLaserU16 = 0;
+  let hasActiveLaser = false;
+  let hasAnyBoss = false;
+
+  for (let b = 0; b < C.maxBosses; b += 1) {
+    const bIdx = w.bossEnemyIdx[b]!;
+    if (bIdx >= 0 && w.enemyPool.isActive(bIdx) && w.eHp[bIdx]! > 0) {
+      totalBossHp += w.eHp[bIdx]!;
+      totalBossMaxHp += w.eMaxHp[bIdx]!;
+      const weak = w.bossWeakMask[b]!;
+      combinedWeakMask |= weak;
+      const normLaser = ((w.bossLaserAngle[b]! % twoPi) + twoPi) % twoPi;
+      const laserU16 = Math.round((normLaser / twoPi) * 65535) & 0xffff;
+      writeBossSlotMetaRaw(view, b, bIdx, weak, laserU16);
+
+      if (!hasAnyBoss) {
+        repLaserU16 = laserU16;
+        hasAnyBoss = true;
+      }
+      if (!hasActiveLaser && w.bossLaserActive[b] !== 0) {
+        repLaserU16 = laserU16;
+        hasActiveLaser = true;
+      }
+    } else {
+      writeBossSlotMetaRaw(view, b, -1, 0, 0);
+    }
+  }
+
+  const bossHpPct = totalBossMaxHp > 0 ? encodeHpPctU8(totalBossHp, totalBossMaxHp) : 0;
 
   writeMetaTrailerRaw(
     view,
@@ -374,8 +420,8 @@ export function tickAndSyncAuxState(w: CyberWorld): void {
     w.flankGlow[1]!,
     w.flankGlow[2]!,
     w.flankGlow[3]!,
-    laserU16,
-    w.bossWeakMask,
+    repLaserU16,
+    combinedWeakMask,
     bossHpPct,
     Math.floor(w.squadDamageDealt),
     w.enemyPool.activeCount() + w.spawnCount,

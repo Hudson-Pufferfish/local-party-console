@@ -129,7 +129,7 @@ export function processDashStage(w: CyberWorld, dt: number): void {
         }
       } else if (type === ENEMY_TYPE.BOSS) {
         if (distSq <= minDist * minDist) {
-          onBossDashHit(w, s, x, y);
+          onBossDashHit(w, s, eid, x, y);
           stopped = true;
         }
       } else if (distSq <= (C.dashStaggerRadius + w.eRadius[eid]!) * (C.dashStaggerRadius + w.eRadius[eid]!)) {

@@ -1,3 +1,4 @@
+import { findBossSlotByEnemyIdx, isBossVulnerable } from './boss.ts';
 import {
   AUX_LAYOUT,
   BUTTON_BIT,
@@ -181,14 +182,18 @@ export function processRailStage(w: CyberWorld): void {
         if (type === ENEMY_TYPE.BRUTE) {
           w.eStateFlags[eid] = (w.eStateFlags[eid]! & ~ENEMY_STATE_FLAG.SHIELD_UP) & 0x3f;
           w.eShieldBreakTimer[eid] = C.bruteShieldBreakSec;
-        } else if (type === ENEMY_TYPE.BOSS && w.bossVulnerableTimer <= 0) {
+        } else if (type === ENEMY_TYPE.BOSS && !isBossVulnerable(w, eid)) {
           dmg *= 0.6; // Rail deals stronger damage even vs boss armor
         }
 
         w.ePendingDamage[eid] = w.ePendingDamage[eid]! + dmg;
         w.squadDamageDealt += dmg;
         if (type === ENEMY_TYPE.BOSS) {
-          w.pBossThreat[s] = w.pBossThreat[s]! + dmg;
+          const bSlot = findBossSlotByEnemyIdx(w, eid);
+          if (bSlot >= 0) {
+            const off = bSlot * C.maxPlayers + s;
+            w.bossThreat[off] = w.bossThreat[off]! + dmg;
+          }
         } else {
           w.eKnockX[eid] = w.eKnockX[eid]! + rdx * C.railKnockback;
           w.eKnockY[eid] = w.eKnockY[eid]! + rdy * C.railKnockback;
