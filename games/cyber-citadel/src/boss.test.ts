@@ -123,8 +123,8 @@ test('Wave 8 Dreadnought transitions phases at 66% and 33%, exposes weak points 
   expect(metaDualDash.bossWeakPointMask & BOSS_WEAK_FLAG.VULNERABLE).not.toBe(0);
 
   // Damage boss down past 66% -> Phase 2 (spawns carrier) and 33% -> Phase 3 (enraged)
-  // Two players joined -> squadWeight = 2, bossHpMultiplier = 1 + 0.35 * (2 - 1) = 1.35
-  const bossMaxHp = C.bossBaseHp * 1.35;
+  // Two players joined -> squadWeight = 2, bossHpMultiplier = 1 + 0.28 * (2 - 1) = 1.28
+  const bossMaxHp = C.bossBaseHp * 1.28;
   sim.damageEnemyForTest(bossIdx, bossMaxHp * 0.4);
   sim.step(C.dt);
   sim.step(C.dt);

@@ -131,7 +131,7 @@ Dynamic scaling formulas:
 * **Weighted Squad Size ($W$):** Calculated as $\sum \text{humans} \times 1.0 + \sum \text{bots} \times (0.4 + \text{level} / 100)$, where bot skill levels 11..70 produce weights between 0.51 and 1.10.
 * **Enemy Count Scaling:** Scaled by factor $(0.6 + 0.2 \times W)$.
 * **Enemy HP Scaling:** Scaled by factor $(1.0 + 0.1 \times W)$.
-* **Boss HP Scaling:** Scaled by factor $(1.0 + 0.35 \times (W - 1))$.
+* **Boss HP Scaling:** Scaled by factor $(1.0 + 0.28 \times (W - 1))$.
 
 Run flow and simulation phases:
 

@@ -20,7 +20,7 @@ export function waveHpMultiplier(weight: number): number {
 }
 
 export function bossHpMultiplier(weight: number): number {
-  return 1.0 + 0.35 * (weight - 1);
+  return 1.0 + 0.28 * (weight - 1);
 }
 
 export function isSoloWeight(weight: number): boolean {

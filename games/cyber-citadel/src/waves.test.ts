@@ -46,21 +46,21 @@ test('weighted squad scaling computes exact W, multipliers, and solo timers', ()
   expect(w1h6b).toBeCloseTo(7.3, 5);
   expect(waveCountMultiplier(w1h6b)).toBeCloseTo(2.06, 3);
   expect(waveHpMultiplier(w1h6b)).toBeCloseTo(1.73, 3);
-  expect(bossHpMultiplier(w1h6b)).toBeCloseTo(3.205, 3);
+  expect(bossHpMultiplier(w1h6b)).toBeCloseTo(2.764, 3);
 
   // 4 Humans
   const w4 = computeSquadWeight(4, []);
   expect(w4).toBeCloseTo(4.0, 5);
   expect(waveCountMultiplier(w4)).toBeCloseTo(1.4, 5);
   expect(waveHpMultiplier(w4)).toBeCloseTo(1.4, 5);
-  expect(bossHpMultiplier(w4)).toBeCloseTo(2.05, 5);
+  expect(bossHpMultiplier(w4)).toBeCloseTo(1.84, 5);
 
   // 8 Humans
   const w8 = computeSquadWeight(8, []);
   expect(w8).toBeCloseTo(8.0, 5);
   expect(waveCountMultiplier(w8)).toBeCloseTo(2.2, 5);
   expect(waveHpMultiplier(w8)).toBeCloseTo(1.8, 5);
-  expect(bossHpMultiplier(w8)).toBeCloseTo(3.45, 5);
+  expect(bossHpMultiplier(w8)).toBeCloseTo(2.96, 5);
 });
 
 test('Wave 1-8 escalation tables match flank counts, tuned cadences, boss flags, 2.0s telegraph glow, and 160 enemy pool cap queuing', () => {
