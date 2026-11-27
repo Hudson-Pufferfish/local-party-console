@@ -119,7 +119,7 @@ The 8-wave escalation sequence:
 | 5 | `24 / 18 / 10` | `0.29s` | Mixed horde across three flanks | 3 |
 | 6 | `20 / 26 / 13` | `0.28s` | Dense four-flank swarms and brutes | 4 |
 | 7 | `28 / 26 / 15` + 1 Boss | `0.28s` | Four-flank swarm plus gatekeeper Dreadnought on flank 0 at 88% of minion spawns | 4 |
-| 8 | `24 / 12 / 7` + 4 Bosses | `1.10s` | 4-Dreadnought multi-boss climax (North at 2.0s, South at 25.0s, East at 50.0s, and West at 65.0s). Minions start at 4.5s on the 1.1s cadence | 4 |
+| 8 | `24 / 12 / 7` + 4 Bosses | `1.40s` | 4-Dreadnought multi-boss climax (North at 2.0s, South at 25.0s, East at 50.0s, and West at 65.0s). Minions start at 4.5s on the 1.4s cadence | 4 |
 
 Enemy mechanics:
 

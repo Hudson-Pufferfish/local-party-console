@@ -31,7 +31,7 @@ const WAVE_TABLE: readonly WaveDefinition[] = [
   { wave: 5, flanks: 3, drones: 24, fastDrones: 18, brutes: 10, hasBoss: false, spawnCadenceSec: 0.29 },
   { wave: 6, flanks: 4, drones: 20, fastDrones: 26, brutes: 13, hasBoss: false, spawnCadenceSec: 0.28 },
   { wave: 7, flanks: 4, drones: 28, fastDrones: 26, brutes: 15, hasBoss: true, spawnCadenceSec: 0.28 },
-  { wave: 8, flanks: 4, drones: 24, fastDrones: 12, brutes: 7, hasBoss: true, spawnCadenceSec: 1.1 },
+  { wave: 8, flanks: 4, drones: 24, fastDrones: 12, brutes: 7, hasBoss: true, spawnCadenceSec: 1.4 },
 ];
 
 export function getWaveDefinition(wave: number): WaveDefinition {
