@@ -85,7 +85,7 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   if (def.hasBoss && def.wave === 8) {
     // Wave 8 Boss 1: flank 0 (North) at delay = C.flankTelegraphSec (2.0s)
     enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
-    delay += 3.5; // Give players time to focus on Boss intro before minion trickle begins
+    delay += 2.5; // First minions at 4.5s, after the North boss intro at 2.0s
   }
 
   let dLeft = drones;
@@ -97,10 +97,10 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   // For Wave 7, spawn boss near the end alongside the final few enemies (~88% through minion spawns)
   const bossSpawnThreshold = def.wave === 7 ? Math.max(1, Math.round(totalMinions * 0.88)) : -1;
   let bossSpawnedInWave7 = false;
-  // For Wave 8, interleave Boss 2 (South @ 20.0s), Boss 3 (East @ 30.0s), and Boss 4 (West @ 35.0s) in FIFO delay order
-  const WAVE8_BOSS2_DELAY = 20.0;
-  const WAVE8_BOSS3_DELAY = 30.0;
-  const WAVE8_BOSS4_DELAY = 35.0;
+  // For Wave 8, interleave Boss 2 (South @ 25.0s), Boss 3 (East @ 50.0s), and Boss 4 (West @ 65.0s) in FIFO delay order
+  const WAVE8_BOSS2_DELAY = 25.0;
+  const WAVE8_BOSS3_DELAY = 50.0;
+  const WAVE8_BOSS4_DELAY = 65.0;
   let wave8Boss2Queued = false;
   let wave8Boss3Queued = false;
   let wave8Boss4Queued = false;
