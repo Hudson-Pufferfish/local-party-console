@@ -4,6 +4,7 @@ import {
   ENEMY_STATE_FLAG,
   ENEMY_TYPE,
 } from './constants.ts';
+import { clearBossSlot } from './boss.ts';
 import { worldToCell } from './flow-field.ts';
 import { bossHpMultiplier, waveCountMultiplier, waveHpMultiplier } from './scaling.ts';
 import { nextRand, SPAWN_QUEUE_CAP, type CyberWorld } from './world.ts';
@@ -195,16 +196,8 @@ export function spawnEnemyImmediate(
     speed = C.bossSpeed;
     radius = C.bossRadius;
     dps = C.bossMeleeDps;
+    clearBossSlot(w, bossSlot);
     w.bossEnemyIdx[bossSlot] = id;
-    w.bossLaserAngle[bossSlot] = 0;
-    w.bossLaserTimer[bossSlot] = 3.0;
-    w.bossLaserActive[bossSlot] = 0;
-    w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
-    w.bossFirstDashSlot[bossSlot] = -1;
-    w.bossFirstDashAngle[bossSlot] = 0;
-    w.bossDualDashTimer[bossSlot] = 0;
-    w.bossVulnerableTimer[bossSlot] = 0;
-    w.bossWeakMask[bossSlot] = 0;
     w.bossPhase[bossSlot] = 1;
     if (w.state[CYBER_HEADER.bossPhase]! < 1) {
       w.state[CYBER_HEADER.bossPhase] = 1;

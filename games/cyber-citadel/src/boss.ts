@@ -71,28 +71,11 @@ export function resetBossState(w: CyberWorld): void {
  * Finds the targeted active boss slot by distance/intersection and applies
  * opposite-flank dual-dash coordination independently per boss instance.
  */
-export function onBossDashHit(w: CyberWorld, slot: number, px: number, py: number): void {
-  let targetBossSlot = -1;
-  let bestDistSq = Number.POSITIVE_INFINITY;
-
-  for (let b = 0; b < C.maxBosses; b += 1) {
-    const bIdx = w.bossEnemyIdx[b]!;
-    if (bIdx < 0 || !w.enemyPool.isActive(bIdx) || w.eHp[bIdx]! <= 0) continue;
-    const bx = w.eX[bIdx]!;
-    const by = w.eY[bIdx]!;
-    const dx = px - bx;
-    const dy = py - by;
-    const distSq = dx * dx + dy * dy;
-    const maxHitR = C.playerRadius + w.eRadius[bIdx]! + 12;
-    if (distSq <= maxHitR * maxHitR && distSq < bestDistSq) {
-      bestDistSq = distSq;
-      targetBossSlot = b;
-    }
-  }
-
+export function onBossDashHit(w: CyberWorld, slot: number, enemyIdx: number, px: number, py: number): void {
+  const targetBossSlot = findBossSlotByEnemyIdx(w, enemyIdx);
   if (targetBossSlot < 0) return;
 
-  const bIdx = w.bossEnemyIdx[targetBossSlot]!;
+  const bIdx = enemyIdx;
   w.pBossThreat[slot] = w.pBossThreat[slot]! + 80;
   const bx = w.eX[bIdx]!;
   const by = w.eY[bIdx]!;

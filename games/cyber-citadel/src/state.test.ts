@@ -15,10 +15,12 @@ import {
   encodeCoordU16,
   encodeHpPctU8,
   readBarricade,
+  readBossSlotMeta,
   readEnemy,
   readMetaTrailer,
   readProjectile,
   writeBarricade,
+  writeBossSlotMetaRaw,
   writeEnemy,
   writeMetaTrailer,
   writeProjectile,
@@ -55,10 +57,24 @@ test('AUX_LAYOUT regions are non-overlapping and pack/unpack enemies, projectile
   expect(AUX_LAYOUT.AUX_CORE_BYTES).toBe(3072);
   expect(AUX_LAYOUT.AUX_DEBUG_BYTES).toBe(4672);
 
+  // Verify META_BOSS_SLOTS and META_RESERVED byte bounds
+  expect(AUX_LAYOUT.META_BOSS_SLOTS).toBe(3008);
+  expect(AUX_LAYOUT.META_BOSS_SLOT_STRIDE * 4).toBe(16);
+  expect(AUX_LAYOUT.META_RESERVED).toBe(3024);
+  expect(AUX_LAYOUT.AUX_CORE_BYTES - AUX_LAYOUT.META_RESERVED).toBe(48);
+
   const aux = createAuxBuffer(false);
   expect(aux.bytes.byteLength).toBe(3072);
   const auxDebug = createAuxBuffer(true);
   expect(auxDebug.bytes.byteLength).toBe(4672);
+
+  // Validate boss slot meta packing edge cases (enemyIdx -1, 0, 159)
+  writeBossSlotMetaRaw(aux.view, 0, -1, 0, 0);
+  expect(readBossSlotMeta(aux.view, 0)).toEqual({ enemyIdx: -1, weakMask: 0, laserAngleU16: 0 });
+  writeBossSlotMetaRaw(aux.view, 1, 0, 7, 65535);
+  expect(readBossSlotMeta(aux.view, 1)).toEqual({ enemyIdx: 0, weakMask: 7, laserAngleU16: 65535 });
+  writeBossSlotMetaRaw(aux.view, 2, 159, 3, 32768);
+  expect(readBossSlotMeta(aux.view, 2)).toEqual({ enemyIdx: 159, weakMask: 3, laserAngleU16: 32768 });
 
   writeEnemy(aux.view, 15, {
     x: -128.5,

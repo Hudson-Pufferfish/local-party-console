@@ -12,6 +12,9 @@ import {
 } from './constants.ts';
 import { createCyberCitadelSimulation } from './simulation.ts';
 import { createAuxView, playerBase, readBossSlotMeta, readEnemy, readMetaTrailer } from './state.ts';
+import { createCyberWorld } from './world.ts';
+import { findBossSlotByEnemyIdx, onBossDashHit } from './boss.ts';
+import { spawnEnemyImmediate } from './waves.ts';
 
 test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
   // Pure arc math: brute at (0, 0) facing +X (heading 0)
@@ -312,4 +315,35 @@ test('concurrent multi-boss slots track independent laser sweeps, dual-dash vuln
   sim.step(C.dt);
   expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
   expect(readMetaTrailer(view).bossHpPct).toBe(0);
+});
+
+test('onBossDashHit resolves the specific collided enemyIdx even when multiple bosses overlap', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  w.pJoined[1] = 1;
+
+  // Spawn Boss A and Boss B at virtually the same position (overlapping)
+  const bossEidA = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, -200, 0);
+  const bossEidB = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 2, -202, 2);
+  const slotA = findBossSlotByEnemyIdx(w, bossEidA);
+  const slotB = findBossSlotByEnemyIdx(w, bossEidB);
+  expect(slotA).toBeGreaterThanOrEqual(0);
+  expect(slotB).toBeGreaterThanOrEqual(0);
+  expect(slotA).not.toBe(slotB);
+
+  // Player 0 dashes directly into Boss B (specifically passing bossEidB)
+  onBossDashHit(w, 0, bossEidB, 2, -155);
+  // Boss B must record the dash hit; Boss A must NOT receive it
+  expect(w.bossFirstDashSlot[slotB]).toBe(0);
+  expect(w.bossFirstDashSlot[slotA]).toBe(-1);
+  expect(w.bossWeakMask[slotB]).toBe(BOSS_WEAK_FLAG.FLANK_A_HIT);
+  expect(w.bossWeakMask[slotA]).toBe(0);
+
+  // Player 1 dashes into Boss B from the opposite flank within 1.0s window
+  onBossDashHit(w, 1, bossEidB, 2, -250);
+  expect((w.bossWeakMask[slotB]! & BOSS_WEAK_FLAG.VULNERABLE) !== 0).toBe(true);
+  expect(w.bossVulnerableTimer[slotB]).toBeGreaterThan(0);
+  // Boss A remains un-hit and intact
+  expect(w.bossWeakMask[slotA]).toBe(0);
+  expect(w.bossVulnerableTimer[slotA]).toBe(0);
 });
