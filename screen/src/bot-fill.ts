@@ -160,31 +160,47 @@ export type WriteBotInput = (
 
 export type BotLevels = (mask: Uint8Array, difficulty?: BotDifficulty) => Uint8Array;
 
+export type StandbyBotLevel = (state: Float32Array, slot: number) => number;
+
 export interface BotFill {
-  arm(mask: Uint8Array, difficulty?: BotDifficulty): void;
+  arm(mask: Uint8Array, difficulty?: BotDifficulty, levels?: Uint8Array): void;
   fill(slot: number, sim: BotFillSim): boolean;
+  getLevels(): Uint8Array;
 }
 
-export function createBotFill(write: WriteBotInput, levelsFor?: BotLevels): BotFill {
+export function createBotFill(
+  write: WriteBotInput,
+  levelsFor?: BotLevels,
+  standbyLevelFor?: StandbyBotLevel,
+): BotFill {
   const axisX = new Int8Array(MASK_LEN);
   const axisY = new Int8Array(MASK_LEN);
   const buttons = new Uint8Array(MASK_LEN);
   const botMask = new Uint8Array(MASK_LEN);
   const levelBySlot = new Uint8Array(MASK_LEN);
   return {
-    arm(mask: Uint8Array, difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY): void {
+    arm(mask: Uint8Array, difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY, levels?: Uint8Array): void {
       for (let index = 0; index < MASK_LEN; index += 1) {
         botMask[index] = mask[index] ?? 0;
       }
-      const levels = levelsFor?.(botMask, difficulty);
+      const assigned = levels ?? levelsFor?.(botMask, difficulty);
       for (let index = 0; index < MASK_LEN; index += 1) {
-        levelBySlot[index] = levels?.[index] ?? 0;
+        levelBySlot[index] = assigned?.[index] ?? 0;
       }
     },
+    getLevels(): Uint8Array {
+      return levelBySlot.slice();
+    },
     fill(slot: number, sim: BotFillSim): boolean {
-      if (botMask[slot] !== 1) return false;
-      const stored = levelBySlot[slot] ?? 0;
-      const level = stored === 0 ? undefined : stored;
+      let level: number | undefined;
+      if (botMask[slot] === 1) {
+        const stored = levelBySlot[slot] ?? 0;
+        level = stored === 0 ? undefined : stored;
+      } else {
+        const standby = standbyLevelFor?.(sim.state, slot) ?? 0;
+        if (standby <= 0) return false;
+        level = standby;
+      }
       if ((sim.state[0] & 1) === 0) {
         write(sim.state, slot, axisX, axisY, buttons, level, sim.auxState);
       }

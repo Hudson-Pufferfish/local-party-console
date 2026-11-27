@@ -709,7 +709,7 @@ export function createBombPassSimulation(): BombPassSimulation {
     eliminatedTick.fill(-1);
     sdContenders.fill(0);
     roundTick = 0;
-    rngState = ((seed ?? C.defaultSeed) >>> 0);
+    rngState = ((typeof seed === 'number' ? seed : C.defaultSeed) >>> 0);
     let initialConnected = 0;
     for (let i = 0; i < slots.length; i += 1) {
       const slot = slots[i];

@@ -17,7 +17,7 @@ import type { GameManifest } from '../../../shared/src/types/game.ts';
 
 export const CYBER_CITADEL_MANIFEST: GameManifest = {
   id: 'cyber-citadel',
-  title: 'CYBER-CITADEL', // Default display title.
+  title: 'CITADEL DEFENSE', // Default display title.
   minPlayers: 1,
   maxPlayers: 8,
   supportsTeams: false,
@@ -62,28 +62,46 @@ The `stick-diamond` preset and `ButtonSpec` definition exist in `shared/src/cont
 ### FR-2: Player Movement, Downed State, Revive & Respawn
 
 * **Movement:** Analog joystick input (packet bytes 6 and 7) drives velocity up to a maximum run speed. Player orientation follows the velocity heading vector. Player movement speed is TBD (tune in playtest).
-* **Collision & Friendly Fire:** Friendly fire is disabled. Players pass through each other with no mutual collision stagger.
+* **Collision & Friendly Fire:**
+  * **Friendly Fire:** Strictly disabled across all weapons and abilities. Auto-fire tracers, Button A (Piercing Laser / RAIL), Button B (DASH), and Super Bomb (EMP) never deal damage or apply knockback to teammates.
+  * **Player-to-Player Collision (Soft Separation):**
+    * **Live vs. Live (Healthy):** Mutual soft separation ($2 \times r_{\text{player}} = 48\text{px}$). When two living players overlap, a gentle position separation slides them apart without blocking velocity or causing hard bounces, preventing ships from stacking into a single point.
+    * **Live vs. Downed (Any):** 100% pass-through (zero collision). Active living players can walk directly over and stand on downed allies to channel revive without physics resistance or tether breaks.
+    * **Away Players:** Follows physiological state: living Away players softly separate living teammates; downed Away players allow 100% pass-through.
+  * **NOTES(@agents):** Keep friendly fire disabled permanently. Enforce soft separation strictly between `isLive` players (`flags & CYBER_FLAG.JOINED !== 0` and `(flags & (CYBER_FLAG.DOWNED | CYBER_FLAG.RESPAWNING)) === 0`). Downed or respawning slots must be excluded from circle collision so revivers never get displaced.
 * **Downed State:** When player HP drops to 0, the player becomes downed, crawling at 25% speed with a 15-second bleed-out timer. Player max HP is TBD (tune in playtest).
 * **Revive Action:** An active teammate inside revive range can channel a revive by tapping Button Y. Revive requires a 2.5-second channel during which the reviver must remain in proximity. Revive range is TBD (tune in playtest).
 * **Bleed-Out & Respawn:** If bleed-out completes without revive, the player enters respawn with an 8-second timer before reappearing at the Core. Each respawn subtracts 3% of Core max HP.
 * **Respawn Protection:** Respawn costs are capped at 12% of Core max HP per wave, and respawn penalties can never reduce Core HP below 1 HP. Only enemy attacks can deliver the final blow to destroy the Core.
 * **Wave Break Resupply:** When a wave concludes, all dead or downed players respawn immediately, and the Core automatically recovers 10% of its max HP.
-* **Solo Rule:** When the weighted squad size $W < 1.5$, bleed-out is shortened to 5 seconds and respawn delay is reduced to 4 seconds, while preserving the 3% Core HP cost.
+* **Solo & Light Squad Rule:** When the weighted squad size $W < 1.5$ (e.g., solo human or solo human with 1 light bot), bleed-out is shortened to 5 seconds and respawn delay is reduced to 4 seconds, while preserving the 3% Core HP cost. Bot weight contribution is calibrated to $0.15 + \text{level}/500$ ($0.17 \dots 0.28$) so bot allies do not excessively inflate enemy spawn counts or enemy HP.
 
-### FR-3: Auto-Fire & Buttons (RAIL, DASH, SHIELD, REVIVE/EMP)
+### FR-3: Auto-Fire & Buttons (LASER, DASH, WALL, BOMB/REVIVE)
 
 Tactical controls follow these explicit rules:
 
 | Input | Rule |
 | :--- | :--- |
-| **Auto-fire** | Automatic. Targets the enemy closest to the Core inside player weapon range and within a 60° forward cone along heading. Range and damage: TBD (tune in playtest). Default implementation uses hitscan with a short tracer line without bullet heap allocations. |
-| **A (bit 0) RAIL** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 15° priority snap onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Zero energy meter and zero spread. |
+| **Auto-fire** | Automatic. Targets the enemy closest to the Core inside player weapon range and within a 120° forward cone (±60°) along heading. Range and damage: TBD (tune in playtest). Default implementation uses hitscan with a short tracer line without bullet heap allocations. |
+| **A (bit 0) LASER** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 50° priority snap (±25°) onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Thick 48px hitbox beam with zero energy meter and zero spread. |
 | **B (bit 1) DASH** | Tap. Repulsor thrust providing crowd stagger and mobility. Colliding with a shielded brute body-checks it, spinning it for 1.0s to expose its unshielded rear to auto-fire. DASH does not pierce frontal shields. Dash distance, speed, and cooldown: TBD (tune in playtest). |
-| **X (bit 2) SHIELD** | Tap. Deploys a stationary kinetic barricade. Each player can maintain at most 2 concurrent active barricades, each lasting 8.0s and blocking traversal cells on the $40 \times 40$ path grid. |
-| **Y (bit 3) REVIVE/EMP** | Tap. Context-sensitive action: initiates revive if a downed teammate is in range, otherwise joins the Core EMP charge if inside the Core ring. The phone displays the active context label received via `pad:state` (proposal). |
-| **EMP input** | Joined by tapping Y while positioned inside the Core ring. After tapping, the player remains registered in the EMP charge until exiting the ring, being downed, or going AWAY. |
-| **EMP gather rule** | EMP charges while at least half of the living squad (with at least 1 human) stands within the Core ring and has tapped Y to join. Can be fired at most once per wave. |
-| **EMP effect** | Effect radius, damage, charge duration, and stun timing: TBD (tune in playtest). |
+| **X (bit 2) WALL** | Tap. Deploys a stationary kinetic barricade. Each player can maintain at most 2 concurrent active barricades, each lasting 8.0s and blocking traversal cells on the $40 \times 40$ path grid. |
+| **Y (bit 3) BOMB / REVIVE** | Tap. Context-sensitive action driven by the Button Y State Machine (below). Displays dynamic label (`BOMB`, `JOINED`, `REVIVE`) sent via slot-scoped `pad:state` events. |
+
+#### Complete Button Y State Machine
+
+Button Y switches dynamically depending on player proximity to downed allies and the Core's blue Super Bomb ring:
+
+| Context / Location | Downed Ally in Reach ($< 60\text{px}$)? | Button Y Label | Button State | Stylistic Treatment / Visual Feedback |
+| :--- | :---: | :---: | :---: | :--- |
+| **Anywhere in Arena** | **YES** | `REVIVE` | Enabled | 100% full opacity, bright theme accent. Highest priority action; revives fallen teammate immediately over bombing. |
+| **Inside Blue Core Ring** | NO | `BOMB` | Enabled | 100% full opacity, glowing prompt. Tap to join the Super Bomb charge. |
+| **Inside Blue Core Ring (Tapped)** | NO | `JOINED` | Active / Held | Stays joined until exiting ring, becoming downed, or when Super Bomb discharges. |
+| **Outside Blue Ring (No Downed Ally)** | NO | `REVIVE` | Disabled | **30% vague opacity** (`opacity: 0.3`). Un-pressable affordance informing player of the revive capability without visual distraction. |
+
+* **Super Bomb Gather Rule:** The Super Bomb charges when at least half of the living squad (with $\ge 1$ human) stands within the blue Core ring and has tapped Y (`JOINED`). Can be fired at most once per wave.
+* **Super Bomb Screen Readout:** When the blast fires, controller readout displays `WAVE X/8 · SUPER BOMB`.
+* **Cooldown Policy on Wave Transition:** When a wave concludes, all dead or downed players respawn immediately, and ability cooldowns are refreshed for the incoming wave.
 
 Cooldowns are tracked and enforced in the simulation, not on the phone. Inputs pressed during an active cooldown are ignored without queuing.
 
@@ -134,13 +152,13 @@ Run flow and simulation phases:
 * **Haptics:** Triggers `navigator.vibrate` for rail fire, dash impact, damage intake, and EMP bursts on supported devices. On iOS Safari (which lacks Vibration API), the EMP blast triggers a high-contrast screen flash.
 * **Ergonomics:** All interactive buttons and joysticks are inset at least 36px from screen margins.
 
-### FR-6: Disconnect, AWAY Bot Takeover & Mid-Match Rejoin (`SCAN TO REJOIN`)
+### FR-6: Disconnect, Real AWAY Handling & Mid-Match Rejoin (`SCAN TO REJOIN`)
 
 * **Input Invalidation:** When a phone stops transmitting packets for 100ms or longer, the host zeroes its inputs (`screen/src/host-loop.ts:189-200`) and flags the player as `AWAY`.
-* **AWAY Bot Takeover:** When a player remains `AWAY` for 3.0s continuously during an active match, a standby Medium difficulty heuristic bot takes over the slot until the player reconnects.
+* **Real AWAY Behavior:** When a player is `AWAY`, their ship sits completely idle with zero velocity and zero auto-fire. No heuristic bot ever takes over a human's ship (avoiding ghost inputs).
 * **State Notification:** The simulation tracks connection states via `setConnectedMask` (`screen/src/host-loop.ts:175-176`).
 * **Downed AWAY Handling:** If a player disconnects while downed, their bleed-out timer is paused.
-* **Rejoin Mechanics:** Reconnecting players use the standard `<MatchRejoinQr/>` displayed on screen. Upon rejoining, the player immediately re-assumes control of their slot from the standby bot with their current position and HP preserved, or respawns at the Core without penalty if dead.
+* **Rejoin Mechanics:** Reconnecting players use the standard `<MatchRejoinQr/>` displayed on screen. Upon rejoining, the player immediately re-assumes control of their slot with their current position and HP preserved, or respawns at the Core without penalty if dead.
 * **Late Stranger Joins:** Unregistered tokens connecting mid-match receive `room:rejected` with reason `MATCH_IN_PROGRESS`.
 
 ### FR-7: Industrial Neo-Brutalist Visuals & Game Feel (Zero Art Assets)

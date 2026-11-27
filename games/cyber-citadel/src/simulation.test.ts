@@ -1,0 +1,412 @@
+import { expect, test } from 'vitest';
+import autoFireSrc from './auto-fire.ts?raw';
+import bossSrc from './boss.ts?raw';
+import bruteSrc from './brute.ts?raw';
+import {
+  AUX_LAYOUT,
+  BUTTON_BIT,
+  CYBER_CITADEL_CONSTANTS as C,
+  CYBER_FLAG,
+  CYBER_HEADER,
+  CYBER_PHASE,
+  CYBER_PLAYER_OFFSET,
+  ENEMY_TYPE,
+} from './constants.ts';
+import dashSrc from './dash.ts?raw';
+import empSrc from './emp.ts?raw';
+import flowFieldSrc from './flow-field.ts?raw';
+import railSrc from './rail.ts?raw';
+import reviveSrc from './revive.ts?raw';
+import shieldSrc from './shield.ts?raw';
+import { createCyberCitadelSimulation } from './simulation.ts';
+import simSrc from './simulation.ts?raw';
+import { createAuxView, playerBase, readEnemy, readMetaTrailer } from './state.ts';
+import wavesSrc from './waves.ts?raw';
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  for (let i = 0; i < a.byteLength; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function advanceCountdown(sim: ReturnType<typeof createCyberCitadelSimulation>): void {
+  for (let i = 0; i < 365; i += 1) {
+    if (sim.state[CYBER_HEADER.phaseEnum] === CYBER_PHASE.WAVE_ACTIVE) break;
+    sim.step(C.dt);
+  }
+}
+
+test('startMatch enters COUNTDOWN (3.0s) -> Wave 1, clamps box boundary, and disables player-player collision', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 101);
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.COUNTDOWN);
+  expect(sim.state[CYBER_HEADER.phaseTimer]).toBeCloseTo(C.countdownSec, 3);
+  expect(sim.state[CYBER_HEADER.wave]).toBe(1);
+
+  advanceCountdown(sim);
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.WAVE_ACTIVE);
+
+  // Push P0 hard into +X/+Y corner for 4 seconds: must clamp within [-400, 400] with 0 HP lost
+  const hpBefore = sim.state[playerBase(0) + CYBER_PLAYER_OFFSET.hp];
+  for (let i = 0; i < 480; i += 1) {
+    sim.applyInput(0, 0, 127, 127);
+    sim.step(C.dt);
+  }
+  const b0 = playerBase(0);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.x]).toBeLessThanOrEqual(C.halfArena - C.playerRadius + 1e-3);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.y]).toBeLessThanOrEqual(C.halfArena - C.playerRadius + 1e-3);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.hp]).toBe(hpBefore);
+
+  // Friendly fire & teammate collision off: place P0 and P1 overlapping and move through each other
+  const b1 = playerBase(1);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 160;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 170;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.applyInput(0, BUTTON_BIT.RAIL, 127, 0);
+  sim.applyInput(1, 0, -127, 0);
+  sim.step(C.dt);
+  expect(sim.state[b1 + CYBER_PLAYER_OFFSET.hp]).toBe(C.playerMaxHp);
+});
+
+test('auto-fire enforces 60-degree cone, Core-distance priority (INV-7), and 10% target stickiness (FR-9.6)', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0], 202);
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+  const view = createAuxView(sim.auxState);
+
+  const b0 = playerBase(0);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 280;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = Math.PI; // facing -X toward Core
+
+  // Target A at Core distance 200: (200, 0)
+  const eA = sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, 200, 0, 0, 120);
+  // Step 0.25s so P0 locks and fires at eA
+  for (let i = 0; i < 30; i += 1) sim.step(C.dt);
+  const hpAAfterFirst = readEnemy(view, eA).hpPct;
+  expect(hpAAfterFirst).toBeLessThan(255);
+
+  // Spawn Target B at 93% of eA's current Core distance (<10% closer -> stickiness must KEEP lock on eA)
+  const eAXAfter1 = readEnemy(view, eA).x;
+  const eB = sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, eAXAfter1 * 0.93, 0, 0, 120);
+  for (let i = 0; i < 25; i += 1) sim.step(C.dt);
+  expect(readEnemy(view, eB).hpPct).toBe(255);
+  expect(readEnemy(view, eA).hpPct).toBeLessThan(hpAAfterFirst);
+
+  // Spawn Target C at 75% of eA's current Core distance (>10% closer -> must SWITCH lock to eC)
+  const eAXAfter2 = readEnemy(view, eA).x;
+  const eC = sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, eAXAfter2 * 0.75, 0, 0, 120);
+  for (let i = 0; i < 28; i += 1) sim.step(C.dt);
+  expect(readEnemy(view, eC).hpPct).toBeLessThan(255);
+});
+
+test('RAIL pierces multiple targets with 15-degree shield snap and 2.5s cooldown; simultaneous DASH+RAIL resolves DASH first', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0], 303);
+  sim.jumpToWave(3);
+  sim.clearSpawnQueueForTest();
+  const view = createAuxView(sim.auxState);
+
+  const b0 = playerBase(0);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = -250;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+
+  // Aligned drones at (-100, 0) and (50, 0), plus shielded brute 10 deg off-axis at (100, 18)
+  const d1 = sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, -100, 0, Math.PI, 200);
+  const d2 = sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, 50, 0, Math.PI, 200);
+
+  // Fire RAIL along +X
+  sim.applyInput(0, BUTTON_BIT.RAIL, 0, 0);
+  sim.step(C.dt);
+  expect(readEnemy(view, d1).hpPct).toBeLessThan(255);
+  expect(readEnemy(view, d2).hpPct).toBeLessThan(255);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.railCooldown]).toBeCloseTo(C.railCooldownSec, 1);
+
+  // Tap RAIL again during cooldown -> ignored without resetting or queuing
+  sim.applyInput(0, 0, 0, 0);
+  sim.step(C.dt);
+  const cdMid = sim.state[b0 + CYBER_PLAYER_OFFSET.railCooldown]!;
+  sim.applyInput(0, BUTTON_BIT.RAIL, 0, 0);
+  sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.railCooldown]).toBeLessThan(cdMid);
+
+  // Simultaneous DASH + RAIL (FR-9.17): wait out cooldown, then press both on same tick
+  sim.applyInput(0, 0, 0, 0);
+  for (let i = 0; i < 310; i += 1) sim.step(C.dt);
+  const xBefore = sim.state[b0 + CYBER_PLAYER_OFFSET.x]!;
+  sim.applyInput(0, BUTTON_BIT.DASH | BUTTON_BIT.RAIL, 127, 0);
+  sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.x]).toBeGreaterThan(xBefore);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.railCooldown]).toBeGreaterThan(2.0);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.dashCooldown]).toBeGreaterThan(1.0);
+});
+
+test('SHIELD enforces max 2 barricades, 8.0s TTL, Core ring exclusion, and enemy breach when corridor sealed', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0], 404);
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  const b0 = playerBase(0);
+  // Inside Core ring: SHIELD rejected
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 20;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+  sim.applyInput(0, BUTTON_BIT.SHIELD, 0, 0);
+  sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.barricades]).toBe(0);
+
+  // Outside Core ring: place 2 barricades, 3rd rejected (INV-6)
+  sim.applyInput(0, 0, 0, 0);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 220;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.applyInput(0, BUTTON_BIT.SHIELD, 0, 0);
+  sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.barricades]).toBe(1);
+
+  // Wait shield cooldown, move slightly, place 2nd
+  sim.applyInput(0, 0, 0, 0);
+  for (let i = 0; i < 200; i += 1) sim.step(C.dt);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 80;
+  sim.applyInput(0, BUTTON_BIT.SHIELD, 0, 0);
+  sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.barricades]).toBe(2);
+
+  // Wait shield cooldown, try 3rd -> still capped at 2
+  sim.applyInput(0, 0, 0, 0);
+  for (let i = 0; i < 200; i += 1) sim.step(C.dt);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 160;
+  sim.applyInput(0, BUTTON_BIT.SHIELD, 0, 0);
+  sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.barricades]).toBe(2);
+
+  // After 8.0s TTL expires, barricades clear back to 0
+  sim.applyInput(0, 0, 0, 0);
+  for (let i = 0; i < 1000; i += 1) sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.barricades]).toBe(0);
+});
+
+test('Button Y prioritizes revive over EMP, enforces 1 HP Core respawn floor + 12% cap, and charges/decays/discharges EMP', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 505);
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+  // Keep wave active with a distant high-HP enemy
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, -360, -360, 0, 9999);
+  // Put both inside Core ring, with P1 DOWNED right next to P0 -> Y must start REVIVE, not EMP
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 60;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 90;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.downPlayerForTest(1);
+
+  sim.applyInput(0, BUTTON_BIT.REVIVE_EMP, 0, 0);
+  sim.step(C.dt);
+  sim.applyInput(0, 0, 0, 0);
+  expect((sim.state[b0 + CYBER_PLAYER_OFFSET.flags]! & CYBER_FLAG.EMP_JOINED)).toBe(0);
+  // Hold proximity for 2.55s -> P1 revived to ACTIVE with reviveRestoreHp
+  for (let i = 0; i < 310; i += 1) sim.step(C.dt);
+  expect((sim.state[b1 + CYBER_PLAYER_OFFSET.flags]! & CYBER_FLAG.ACTIVE)).not.toBe(0);
+  expect(sim.state[b1 + CYBER_PLAYER_OFFSET.hp]).toBeCloseTo(C.reviveRestoreHp, 1);
+
+  // Now both ACTIVE inside Core ring: P0 taps Y -> joins EMP (>= 50% of 2 living = 1, and >= 1 human)
+  const d1 = sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, 200, 0, Math.PI, 40);
+  sim.applyInput(0, BUTTON_BIT.REVIVE_EMP, 0, 0);
+  sim.step(C.dt);
+  sim.applyInput(0, 0, 0, 0);
+  for (let i = 0; i < 120; i += 1) sim.step(C.dt); // 1.0s charge
+  const chargeMid = sim.state[CYBER_HEADER.empCharge]!;
+  expect(chargeMid).toBeGreaterThan(0.25);
+
+  // P0 disconnects (AWAY) -> immediately removed from EMP, charge decays at 10%/s (FR-9.11)
+  sim.setConnectedMask(0b10);
+  for (let i = 0; i < 120; i += 1) sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.empCharge]!).toBeLessThan(chargeMid - 0.08);
+
+  // Reconnect P0, re-join EMP, finish charging -> fires EMP, increments empFiredCount, kills nearby drone
+  sim.setConnectedMask(0b11);
+  sim.applyInput(0, BUTTON_BIT.REVIVE_EMP, 0, 0);
+  sim.step(C.dt);
+  sim.applyInput(0, 0, 0, 0);
+  for (let i = 0; i < 420; i += 1) sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.empFiredCount]).toBe(1);
+  const view = createAuxView(sim.auxState);
+  expect(readEnemy(view, d1).hpPct).toBe(0);
+
+  // Respawn Core HP 1 HP floor + 12% wave cap (INV-5) and all-squad-down does not instant-fail (FR-9.2)
+  sim.jumpToWave(2);
+  sim.clearSpawnQueueForTest();
+  // Distant enemy keeps Wave 2 active without reaching Core during bleed-out check
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, -380, -380, 0, 9999);
+  sim.state[CYBER_HEADER.coreHp] = 15; // less than 3% of 1000 (30)
+  sim.downPlayerForTest(0);
+  sim.downPlayerForTest(1);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.downTimer]).toBeCloseTo(C.bleedOutSec, 2);
+  // Both downed -> still WAVE_ACTIVE, not instant loss
+  sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.WAVE_ACTIVE);
+  // Fast-forward near end of bleed-out -> respawning clamps Core HP at 1 (never 0)
+  sim.state[b0 + CYBER_PLAYER_OFFSET.downTimer] = 0.1;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.downTimer] = 0.1;
+  for (let i = 0; i < 30; i += 1) sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.coreHp]).toBe(1);
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.WAVE_ACTIVE);
+});
+
+test(
+  '3,000-tick multi-wave fuzz (Waves 1, 4, 8) holds INV-1..8 and bit-exact replay determinism',
+  { timeout: 20000 },
+  () => {
+    const profiles = [
+      { name: 'Wave 1 Solo', slots: [0], wave: 1, seed: 1001 },
+      { name: 'Wave 4 Mixed', slots: [0, 1, 2, 3], wave: 4, seed: 4004 },
+      { name: 'Wave 8 Full 8P', slots: [0, 1, 2, 3, 4, 5, 6, 7], wave: 8, seed: 8008 },
+    ] as const;
+
+    for (const profile of profiles) {
+      const TICKS = 3000;
+      const tape = new Int8Array(TICKS * 8 * 3);
+      let rng = profile.seed >>> 0;
+      const nextRand = (): number => {
+        rng = (rng + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(rng ^ (rng >>> 15), 1 | rng);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+
+      for (let tick = 0; tick < TICKS; tick += 1) {
+        for (let s = 0; s < 8; s += 1) {
+          const base = (tick * 8 + s) * 3;
+          tape[base] = Math.round((nextRand() * 2 - 1) * 127);
+          tape[base + 1] = Math.round((nextRand() * 2 - 1) * 127);
+          const r = nextRand();
+          tape[base + 2] = r < 0.04 ? Math.floor(nextRand() * 16) : 0;
+        }
+      }
+
+      const simA = createCyberCitadelSimulation();
+      simA.startMatch([...profile.slots], profile.seed);
+      if (profile.wave > 1) simA.jumpToWave(profile.wave);
+
+      const simB = createCyberCitadelSimulation();
+      simB.startMatch([...profile.slots], profile.seed);
+      if (profile.wave > 1) simB.jumpToWave(profile.wave);
+
+      for (let tick = 0; tick < TICKS; tick += 1) {
+        for (const s of profile.slots) {
+          const base = (tick * 8 + s) * 3;
+          const ax = tape[base]!;
+          const ay = tape[base + 1]!;
+          const btn = tape[base + 2]! & 0x0f;
+          simA.applyInput(s, btn, ax, ay);
+          simB.applyInput(s, btn, ax, ay);
+        }
+        simA.step(C.dt);
+        simB.step(C.dt);
+
+        // Assert INV-1..6 every tick on simA
+        for (let k = 0; k < 88; k += 1) {
+          expect(Number.isFinite(simA.state[k])).toBe(true);
+        }
+        for (const s of profile.slots) {
+          const pb = playerBase(s);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.x]).toBeGreaterThanOrEqual(-C.halfArena);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.x]).toBeLessThanOrEqual(C.halfArena);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.y]).toBeGreaterThanOrEqual(-C.halfArena);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.y]).toBeLessThanOrEqual(C.halfArena);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.railCooldown]).toBeGreaterThanOrEqual(0);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.railCooldown]).toBeLessThanOrEqual(
+            C.railCooldownSec + 1e-4,
+          );
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.dashCooldown]).toBeGreaterThanOrEqual(0);
+          expect(simA.state[pb + CYBER_PLAYER_OFFSET.barricades]).toBeLessThanOrEqual(
+            C.barricadeMaxPerPlayer,
+          );
+        }
+        const stats = simA.getDebugStats();
+        expect(stats.activeEnemies).toBeLessThanOrEqual(AUX_LAYOUT.MAX_ENEMIES);
+        expect(stats.activeBarricades).toBeLessThanOrEqual(AUX_LAYOUT.MAX_BARRICADES);
+
+        if (tick === 999 || tick === 1999 || tick === 2999) {
+          // INV-8 bit-exact determinism across both primary state and 3KB auxState
+          expect(
+            bytesEqual(
+              new Uint8Array(simA.state.buffer, simA.state.byteOffset, simA.state.byteLength),
+              new Uint8Array(simB.state.buffer, simB.state.byteOffset, simB.state.byteLength),
+            ),
+          ).toBe(true);
+          expect(bytesEqual(simA.auxState, simB.auxState)).toBe(true);
+        }
+      }
+
+      // Sanity: meta trailer readable
+      const meta = readMetaTrailer(createAuxView(simA.auxState));
+      expect(meta.empRingRequiredCount).toBeGreaterThanOrEqual(1);
+    }
+  },
+);
+
+test('INV-9 static hot-path guard ensures zero Math.random or Date.now inside simulation modules', () => {
+  const hotSources = [
+    simSrc,
+    flowFieldSrc,
+    autoFireSrc,
+    railSrc,
+    dashSrc,
+    shieldSrc,
+    reviveSrc,
+    empSrc,
+    bruteSrc,
+    bossSrc,
+    wavesSrc,
+  ];
+  for (const src of hotSources) {
+    expect(src).not.toContain('Math.random(');
+    expect(src).not.toContain('Date.now(');
+  }
+});
+
+test('living players softly separate and never stack, while living players pass through downed teammates', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 101);
+  advanceCountdown(sim);
+
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+
+  // Place both players in collision overlap: dist = 10px (less than minPlayerDist = 48px)
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 100;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 100;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 110;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 100;
+
+  // Step simulation -> soft separation pushes them apart to at least 48px
+  sim.step(C.dt);
+
+  const dx = sim.state[b1 + CYBER_PLAYER_OFFSET.x]! - sim.state[b0 + CYBER_PLAYER_OFFSET.x]!;
+  const dy = sim.state[b1 + CYBER_PLAYER_OFFSET.y]! - sim.state[b0 + CYBER_PLAYER_OFFSET.y]!;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  expect(dist).toBeGreaterThanOrEqual(48 - 1e-4);
+
+  // Now down player 1: living player 0 can overlap directly over them with zero separation
+  sim.state[b1 + CYBER_PLAYER_OFFSET.flags] =
+    sim.state[b1 + CYBER_PLAYER_OFFSET.flags]! | CYBER_FLAG.DOWNED;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 100;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 100;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 100;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 100;
+
+  sim.step(C.dt);
+
+  // Positions remain directly on top of each other because downed ally allows 100% pass-through
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.x]).toBe(100);
+  expect(sim.state[b1 + CYBER_PLAYER_OFFSET.x]).toBe(100);
+});

@@ -1,0 +1,192 @@
+import { expect, test } from 'vitest';
+import {
+  BUTTON_BIT,
+  CYBER_CITADEL_CONSTANTS as C,
+  CYBER_FLAG,
+  CYBER_HEADER,
+  CYBER_PLAYER_OFFSET,
+  ENEMY_TYPE,
+} from './constants.ts';
+import { levelsForMask, standbyBotLevel, writeHeuristic } from './heuristic.ts';
+import { createCyberCitadelSimulation } from './simulation.ts';
+import { playerBase } from './state.ts';
+
+test('levelsForMask maps difficulty tiers into documented skill ranges', () => {
+  const mask = new Uint8Array([0, 1, 1, 0, 0, 0, 0, 0]);
+  const easy = levelsForMask(mask, 'easy', () => 0.5);
+  expect(easy[1]).toBeGreaterThanOrEqual(11);
+  expect(easy[1]).toBeLessThanOrEqual(20);
+  const hard = levelsForMask(mask, 'hard', () => 0.5);
+  expect(hard[1]).toBeGreaterThanOrEqual(50);
+  expect(hard[1]).toBeLessThanOrEqual(70);
+  expect(hard[0]).toBe(0);
+});
+
+test('heuristic prioritizes urgent <5.0s human revive over downed bot and joins EMP only when a human started it', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 1, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 45, 45, 0, 0, 0, 0, 0]);
+  sim.startMatch([0, 1, 2], 606, { botMask, botLevels });
+  sim.jumpToWave(3);
+  sim.clearSpawnQueueForTest();
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, -360, -360, 0, 9999);
+
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  // Bot 1 inside Core ring with NO human EMP_JOINED -> must NOT press Y to initiate EMP solo (FR-9.12)
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+  const b2 = playerBase(2);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 260;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 70;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 45, sim.auxState);
+  expect(buttons[1]! & BUTTON_BIT.REVIVE_EMP).toBe(0);
+
+  // Human P0 enters Core ring and joins EMP -> Bot 1 moves in / presses Y to join EMP
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 75;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.flags] =
+    sim.state[b0 + CYBER_PLAYER_OFFSET.flags]! | CYBER_FLAG.EMP_JOINED;
+  sim.state[CYBER_HEADER.tickId] = 200; // trigger role re-eval
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 45, sim.auxState);
+  expect(buttons[1]! & BUTTON_BIT.REVIVE_EMP).not.toBe(0);
+
+  // Urgent human revive (<5.0s bleed-out) beats closer downed bot
+  sim.state[b0 + CYBER_PLAYER_OFFSET.flags] =
+    sim.state[b0 + CYBER_PLAYER_OFFSET.flags]! & ~CYBER_FLAG.EMP_JOINED;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = 200;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.downPlayerForTest(0);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.downTimer] = 3.2;
+
+  sim.state[b2 + CYBER_PLAYER_OFFSET.x] = -20;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.downPlayerForTest(2);
+  sim.state[b2 + CYBER_PLAYER_OFFSET.downTimer] = 12.0;
+
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 80;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[CYBER_HEADER.tickId] = 210; // urgent interrupt even before 1.0s
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 50, sim.auxState);
+  // Bot 1 steers +X toward urgent downed human P0 at x=200 (not -X toward bot P2 at x=-20)
+  expect(axisX[1]).toBeGreaterThan(50);
+});
+
+test('AWAY disconnect leaves player idle with standbyBotLevel=0, and reconnect preserves position', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 707);
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, -360, -360, 0, 9999);
+
+  const b0 = playerBase(0);
+  expect(standbyBotLevel(sim.state, 0)).toBe(0);
+
+  // Disconnect P0: real AWAY, never taken over by bot
+  sim.setConnectedMask(0b10);
+  for (let i = 0; i < 380; i += 1) sim.step(C.dt);
+  expect(standbyBotLevel(sim.state, 0)).toBe(0);
+
+  // Reconnect P0: remains 0
+  sim.setConnectedMask(0b11);
+  expect(standbyBotLevel(sim.state, 0)).toBe(0);
+
+  // Disconnect while DOWNED pauses bleed-out timer
+  sim.downPlayerForTest(0);
+  const timerStart = sim.state[b0 + CYBER_PLAYER_OFFSET.downTimer]!;
+  sim.setConnectedMask(0b10);
+  for (let i = 0; i < 120; i += 1) sim.step(C.dt);
+  expect(sim.state[b0 + CYBER_PLAYER_OFFSET.downTimer]).toBeCloseTo(timerStart, 4);
+});
+
+test('bot heuristic anchors to Core perimeter and refuses to chase distant enemies beyond 220u leash', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 70, 0, 0, 0, 0, 0, 0]); // Hard bot
+  sim.startMatch([0, 1], 808, { botMask, botLevels });
+  sim.jumpToWave(2);
+  sim.clearSpawnQueueForTest();
+
+  // Spawn a Brute far away in the outskirts (x=380, y=0)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 380, 0, 0, 9999);
+
+  const b1 = playerBase(1);
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  // Position Bot 1 at the edge of the Core leash (x=215, y=0)
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 215;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[CYBER_HEADER.tickId] = 100;
+
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 70, sim.auxState);
+  // Moving straight forward into the enemy (+X) would breach the 220u leash;
+  // bot should strafe or hold perimeter, not charge straight outward (+127 X)
+  expect(axisX[1]).toBeLessThan(60);
+
+  // If bot is pushed beyond the 220u leash (e.g. x=260), it must steer back inward toward Core (-X)
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 260;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 70, sim.auxState);
+  expect(axisX[1]).toBeLessThan(-80);
+});
+
+test('bot deploys kinetic barricade (Button X / WALL) when facing encroaching enemies outside Core ring', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 50, 0, 0, 0, 0, 0, 0]);
+  sim.startMatch([0, 1], 909, { botMask, botLevels });
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  const b1 = playerBase(1);
+  // Place bot at x=180, facing +X (outside Core ring 130u)
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 180;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = 0; // facing +X
+
+  // Spawn an encroaching brute at x=320, y=0 (dist=140, facing directly in intercept range)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 320, 0, 1, 9999);
+
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 50, sim.auxState);
+  expect(buttons[1]! & BUTTON_BIT.SHIELD).not.toBe(0);
+});
+
+test('bot prioritizes enemy near ring (<180u) over distant heavy enemy', () => {
+  const sim = createCyberCitadelSimulation();
+  const botMask = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0]);
+  const botLevels = new Uint8Array([0, 60, 0, 0, 0, 0, 0, 0]);
+  sim.startMatch([0, 1], 1010, { botMask, botLevels });
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  // Distant brute at (x=240, y=0)
+  sim.spawnEnemyForTest(ENEMY_TYPE.BRUTE, 240, 0, 1, 9999);
+  // Immediate ring threat (drone) right at (x=0, y=140)
+  sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, 0, 140, 2, 9999);
+
+  const b1 = playerBase(1);
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 200;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = -Math.PI * 0.5; // facing -Y toward drone
+  sim.state[CYBER_HEADER.tickId] = 100;
+
+  const axisX = new Int8Array(8);
+  const axisY = new Int8Array(8);
+  const buttons = new Uint8Array(8);
+
+  writeHeuristic(sim.state, 1, axisX, axisY, buttons, 60, sim.auxState);
+  // Drone at (0, 140) is closer to bot (0, 200) and closest to Core (140u <= 180u);
+  // bot should steer toward drone (Y dominant) rather than toward distant brute (+X dominant)
+  expect(Math.abs(axisX[1]!)).toBeLessThan(15);
+  expect(axisY[1]).toBeGreaterThan(50);
+});

@@ -182,6 +182,31 @@ test('screenGames registers last-light with lazy runtime, rehydrateEvent, and ho
   expect(runtime.rematchEventType).toBe('light:rematch');
 });
 
+test('screenGames registers cyber-citadel with lazy runtime, minPlayers 1, standby bot seam, and holistic config', async () => {
+  const manifests = listScreenManifests();
+  const cyber = manifests.find((m) => m.id === 'cyber-citadel');
+  expect(cyber).toBeDefined();
+  expect(cyber?.title).toBe('CITADEL DEFENSE');
+  expect(cyber?.minPlayers).toBe(1);
+  expect(cyber?.maxPlayers).toBe(8);
+  expect(cyber?.supportsBots).toBe(true);
+  expect(cyber?.viewConfig.mode).toBe('holistic');
+
+  const runtime = await screenGames.load('cyber-citadel');
+  expect(typeof runtime.createSim).toBe('function');
+  expect(typeof runtime.eventsFromHeaderDiff).toBe('function');
+  expect(typeof runtime.createRenderer).toBe('function');
+  expect(typeof runtime.writeBotInput).toBe('function');
+  expect(typeof runtime.botLevels).toBe('function');
+  expect(typeof runtime.standbyBotLevel).toBe('function');
+  expect(typeof runtime.rehydrateEvents).toBe('function');
+  expect(typeof runtime.scoreboardHeader).toBe('function');
+  expect(typeof runtime.scoreboardRows).toBe('function');
+  expect(typeof runtime.scoreRules).toBe('function');
+  expect(typeof runtime.bannerCopy).toBe('function');
+  expect(runtime.rematchEventType).toBe('cyber:rematch');
+});
+
 afterEach(() => {
   resetTabLocksForTest();
   vi.restoreAllMocks();
@@ -189,7 +214,7 @@ afterEach(() => {
   Reflect.deleteProperty(globalThis, 'window');
 });
 
-test('session emits ScreenGameRuntime.rehydrateEvent when a player reconnects during an active match', async () => {
+test('session emits ScreenGameRuntime.rehydrateEvent and rehydrateEvents when a player reconnects during an active match', async () => {
   class MockSocket extends EventTarget {
     static OPEN = 1;
     binaryType = 'arraybuffer';

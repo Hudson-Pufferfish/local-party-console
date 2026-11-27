@@ -1,0 +1,46 @@
+.cyber-board {
+  position: relative;
+}
+
+.cyber-board .arcade-button:disabled {
+  opacity: 0.3;
+}
+
+.cyber-board[data-emp-flash="true"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background: #f4f1ea;
+  border: 8px solid #111111;
+  opacity: 0.92;
+}
+
+.cyber-readout {
+  margin: 0;
+  padding: 4px 10px;
+  border: 2.5px solid var(--ink-primary, #111111);
+  background: #ffffff;
+  color: var(--ink-primary, #111111);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cyber-readout[data-downed="true"] {
+  background: #e10600;
+  color: #f4f1ea;
+}
+
+.cyber-taptic-switch {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
