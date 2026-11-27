@@ -24,6 +24,29 @@ const MAX_SOCKETS_PER_ADDRESS = 12;
 const INPUT_FRAME = 8;
 const HEARTBEAT_FRAME = 4;
 
+// Phones hold no secret. Drop every text type a controller does not send.
+const CONTROLLER_TYPES: ReadonlySet<string> = new Set([
+  'room:join',
+  'room:leave',
+  'net:ping',
+  'net:pong',
+  'clock:sync',
+  'clock:offset',
+  'phone:tier',
+  'phone:longtask',
+  'signal:answer',
+  'signal:ice',
+]);
+
+const SLOT_BEARING: ReadonlySet<string> = new Set([
+  'clock:sync',
+  'clock:offset',
+  'phone:tier',
+  'phone:longtask',
+  'signal:answer',
+  'signal:ice',
+]);
+
 interface Client {
   ws: WebSocket;
   role: 'screen' | 'controller';
@@ -140,6 +163,11 @@ function handleText(
   if (typeof message.type !== 'string') return;
   const type = message.type;
 
+  if (client.role === 'controller') {
+    if (!CONTROLLER_TYPES.has(type)) return;
+    if (type !== 'room:join' && type !== 'net:ping' && client.slotIndex === null) return;
+  }
+
   if (type === 'viewport:claim') {
     if (client.role === 'screen') {
       const existing = primaries.get(room);
@@ -199,9 +227,12 @@ function handleText(
     fanOut(clients, room, client, raw);
     return;
   }
-  if (type.startsWith('signal:')) {
-    if (client.role !== 'screen' && client.slotIndex === null) return;
-    fanOut(clients, room, client, raw);
+  if (client.role === 'controller') {
+    if (SLOT_BEARING.has(type)) {
+      const slot = (message.payload as { slot?: unknown } | null)?.slot;
+      if (slot !== client.slotIndex) return;
+    }
+    fanOutToScreens(clients, room, raw);
     return;
   }
   fanOut(clients, room, client, raw);
@@ -341,6 +372,15 @@ function fanOut(clients: Map<Room, Set<Client>>, room: Room, sender: Client, raw
   if (group === undefined) return;
   for (const other of group) {
     if (other === sender || other.ws.readyState !== WebSocket.OPEN) continue;
+    other.ws.send(raw);
+  }
+}
+
+function fanOutToScreens(clients: Map<Room, Set<Client>>, room: Room, raw: string): void {
+  const group = clients.get(room);
+  if (group === undefined) return;
+  for (const other of group) {
+    if (other.role !== 'screen' || other.ws.readyState !== WebSocket.OPEN) continue;
     other.ws.send(raw);
   }
 }
