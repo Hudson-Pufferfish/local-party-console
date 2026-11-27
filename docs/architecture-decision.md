@@ -53,7 +53,7 @@ When 8 friends sit in a living room to play a party game on a TV or laptop scree
 
 ### 3. High-Level Connection Architecture: Zero-Config LAN WebRTC
 
-Instead of relying on cloud STUN servers or asking users for microphone permissions, the local Fastify server tells devices the real LAN IP address, and rewrites the WebRTC handshake (SDP) on the fly:
+Instead of relying on cloud STUN servers or asking users for microphone permissions, the local Fastify server gives the host screen tab its real LAN IP address, and the host tab rewrites the WebRTC Offer SDP on the fly:
 
 ```mermaid
 sequenceDiagram
@@ -62,21 +62,23 @@ sequenceDiagram
     participant Server as ⚡ Fastify Server (:8443)
     participant Host as 💻 Screen Tab (Chrome)
 
-    Note over Player,Host: Step 1: Scan & Fetch Config
-    Player->>Server: 1. Scan QR Code -> GET /api/host
-    Server-->>Player: Return { lanIp: "192.168.1.150", port: 8443 }
-    
+    Note over Player,Host: Step 1: Host Fetch Config & QR Pairing
+    Host->>Server: GET /api/host
+    Server-->>Host: Return { lanIp: "192.168.1.150", port: 8443 }
+    Host-->>Player: Display QR Code (https://192.168.1.150:8443/controller?room=...)
+
     Note over Player,Host: Step 2: Establish Fastify Signaling Channel
-    Player->>Server: Connect WebSocket (Signaling & Fallback Input)
     Host->>Server: Connect WebSocket (Host Screen Relay)
+    Player->>Server: Scan QR -> Connect WebSocket (Signaling & Fallback Input)
 
     Note over Player,Host: Step 3: WebRTC Handshake with SDP Filtering
     Host->>Host: Create WebRTC Offer (iceServers: [])
     Host->>Host: mungeLanSdp(): Replace .local with "192.168.1.150", drop IPv6/VPNs
     Host->>Server: Send Filtered Offer SDP
     Server->>Player: Relay Filtered Offer SDP
-    Player->>Host: Send Answer SDP directly via Relay
-    
+    Player->>Server: Send Answer SDP
+    Server->>Host: Relay Answer SDP
+
     Note over Player,Host: Step 4: Direct Peer-to-Peer Game Transport
     Player-->>Host: Direct WebRTC DataChannel Connected!<br/>(8-byte binary UDP input at 60Hz)
 ```
@@ -144,16 +146,19 @@ The controller temporarily or permanently falls back to sending an input packet 
 - **Status:** Accepted
 - **Date:** 2026-11-25
 
-### 1. The Core Architecture: Continuous Snapshot Streaming (Not Discrete Events)
+### 1. The Core Architecture: Event-Driven Snapshot Streaming (Not Discrete Events)
 
 Before comparing options, it is essential to understand how input flows from the phone to the host:
 
 The controller does **not** send event messages like `"Button Pressed"` or `"Button Released"`. That would require reliable TCP queues with ACKs and retransmissions, which add lag and cause buffering.
 
-Instead, the phone acts like a continuous hardware gamepad: **every 16.6 milliseconds (60 times a second), it captures a complete instantaneous snapshot of all controls and blasts an 8-byte UDP packet to the host.**
+Instead, the phone runs in **event-driven ULP (Ultra-Low-Power) mode** with **zero `requestAnimationFrame` loop** (`controller/src/send-input.ts`):
+- **While active** (joystick deflected or any button held, i.e., `stickHeld()` is true): the phone streams complete 8-byte instantaneous control snapshots at up to **60Hz** (`16.6ms`, TDMA-aligned per slot), or capped at **30Hz** (`33.3ms`) on Low-Power-Mode or `<= 4`-core phones (`shared/src/sync/tier.ts`).
+- **When idle** (stick centered and all buttons released): 8-byte input streaming **stops** to keep idle GPU load at 0% and save Wi-Fi airtime. A 4-byte **anti-PSM heartbeat** (`HEARTBEAT_MS = 40ms`, `shared/src/sync/heartbeat.ts`) keeps the phone's Wi-Fi radio awake instead.
 
 ```
-Every 16ms: [Snapshot Sequence #] + [Joystick X/Y] + [Instantaneous Button Snapshot Byte]
+While active (16.6ms @ 60Hz, or 33.3ms @ 30Hz ULP): [Seq u16] + [PhoneTs u16] + [TouchLag u8] + [Buttons u8] + [AxisX/Y i8x2]
+When idle (every 40ms):                             [0xA5 Magic] + [Slot] + [PhoneTs u16]  (4-byte anti-PSM heartbeat)
 ```
 
 #### The Problem: Why Snapshot Streaming Fails on Quick Taps over UDP
@@ -175,7 +180,7 @@ Host sees:         Dash was NEVER pressed! (Input swallowed)
 
 ### 2. The 8-Byte Packet Constraint
 
-All game controllers broadcast a compact 8-byte binary packet every frame:
+While active, every game controller sends a compact 8-byte binary snapshot packet:
 
 ```
 +------------+------------+---------------+------------+------------+------------+
@@ -218,13 +223,13 @@ Here is what happens when Wi-Fi drops packets during a quick tap:
 
 | Step | Player Action | Phone Packet Sent | Packet Dropped? | Host Receives | Host Logic | Game Reaction |
 | :---: | :--- | :--- | :---: | :--- | :--- | :--- |
-| **1** | Idling | `Held=0, Toggle=0` | No | `Held=0, Toggle=0` | Toggle matches old (0==0) | No action |
+| **1** | Steering | `Held=0, Toggle=0` | No | `Held=0, Toggle=0` | Toggle matches old (0==0) | No action |
 | **2** | **Taps DASH** | `Held=1, Toggle=1` | ❌ **DROPPED** | *(Lost in air)* | — | — |
 | **3** | Finger lifts | `Held=0, Toggle=1` | ❌ **DROPPED** | *(Lost in air)* | — | — |
-| **4** | Idling | `Held=0, Toggle=1` | No | `Held=0, Toggle=1` | **Toggle changed! (0 -> 1)** | 💥 **DASH TRIGGERED!** |
-| **5** | Idling | `Held=0, Toggle=1` | No | `Held=0, Toggle=1` | Toggle matches old (1==1) | No action |
+| **4** | Steering | `Held=0, Toggle=1` | No | `Held=0, Toggle=1` | **Toggle changed! (0 -> 1)** | 💥 **DASH TRIGGERED!** |
+| **5** | Steering | `Held=0, Toggle=1` | No | `Held=0, Toggle=1` | Toggle matches old (1==1) | No action |
 
-Even though the actual packets during the touch were dropped, Packet #4 arrived with `Toggle=1`. The host notices: *"Hey, the toggle was 0 before, but now it is 1! A tap happened while I was not looking!"* The host latches the dash edge, and the player's character dashes instantly.
+Even though the actual packets during the touch were dropped, Packet #4 arrived with `Toggle=1`. The host notices: *"Hey, the toggle was 0 before, but now it is 1! A tap happened while I was not looking!"* The host latches the dash edge, and the player's character dashes instantly. *(Because input streaming is event-driven, if the player was completely stationary during the tap and both press and release packets dropped, the flipped toggle bit stays latched on the phone and triggers on the next 8-byte input packet.)*
 
 ---
 
@@ -239,7 +244,7 @@ Even though the actual packets during the touch were dropped, Packet #4 arrived 
 #### Why this is impossible in practice:
 Human biomechanics establish that the fastest professional gamers in the world can tap a touchscreen at most **10 to 12 times per second**.
 - Time between distinct physical taps: **~80ms to 100ms minimum**.
-- Controller transmission rate: **16.6ms per packet (60Hz)**.
+- Controller active transmission rate: **16.6ms per packet (60Hz)**, or **33.3ms (30Hz)** on low-power / `<= 4`-core phones.
 - For two distinct taps to be lost, the Wi-Fi would have to completely black out for **more than 5 to 6 consecutive packets (>80ms)** without a single packet sneaking through.
 - If Wi-Fi is dead for >80ms, the game has much larger network disconnection issues. For all typical Wi-Fi jitter and burst drops (1 to 4 packets dropped, ~16ms–60ms), **every single tap is guaranteed to be detected**.
 
@@ -280,7 +285,7 @@ In Option 1, the upper bits echo the last packet's state (`1 = pressed, 0 = rele
 ```
 Time 0ms:    Player taps DASH. Phone sends Packet 1 [Curr=1, Hist=0] -> ❌ DROPPED BY WI-FI
 Time 16ms:   Player lifts finger. Phone sends Packet 2 [Curr=0, Hist=1] -> ❌ DROPPED BY WI-FI
-Time 33ms:   Player is idling. Phone sends Packet 3 [Curr=0, Hist=0] -> ✅ ARRIVES AT HOST!
+Time 33ms:   Player keeps steering. Phone sends Packet 3 [Curr=0, Hist=0] -> ✅ ARRIVES AT HOST!
 ```
 
 - When **Packet 3** arrives at the host:
@@ -299,9 +304,9 @@ Time 0ms:    Player taps DASH. Toggle flips 0 -> 1.
              Phone sends Packet 1 [Held=1, Toggle=1] -> ❌ DROPPED BY WI-FI
 Time 16ms:   Player lifts finger.
              Phone sends Packet 2 [Held=0, Toggle=1] -> ❌ DROPPED BY WI-FI
-Time 33ms:   Player is idling.
+Time 33ms:   Player keeps steering.
              Phone sends Packet 3 [Held=0, Toggle=1] -> ✅ ARRIVES AT HOST!
-Time 50ms:   Player is idling.
+Time 50ms:   Player keeps steering.
              Phone sends Packet 4 [Held=0, Toggle=1] -> ✅ ARRIVES AT HOST!
 ```
 
@@ -356,6 +361,9 @@ Time 50ms:   Player is idling.
 ### References
 
 - [shared/src/codec/input-packet.ts](../shared/src/codec/input-packet.ts)
+- [shared/src/sync/heartbeat.ts](../shared/src/sync/heartbeat.ts)
+- [shared/src/sync/tdma.ts](../shared/src/sync/tdma.ts)
+- [shared/src/sync/tier.ts](../shared/src/sync/tier.ts)
 - [controller/src/send-input.ts](../controller/src/send-input.ts)
 - [screen/src/host-loop.ts](../screen/src/host-loop.ts)
 - [specifications/SPEC.md](../specifications/SPEC.md)
