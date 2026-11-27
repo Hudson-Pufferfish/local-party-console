@@ -110,7 +110,7 @@ test('Wave 1-8 escalation tables match flank counts, tuned cadences, boss flags,
   expect(sim.getDebugStats().queuedEnemies).toBeLessThanOrEqual(queuedBefore);
 });
 
-test('Wave 7 spawns gatekeeper Boss at flank 0 after all minions + 2.0s while Wave 8 spawns Boss at wave start', () => {
+test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wave 8 spawns Boss at wave start', () => {
   const sim = createCyberCitadelSimulation();
   sim.startMatch([0], 7777);
   sim.jumpToWave(7);
