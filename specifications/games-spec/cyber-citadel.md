@@ -159,7 +159,7 @@ Run flow and simulation phases:
 ### FR-6: Disconnect, Real AWAY Handling & Mid-Match Rejoin (`SCAN TO REJOIN`)
 
 * **Input Invalidation:** When a phone stops transmitting packets for 100ms or longer, the host zeroes its inputs (`screen/src/host-loop.ts:189-200`) and flags the player as `AWAY`.
-* **Real AWAY Behavior:** When a player is `AWAY`, their ship sits completely idle with zero velocity and zero auto-fire. No heuristic bot ever takes over a human's ship (avoiding ghost inputs).
+* **Real AWAY Behavior:** When a player is `AWAY`, their ship sits stationary with zero velocity and manual abilities disabled. The ship retains forward-cone auto-fire along its last fixed heading, but takes full enemy damage and can be downed (which terminates auto-fire). No heuristic bot ever takes over a human's ship.
 * **State Notification:** The simulation tracks connection states via `setConnectedMask` (`screen/src/host-loop.ts:175-176`).
 * **Downed AWAY Handling:** If a player disconnects while downed, their bleed-out timer is paused.
 * **Rejoin Mechanics:** Reconnecting players use the standard `<MatchRejoinQr/>` displayed on screen. Upon rejoining, the player immediately re-assumes control of their slot with their current position and HP preserved, or respawns at the Core without penalty if dead.
@@ -340,7 +340,7 @@ MATCH_OVER -> [cyber:rematch action]
 | `DOWNED` | ally revive channel completes (2.5 s) | `ACTIVE` | Restore `60` HP (`reviveRestoreHp`). |
 | `DOWNED` | bleed-out ends | `RESPAWNING` | Start 8 s timer (4 s solo); charge 3% Core HP (cap and floor rules). |
 | `RESPAWNING` | timer ends | `ACTIVE` | Spawn at the Core with `100` HP. |
-| any | disconnected (`AWAY`) | same state, `DISCONNECTED` set | Ship sits idle (zero velocity, zero auto-fire; no bot takeover). Bleed-out pauses if downed. |
+| any | disconnected (`AWAY`) | same state, `DISCONNECTED` set | Ship sits stationary (zero velocity; retains forward-cone auto-fire along last heading; no bot takeover). Bleed-out pauses if downed. |
 | any with `DISCONNECTED` | human rejoins | same state, `DISCONNECTED` cleared | Control resumes at current position, or respawns at Core with no penalty if dead. |
 | `ACTIVE` | Y tap in Core ring, no downed ally in reach | `ACTIVE`, `EMP_JOINED` set | Joins charge until leaving the ring, downed or AWAY. |
 
