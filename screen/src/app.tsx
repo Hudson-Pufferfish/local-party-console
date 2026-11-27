@@ -117,6 +117,7 @@ export const App: VoidComponent = () => {
     if (game === undefined) return '';
     return startNotice(startBlockReason({
       humans: connectedHumans(),
+      occupied: players().length,
       bots: botLobby().botCount,
       minPlayers: game.minPlayers,
       maxPlayers: game.maxPlayers,

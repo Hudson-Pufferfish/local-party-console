@@ -642,6 +642,7 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
         botLobby,
         requested,
         connectedHumans(),
+        players.length,
         entry?.manifest.maxPlayers ?? 8,
         entry?.manifest.supportsBots === true,
       );
