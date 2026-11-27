@@ -532,3 +532,56 @@ test('Dreadnought laser stops on barricades, damages wall, blocks end-cap bleed-
   expect(wEdge.bossLaserLen[edgeSlot]).toBeCloseTo(100, 2);
   expect(readBossLaserLen(wEdge.auxView, edgeSlot)).toBeCloseTo(100, 1);
 });
+
+test('EMP stun immediately cancels an active Boss sweeping laser and resets post-sweep cooldown', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  const b0 = playerBase(0);
+  w.state[b0 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.JOINED | CYBER_FLAG.ACTIVE;
+  w.state[b0 + CYBER_PLAYER_OFFSET.x] = 150;
+  w.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+
+  const bossEid = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, 0);
+  const slot = findBossSlotByEnemyIdx(w, bossEid);
+
+  // Start sweeping laser on Phase 1 boss
+  w.bossLaserActive[slot] = 1;
+  w.bossLaserTimer[slot] = 1.2;
+  w.bossLaserAngle[slot] = 0;
+  w.eStateFlags[bossEid] = (w.eStateFlags[bossEid]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+
+  updateBossFsm(w, C.dt);
+  expect(w.bossLaserActive[slot]).toBe(1);
+  expect(w.bossLaserLen[slot]).toBeGreaterThan(0);
+  expect(w.eStateFlags[bossEid]! & ENEMY_STATE_FLAG.LASER_SWEEP).not.toBe(0);
+
+  // Reset player pending damage, apply EMP stun, and step FSM
+  w.pPendingDamage[0] = 0;
+  w.eStunTimer[bossEid] = 1.5;
+  updateBossFsm(w, C.dt);
+  tickAndSyncAuxState(w);
+
+  expect(w.bossLaserActive[slot]).toBe(0);
+  expect(w.bossLaserLen[slot]).toBe(0);
+  expect(readBossLaserLen(w.auxView, slot)).toBe(0);
+  expect(w.eStateFlags[bossEid]! & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(readEnemy(w.auxView, bossEid).stateFlags & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(w.bossLaserTimer[slot]).toBeCloseTo(4.2, 5);
+  expect(w.pPendingDamage[0]).toBe(0);
+
+  // Phase 3 boss stunned mid-sweep gets 3.0s post-sweep cooldown
+  w.eStunTimer[bossEid] = 0;
+  w.eHp[bossEid] = w.eMaxHp[bossEid]! * 0.25;
+  w.bossLaserActive[slot] = 1;
+  w.bossLaserTimer[slot] = 1.0;
+  w.bossLaserLen[slot] = 220;
+  w.eStateFlags[bossEid] = (w.eStateFlags[bossEid]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+
+  w.eStunTimer[bossEid] = 1.5;
+  updateBossFsm(w, C.dt);
+
+  expect(w.bossLaserActive[slot]).toBe(0);
+  expect(w.bossLaserLen[slot]).toBe(0);
+  expect(w.eStateFlags[bossEid]! & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(w.bossLaserTimer[slot]).toBeCloseTo(3.0, 5);
+});
