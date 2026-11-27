@@ -267,6 +267,11 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
           w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
         }
       }
+    } else if (w.bossLaserActive[b] !== 0) {
+      w.bossLaserActive[b] = 0;
+      w.bossLaserLen[b] = 0;
+      w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+      w.bossLaserTimer[b] = phase === 3 ? 3.0 : 4.2;
     }
   }
 
