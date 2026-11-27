@@ -5,9 +5,8 @@ export function computeSquadWeight(humanCount: number, botLevels: readonly numbe
   for (let i = 0; i < botLevels.length; i += 1) {
     const rawLevel = botLevels[i] ?? 0;
     const level = rawLevel > 0 ? rawLevel : C.standbyBotLevel;
-    // Lightened bot contribution: 0.15 base + level/500 (~0.17 for Easy, ~0.23 for Med, ~0.28 for Hard)
-    // Prevents bot allies from heavily inflating enemy spawn count and enemy HP against the human player
-    weight += 0.15 + level / 500;
+    // Bot weight: 0.4 base + level/100 (0.51..0.60 Easy, 0.70..0.90 Med, 0.90..1.10 Hard)
+    weight += 0.4 + level / 100;
   }
   return weight > 0 ? weight : 1.0;
 }
