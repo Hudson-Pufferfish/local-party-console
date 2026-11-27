@@ -410,3 +410,67 @@ test('living players softly separate and never stack, while living players pass 
   expect(sim.state[b0 + CYBER_PLAYER_OFFSET.x]).toBe(100);
   expect(sim.state[b1 + CYBER_PLAYER_OFFSET.x]).toBe(100);
 });
+
+test('natural Wave 7 -> WAVE_BREAK -> Wave 8 transition heals Core, resets boss slots, and launches 4-boss Wave 8', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 7080);
+  sim.jumpToWave(7);
+  const view = createAuxView(sim.auxState);
+
+  // Damage Core below max so we can observe the +10% WAVE_BREAK repair
+  sim.state[CYBER_HEADER.coreHp] = 700;
+
+  // Advance Wave 7 until all queued enemies including the Wave 7 gatekeeper Dreadnought have spawned
+  let sawWave7Boss = false;
+  for (let i = 0; i < 4000; i += 1) {
+    if (i % 60 === 0 && sim.state[CYBER_HEADER.coreHp]! < 700) {
+      sim.state[CYBER_HEADER.coreHp] = 700;
+    }
+    sim.step(C.dt);
+    if (!sawWave7Boss && sim.state[CYBER_HEADER.bossPhase] === 1) {
+      sawWave7Boss = true;
+    }
+    if (sim.getDebugStats().queuedEnemies === 0 && sawWave7Boss) break;
+  }
+  expect(sawWave7Boss).toBe(true);
+  expect(sim.state[CYBER_HEADER.wave]).toBe(7);
+
+  // Eliminate all Wave 7 enemies through simulation damage (natural Wave 7 clear)
+  sim.state[CYBER_HEADER.coreHp] = 700;
+  for (let i = 0; i < AUX_LAYOUT.MAX_ENEMIES; i += 1) {
+    if (readEnemy(view, i).hpPct > 0) {
+      sim.damageEnemyForTest(i, 99999);
+    }
+  }
+  sim.step(C.dt);
+
+  // Must transition naturally into WAVE_BREAK (15.0s) with +10% Core repair and cleared bossPhase
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.WAVE_BREAK);
+  expect(sim.state[CYBER_HEADER.wave]).toBe(7);
+  expect(sim.state[CYBER_HEADER.phaseTimer]).toBeCloseTo(C.waveBreakSec, 1);
+  // Core receives +10% repair (+100 HP) minus any final-tick enemy contact damage before death
+  expect(sim.state[CYBER_HEADER.coreHp]).toBeGreaterThan(780);
+  expect(sim.state[CYBER_HEADER.coreHp]).toBeLessThanOrEqual(700 + C.coreMaxHp * C.waveBreakCoreHealPct);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
+
+  // Advance naturally through 15.0s WAVE_BREAK -> Wave 8 WAVE_ACTIVE
+  for (let i = 0; i < Math.ceil((C.waveBreakSec + 0.1) / C.dt); i += 1) {
+    sim.step(C.dt);
+    if (sim.state[CYBER_HEADER.phaseEnum] === CYBER_PHASE.WAVE_ACTIVE) break;
+  }
+  expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.WAVE_ACTIVE);
+  expect(sim.state[CYBER_HEADER.wave]).toBe(8);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
+  // Wave 8 queues 4 Dreadnoughts plus scaled minions (for 2 players, mult = 1.0 -> 40 minions + 4 bosses = 44)
+  expect(sim.getDebugStats().queuedEnemies).toBe(44);
+
+  // Advance past 2.0s telegraph -> Wave 8 Boss 1 spawns cleanly on North flank
+  for (let i = 0; i < 252; i += 1) sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(1);
+  let w8BossCount = 0;
+  for (let i = 0; i < AUX_LAYOUT.MAX_ENEMIES; i += 1) {
+    const e = readEnemy(view, i);
+    if (e.hpPct > 0 && e.type === ENEMY_TYPE.BOSS) w8BossCount += 1;
+  }
+  expect(w8BossCount).toBe(1);
+});

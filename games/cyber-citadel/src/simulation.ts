@@ -15,7 +15,7 @@ import {
   tryPlaceBarricade,
   tryStartReviveChannel,
 } from './abilities.ts';
-import { resetBossState, updateBossFsm } from './boss.ts';
+import { releaseBossByEnemyIdx, resetBossState, updateBossFsm } from './boss.ts';
 import { selectBruteTarget } from './brute.ts';
 import {
   AUX_LAYOUT,
@@ -460,13 +460,14 @@ function processStage6DamageAndLifecycle(w: CyberWorld, dt: number): void {
     if (dmg > 0) {
       w.eHp[i] = w.eHp[i]! - dmg;
       if (w.eHp[i]! <= 0) {
+        const wasBoss = w.eType[i] === ENEMY_TYPE.BOSS;
         w.eHp[i] = 0;
         w.eType[i] = ENEMY_TYPE.EMPTY;
         w.eStateFlags[i] = 0;
-        if (w.bossEnemyIdx === i) {
-          resetBossState(w);
-        }
         w.enemyPool.release(i);
+        if (wasBoss) {
+          releaseBossByEnemyIdx(w, i);
+        }
       }
     }
   }

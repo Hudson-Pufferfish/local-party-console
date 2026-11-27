@@ -1,3 +1,4 @@
+import { isBossVulnerable } from './boss.ts';
 import { hitsBruteFrontalShield } from './brute.ts';
 import {
   CYBER_CITADEL_CONSTANTS as C,
@@ -133,7 +134,7 @@ export function processAutoFireStage(w: CyberWorld, dt: number): void {
     }
 
     let dmg = C.autoFireDamage;
-    if (type === ENEMY_TYPE.BOSS && w.bossVulnerableTimer <= 0) {
+    if (type === ENEMY_TYPE.BOSS && !isBossVulnerable(w, targetId)) {
       dmg *= C.bossArmorDamageScale;
     }
     w.ePendingDamage[targetId] = w.ePendingDamage[targetId]! + dmg;

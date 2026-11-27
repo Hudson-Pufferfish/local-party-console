@@ -297,8 +297,19 @@ export function createCyberCitadelRenderer(
         const stunned = (eFlags & ENEMY_STATE_FLAG.STUNNED) !== 0;
 
         if (type === ENEMY_TYPE.BOSS) {
+          let weakMask = bossWeakMask;
+          let laserAngle = bossLaserAngle;
+          for (let bs = 0; bs < C.maxBosses; bs += 1) {
+            const bOff = AUX_LAYOUT.META_BOSS_SLOTS + bs * AUX_LAYOUT.META_BOSS_SLOT_STRIDE;
+            if ((aux[bOff] ?? 0) === i + 1) {
+              weakMask = aux[bOff + 1] ?? 0;
+              laserAngle = (readU16LE(aux, bOff + 2) / 65535) * Math.PI * 2;
+              break;
+            }
+          }
+
           const r = C.bossRadius * scale;
-          const vulnerable = (bossWeakMask & BOSS_WEAK_FLAG.VULNERABLE) !== 0;
+          const vulnerable = (weakMask & BOSS_WEAK_FLAG.VULNERABLE) !== 0;
           // Shadow + heavy octagon/circle Dreadnought hull
           g.fillStyle(CYBER_PALETTE.ink, 1);
           g.fillCircle(sx + 6, sy + 6, r);
@@ -311,7 +322,7 @@ export function createCyberCitadelRenderer(
           const perpX = -Math.sin(heading) * (r + 5);
           const perpY = Math.cos(heading) * (r + 5);
           g.fillStyle(
-            (bossWeakMask & BOSS_WEAK_FLAG.FLANK_A_HIT) !== 0
+            (weakMask & BOSS_WEAK_FLAG.FLANK_A_HIT) !== 0
               ? CYBER_PALETTE.warningRed
               : CYBER_PALETTE.hazardOrange,
             1,
@@ -327,8 +338,8 @@ export function createCyberCitadelRenderer(
 
           // Active laser sweep beam
           if ((eFlags & ENEMY_STATE_FLAG.LASER_SWEEP) !== 0) {
-            const lx = sx + Math.cos(bossLaserAngle) * C.bossLaserRange * scale;
-            const ly = sy + Math.sin(bossLaserAngle) * C.bossLaserRange * scale;
+            const lx = sx + Math.cos(laserAngle) * C.bossLaserRange * scale;
+            const ly = sy + Math.sin(laserAngle) * C.bossLaserRange * scale;
             g.lineStyle(8 * scale, CYBER_PALETTE.warningRed, 0.85);
             g.lineBetween(sx, sy, lx, ly);
             g.lineStyle(3 * scale, CYBER_PALETTE.paper, 0.9);

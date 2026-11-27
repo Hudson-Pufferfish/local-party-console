@@ -13,54 +13,112 @@ import { playerBase } from './state.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 import { spawnTracer, type CyberWorld } from './world.ts';
 
+export function clearBossSlot(w: CyberWorld, bossSlot: number): void {
+  w.bossEnemyIdx[bossSlot] = -1;
+  w.bossLaserAngle[bossSlot] = 0;
+  w.bossLaserTimer[bossSlot] = 3.0;
+  w.bossLaserActive[bossSlot] = 0;
+  w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
+  w.bossFirstDashSlot[bossSlot] = -1;
+  w.bossFirstDashAngle[bossSlot] = 0;
+  w.bossDualDashTimer[bossSlot] = 0;
+  w.bossVulnerableTimer[bossSlot] = 0;
+  w.bossWeakMask[bossSlot] = 0;
+  w.bossPhase[bossSlot] = 0;
+}
+
+export function findBossSlotByEnemyIdx(w: CyberWorld, enemyIdx: number): number {
+  for (let b = 0; b < C.maxBosses; b += 1) {
+    if (w.bossEnemyIdx[b] === enemyIdx) return b;
+  }
+  return -1;
+}
+
+export function isBossVulnerable(w: CyberWorld, enemyIdx: number): boolean {
+  const b = findBossSlotByEnemyIdx(w, enemyIdx);
+  return b >= 0 && w.bossVulnerableTimer[b]! > 0;
+}
+
+export function syncBossHeaderPhase(w: CyberWorld): void {
+  let maxPhase = 0;
+  for (let b = 0; b < C.maxBosses; b += 1) {
+    const bIdx = w.bossEnemyIdx[b]!;
+    if (bIdx < 0 || !w.enemyPool.isActive(bIdx) || w.eHp[bIdx]! <= 0) continue;
+    const p = w.bossPhase[b]!;
+    if (p > maxPhase) maxPhase = p;
+  }
+  w.state[CYBER_HEADER.bossPhase] = maxPhase;
+}
+
+export function releaseBossByEnemyIdx(w: CyberWorld, enemyIdx: number): void {
+  const b = findBossSlotByEnemyIdx(w, enemyIdx);
+  if (b >= 0) {
+    clearBossSlot(w, b);
+  }
+  syncBossHeaderPhase(w);
+}
+
 export function resetBossState(w: CyberWorld): void {
-  w.bossEnemyIdx = -1;
-  w.bossLaserAngle = 0;
-  w.bossLaserTimer = 3.0;
-  w.bossLaserActive = false;
-  w.bossCarrierTimer = C.bossCarrierCooldownSec;
-  w.bossFirstDashSlot = -1;
-  w.bossFirstDashAngle = 0;
-  w.bossDualDashTimer = 0;
-  w.bossVulnerableTimer = 0;
-  w.bossWeakMask = 0;
+  for (let b = 0; b < C.maxBosses; b += 1) {
+    clearBossSlot(w, b);
+  }
   w.pBossThreat.fill(0);
   w.state[CYBER_HEADER.bossPhase] = 0;
 }
 
 /**
- * Called from dash.ts when a player dashes into the Dreadnought.
- * Opposite-flank dashes by two different players within 1.0s expose weak points.
+ * Called from dash.ts when a player dashes into a Dreadnought.
+ * Finds the targeted active boss slot by distance/intersection and applies
+ * opposite-flank dual-dash coordination independently per boss instance.
  */
 export function onBossDashHit(w: CyberWorld, slot: number, px: number, py: number): void {
-  const bIdx = w.bossEnemyIdx;
-  if (bIdx < 0 || !w.enemyPool.isActive(bIdx)) return;
+  let targetBossSlot = -1;
+  let bestDistSq = Number.POSITIVE_INFINITY;
 
+  for (let b = 0; b < C.maxBosses; b += 1) {
+    const bIdx = w.bossEnemyIdx[b]!;
+    if (bIdx < 0 || !w.enemyPool.isActive(bIdx) || w.eHp[bIdx]! <= 0) continue;
+    const bx = w.eX[bIdx]!;
+    const by = w.eY[bIdx]!;
+    const dx = px - bx;
+    const dy = py - by;
+    const distSq = dx * dx + dy * dy;
+    const maxHitR = C.playerRadius + w.eRadius[bIdx]! + 12;
+    if (distSq <= maxHitR * maxHitR && distSq < bestDistSq) {
+      bestDistSq = distSq;
+      targetBossSlot = b;
+    }
+  }
+
+  if (targetBossSlot < 0) return;
+
+  const bIdx = w.bossEnemyIdx[targetBossSlot]!;
   w.pBossThreat[slot] = w.pBossThreat[slot]! + 80;
   const bx = w.eX[bIdx]!;
   const by = w.eY[bIdx]!;
   const hitAngle = Math.atan2(py - by, px - bx);
 
-  if (w.bossVulnerableTimer > 0) return;
+  if (w.bossVulnerableTimer[targetBossSlot]! > 0) return;
 
-  if (w.bossDualDashTimer > 0 && w.bossFirstDashSlot >= 0 && w.bossFirstDashSlot !== slot) {
+  const firstSlot = w.bossFirstDashSlot[targetBossSlot]!;
+  if (w.bossDualDashTimer[targetBossSlot]! > 0 && firstSlot >= 0 && firstSlot !== slot) {
     // Opposite flank check: cos(angleDiff) <= -0.35 (~110+ deg apart)
-    const cosDiff = Math.cos(hitAngle - w.bossFirstDashAngle);
+    const cosDiff = Math.cos(hitAngle - w.bossFirstDashAngle[targetBossSlot]!);
     if (cosDiff <= -0.35) {
-      w.bossWeakMask =
+      w.bossWeakMask[targetBossSlot] =
         BOSS_WEAK_FLAG.FLANK_A_HIT | BOSS_WEAK_FLAG.FLANK_B_HIT | BOSS_WEAK_FLAG.VULNERABLE;
-      w.bossVulnerableTimer = C.bossVulnerableSec;
-      w.bossDualDashTimer = 0;
-      w.bossFirstDashSlot = -1;
+      w.bossVulnerableTimer[targetBossSlot] = C.bossVulnerableSec;
+      w.bossDualDashTimer[targetBossSlot] = 0;
+      w.bossFirstDashSlot[targetBossSlot] = -1;
       return;
     }
   }
 
-  // Record first flank hit and start 1.0s dual-dash coordination window
-  w.bossFirstDashSlot = slot;
-  w.bossFirstDashAngle = hitAngle;
-  w.bossDualDashTimer = C.bossDualDashWindowSec;
-  w.bossWeakMask = BOSS_WEAK_FLAG.FLANK_A_HIT;
+  // Record first flank hit and start 1.0s dual-dash coordination window for this boss slot
+  w.bossFirstDashSlot[targetBossSlot] = slot;
+  w.bossFirstDashAngle[targetBossSlot] = hitAngle;
+  w.bossDualDashTimer[targetBossSlot] = C.bossDualDashWindowSec;
+  w.bossWeakMask[targetBossSlot] = BOSS_WEAK_FLAG.FLANK_A_HIT;
 }
 
 /**
@@ -90,122 +148,144 @@ export function selectBossThreatTarget(w: CyberWorld, bx: number, by: number): n
 }
 
 export function updateBossFsm(w: CyberWorld, dt: number): void {
-  const bIdx = w.bossEnemyIdx;
-  if (bIdx < 0 || !w.enemyPool.isActive(bIdx) || w.eHp[bIdx]! <= 0) {
-    w.bossEnemyIdx = -1;
-    w.state[CYBER_HEADER.bossPhase] = 0;
-    w.bossWeakMask = 0;
-    return;
-  }
+  let maxPhase = 0;
+  let anyActiveBoss = false;
 
-  // Tick dual-dash & vulnerability timers
-  if (w.bossDualDashTimer > 0) {
-    w.bossDualDashTimer -= dt;
-    if (w.bossDualDashTimer <= 0) {
-      w.bossDualDashTimer = 0;
-      w.bossFirstDashSlot = -1;
-      if (w.bossVulnerableTimer <= 0) {
-        w.bossWeakMask = 0;
+  for (let b = 0; b < C.maxBosses; b += 1) {
+    const bIdx = w.bossEnemyIdx[b]!;
+    if (bIdx < 0) continue;
+
+    if (!w.enemyPool.isActive(bIdx) || w.eHp[bIdx]! <= 0 || w.eType[bIdx] !== ENEMY_TYPE.BOSS) {
+      clearBossSlot(w, b);
+      continue;
+    }
+
+    anyActiveBoss = true;
+
+    // Tick dual-dash & vulnerability timers for this boss instance
+    if (w.bossDualDashTimer[b]! > 0) {
+      const nextDual = w.bossDualDashTimer[b]! - dt;
+      if (nextDual <= 0) {
+        w.bossDualDashTimer[b] = 0;
+        w.bossFirstDashSlot[b] = -1;
+        if (w.bossVulnerableTimer[b]! <= 0) {
+          w.bossWeakMask[b] = 0;
+        }
+      } else {
+        w.bossDualDashTimer[b] = nextDual;
       }
     }
-  }
-  if (w.bossVulnerableTimer > 0) {
-    w.bossVulnerableTimer -= dt;
-    if (w.bossVulnerableTimer <= 0) {
-      w.bossVulnerableTimer = 0;
-      w.bossWeakMask = 0;
+    if (w.bossVulnerableTimer[b]! > 0) {
+      const nextVuln = w.bossVulnerableTimer[b]! - dt;
+      if (nextVuln <= 0) {
+        w.bossVulnerableTimer[b] = 0;
+        w.bossWeakMask[b] = 0;
+      } else {
+        w.bossVulnerableTimer[b] = nextVuln;
+      }
     }
-  }
 
-  const hpRatio = w.eHp[bIdx]! / w.eMaxHp[bIdx]!;
-  let phase = 1;
-  if (hpRatio <= C.bossPhase3Threshold) phase = 3;
-  else if (hpRatio <= C.bossPhase2Threshold) phase = 2;
+    const hpRatio = w.eHp[bIdx]! / w.eMaxHp[bIdx]!;
+    let phase = 1;
+    if (hpRatio <= C.bossPhase3Threshold) phase = 3;
+    else if (hpRatio <= C.bossPhase2Threshold) phase = 2;
 
-  const prevPhase = w.state[CYBER_HEADER.bossPhase]!;
-  w.state[CYBER_HEADER.bossPhase] = phase;
+    const prevPhase = w.bossPhase[b]!;
+    w.bossPhase[b] = phase;
+    if (phase > maxPhase) maxPhase = phase;
 
-  const bx = w.eX[bIdx]!;
-  const by = w.eY[bIdx]!;
+    const bx = w.eX[bIdx]!;
+    const by = w.eY[bIdx]!;
+    const flank = w.eFlank[bIdx]!;
 
-  // Entering Phase 2 immediately deploys a Drone Carrier escort
-  if (phase >= 2 && prevPhase < 2) {
-    spawnEnemyImmediate(w, ENEMY_TYPE.CARRIER, bx * 0.85, by * 0.85, 0);
-  }
-
-  // Phase 2+: periodic drone carrier deployment
-  if (phase >= 2) {
-    w.bossCarrierTimer -= dt;
-    if (w.bossCarrierTimer <= 0) {
-      w.bossCarrierTimer = C.bossCarrierCooldownSec;
-      spawnEnemyImmediate(w, ENEMY_TYPE.CARRIER, bx, by, 0);
+    // Entering Phase 2 immediately deploys a Drone Carrier escort
+    if (phase >= 2 && prevPhase < 2) {
+      spawnEnemyImmediate(w, ENEMY_TYPE.CARRIER, bx * 0.85, by * 0.85, flank);
     }
-  }
 
-  // Phase 3: Enraged directly toward Core
-  if (phase === 3) {
-    w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! | ENEMY_STATE_FLAG.ENRAGED) & 0x3f;
-    w.eSpeed[bIdx] = C.bossEnrageSpeed;
-    w.eTarget[bIdx] = 8; // Core
-  } else {
-    w.eSpeed[bIdx] = C.bossSpeed;
-    w.eTarget[bIdx] = selectBossThreatTarget(w, bx, by);
-  }
+    // Phase 2+: periodic drone carrier deployment
+    if (phase >= 2) {
+      const nextCarrier = w.bossCarrierTimer[b]! - dt;
+      if (nextCarrier <= 0) {
+        w.bossCarrierTimer[b] = C.bossCarrierCooldownSec;
+        spawnEnemyImmediate(w, ENEMY_TYPE.CARRIER, bx, by, flank);
+      } else {
+        w.bossCarrierTimer[b] = nextCarrier;
+      }
+    }
 
-  // Sweeping laser barrage state
-  if (w.eStunTimer[bIdx]! <= 0) {
-    w.bossLaserTimer -= dt;
-    if (!w.bossLaserActive && w.bossLaserTimer <= 0) {
-      w.bossLaserActive = true;
-      w.bossLaserTimer = phase === 3 ? 2.4 : 1.8;
-      w.bossLaserAngle = w.eHeading[bIdx]! - 0.7;
-      w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
-    } else if (w.bossLaserActive) {
-      const sweepSpeed = phase === 3 ? C.bossLaserSweepSpeed * 1.35 : C.bossLaserSweepSpeed;
-      w.bossLaserAngle += sweepSpeed * dt;
-      const tipX = bx + Math.cos(w.bossLaserAngle) * C.bossLaserRange;
-      const tipY = by + Math.sin(w.bossLaserAngle) * C.bossLaserRange;
+    // Phase 3: Enraged directly toward Core
+    if (phase === 3) {
+      w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! | ENEMY_STATE_FLAG.ENRAGED) & 0x3f;
+      w.eSpeed[bIdx] = C.bossEnrageSpeed;
+      w.eTarget[bIdx] = 8; // Core
+    } else {
+      w.eSpeed[bIdx] = C.bossSpeed;
+      w.eTarget[bIdx] = selectBossThreatTarget(w, bx, by);
+    }
 
-      // Apply laser damage to players intersecting beam
-      const state = w.state;
-      const hitR = C.playerRadius + C.bossLaserHalfWidth;
-      const hitRSq = hitR * hitR;
-      for (let s = 0; s < C.maxPlayers; s += 1) {
-        if (w.pJoined[s] === 0) continue;
-        const pb = playerBase(s);
-        if ((state[pb + CYBER_PLAYER_OFFSET.flags]! & CYBER_FLAG.ACTIVE) === 0) continue;
-        const dSq = pointToSegmentDistSq(
-          state[pb + CYBER_PLAYER_OFFSET.x]!,
-          state[pb + CYBER_PLAYER_OFFSET.y]!,
-          bx,
-          by,
-          tipX,
-          tipY,
-        );
-        if (dSq <= hitRSq) {
-          w.pPendingDamage[s] = w.pPendingDamage[s]! + C.bossLaserDps * dt;
+    // Sweeping laser barrage state (independent per boss slot)
+    if (w.eStunTimer[bIdx]! <= 0) {
+      const nextLaserTimer = w.bossLaserTimer[b]! - dt;
+      w.bossLaserTimer[b] = nextLaserTimer;
+
+      if (w.bossLaserActive[b] === 0 && nextLaserTimer <= 0) {
+        w.bossLaserActive[b] = 1;
+        w.bossLaserTimer[b] = phase === 3 ? 2.4 : 1.8;
+        w.bossLaserAngle[b] = w.eHeading[bIdx]! - 0.7;
+        w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+      } else if (w.bossLaserActive[b] !== 0) {
+        const sweepSpeed = phase === 3 ? C.bossLaserSweepSpeed * 1.35 : C.bossLaserSweepSpeed;
+        const angle = w.bossLaserAngle[b]! + sweepSpeed * dt;
+        w.bossLaserAngle[b] = angle;
+        const tipX = bx + Math.cos(angle) * C.bossLaserRange;
+        const tipY = by + Math.sin(angle) * C.bossLaserRange;
+
+        // Apply laser damage to players intersecting beam
+        const state = w.state;
+        const hitR = C.playerRadius + C.bossLaserHalfWidth;
+        const hitRSq = hitR * hitR;
+        for (let s = 0; s < C.maxPlayers; s += 1) {
+          if (w.pJoined[s] === 0) continue;
+          const pb = playerBase(s);
+          if ((state[pb + CYBER_PLAYER_OFFSET.flags]! & CYBER_FLAG.ACTIVE) === 0) continue;
+          const dSq = pointToSegmentDistSq(
+            state[pb + CYBER_PLAYER_OFFSET.x]!,
+            state[pb + CYBER_PLAYER_OFFSET.y]!,
+            bx,
+            by,
+            tipX,
+            tipY,
+          );
+          if (dSq <= hitRSq) {
+            w.pPendingDamage[s] = w.pPendingDamage[s]! + C.bossLaserDps * dt;
+          }
+        }
+
+        // Emit boss laser visual tracer every 4 ticks
+        if (((w.state[CYBER_HEADER.tickId]! | 0) & 3) === 0) {
+          spawnTracer(
+            w,
+            tipX,
+            tipY,
+            b & 0x07,
+            PROJECTILE_FLAG.ACTIVE | PROJECTILE_FLAG.BOSS_LASER,
+            5,
+          );
+        }
+
+        if (w.bossLaserTimer[b]! <= 0) {
+          w.bossLaserActive[b] = 0;
+          w.bossLaserTimer[b] = phase === 3 ? 3.0 : 4.2;
+          w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
         }
       }
-
-      // Emit boss laser visual tracer every 4 ticks
-      if (((w.state[CYBER_HEADER.tickId]! | 0) & 3) === 0) {
-        spawnTracer(
-          w,
-          tipX,
-          tipY,
-          0,
-          PROJECTILE_FLAG.ACTIVE | PROJECTILE_FLAG.BOSS_LASER,
-          5,
-        );
-      }
-
-      if (w.bossLaserTimer <= 0) {
-        w.bossLaserActive = false;
-        w.bossLaserTimer = phase === 3 ? 3.0 : 4.2;
-        w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
-      }
     }
   }
+
+  w.state[CYBER_HEADER.bossPhase] = maxPhase;
+
+  if (!anyActiveBoss) return;
 
   // Slight threat decay over time so recent damage/dashes steer aggro
   for (let s = 0; s < C.maxPlayers; s += 1) {

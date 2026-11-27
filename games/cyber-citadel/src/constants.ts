@@ -1,3 +1,5 @@
+export const MAX_BOSSES = 4;
+
 export const CYBER_CITADEL_CONSTANTS = {
   arenaSize: 800,
   halfArena: 400,
@@ -6,6 +8,7 @@ export const CYBER_CITADEL_CONSTANTS = {
   gridCells: 1600,
   cellSize: 20,
   maxPlayers: 8,
+  maxBosses: MAX_BOSSES,
   totalWaves: 8,
   tickRate: 120,
   dt: 1 / 120,
@@ -202,7 +205,9 @@ export const AUX_LAYOUT = {
   META_EMP_JOINED: 2974, // u8
   META_EMP_REQUIRED: 2975, // u8
   META_BRUTE_HEADING: 2976, // 32 x u8
-  META_RESERVED: 3008, // 64 bytes
+  META_BOSS_SLOTS: 3008, // 4 x 4 B (enemyIdx+1 u8, weakMask u8, laserAngle u16)
+  META_BOSS_SLOT_STRIDE: 4,
+  META_RESERVED: 3024, // 48 bytes
 
   AUX_CORE_BYTES: 3072,
   FLOW_DEBUG_OFFSET: 3072,

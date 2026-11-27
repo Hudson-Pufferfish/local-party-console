@@ -1,3 +1,4 @@
+import { isBossVulnerable } from './boss.ts';
 import {
   AUX_LAYOUT,
   BUTTON_BIT,
@@ -181,7 +182,7 @@ export function processRailStage(w: CyberWorld): void {
         if (type === ENEMY_TYPE.BRUTE) {
           w.eStateFlags[eid] = (w.eStateFlags[eid]! & ~ENEMY_STATE_FLAG.SHIELD_UP) & 0x3f;
           w.eShieldBreakTimer[eid] = C.bruteShieldBreakSec;
-        } else if (type === ENEMY_TYPE.BOSS && w.bossVulnerableTimer <= 0) {
+        } else if (type === ENEMY_TYPE.BOSS && !isBossVulnerable(w, eid)) {
           dmg *= 0.6; // Rail deals stronger damage even vs boss armor
         }
 

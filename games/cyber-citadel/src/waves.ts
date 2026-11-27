@@ -76,7 +76,8 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   const brutes = def.brutes > 0 ? Math.max(1, Math.round(def.brutes * countMult)) : 0;
 
   let delay = C.flankTelegraphSec;
-  if (def.hasBoss && def.wave !== 7) {
+  if (def.hasBoss && def.wave === 8) {
+    // Wave 8 Boss 1: flank 0 (North) at delay = C.flankTelegraphSec (2.0s)
     enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
     delay += 3.5; // Give players time to focus on Boss intro before minion trickle begins
   }
@@ -90,12 +91,28 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   // For Wave 7, spawn boss near the end alongside the final few enemies (~88% through minion spawns)
   const bossSpawnThreshold = def.wave === 7 ? Math.max(1, Math.round(totalMinions * 0.88)) : -1;
   let bossSpawnedInWave7 = false;
+  // For Wave 8, interleave Boss 2 (South @ 20.0s) and Bosses 3 & 4 (East & West @ 35.0s) in FIFO delay order
+  const WAVE8_BOSS2_DELAY = 20.0;
+  const WAVE8_BOSS34_DELAY = 35.0;
+  let wave8Boss2Queued = false;
+  let wave8Boss34Queued = false;
 
   while (dLeft > 0 || fLeft > 0 || bLeft > 0) {
     const minionsSpawned = totalMinions - (dLeft + fLeft + bLeft);
     if (def.hasBoss && def.wave === 7 && !bossSpawnedInWave7 && minionsSpawned >= bossSpawnThreshold) {
       enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
       bossSpawnedInWave7 = true;
+    }
+    if (def.hasBoss && def.wave === 8) {
+      if (!wave8Boss2Queued && delay >= WAVE8_BOSS2_DELAY) {
+        enqueueSpawn(w, ENEMY_TYPE.BOSS, 2, WAVE8_BOSS2_DELAY);
+        wave8Boss2Queued = true;
+      }
+      if (!wave8Boss34Queued && delay >= WAVE8_BOSS34_DELAY) {
+        enqueueSpawn(w, ENEMY_TYPE.BOSS, 1, WAVE8_BOSS34_DELAY);
+        enqueueSpawn(w, ENEMY_TYPE.BOSS, 3, WAVE8_BOSS34_DELAY);
+        wave8Boss34Queued = true;
+      }
     }
 
     const flank = turn % def.flanks;
@@ -116,6 +133,15 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   if (def.hasBoss && def.wave === 7 && !bossSpawnedInWave7) {
     enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
   }
+  if (def.hasBoss && def.wave === 8) {
+    if (!wave8Boss2Queued) {
+      enqueueSpawn(w, ENEMY_TYPE.BOSS, 2, WAVE8_BOSS2_DELAY);
+    }
+    if (!wave8Boss34Queued) {
+      enqueueSpawn(w, ENEMY_TYPE.BOSS, 1, WAVE8_BOSS34_DELAY);
+      enqueueSpawn(w, ENEMY_TYPE.BOSS, 3, WAVE8_BOSS34_DELAY);
+    }
+  }
 }
 
 export function spawnEnemyImmediate(
@@ -127,6 +153,17 @@ export function spawnEnemyImmediate(
   headingOverride?: number,
   hpOverride?: number,
 ): number {
+  let bossSlot = -1;
+  if (type === ENEMY_TYPE.BOSS) {
+    for (let b = 0; b < C.maxBosses; b += 1) {
+      if (w.bossEnemyIdx[b] === -1) {
+        bossSlot = b;
+        break;
+      }
+    }
+    if (bossSlot < 0) return -1;
+  }
+
   const id = w.enemyPool.acquire();
   if (id < 0) return -1;
 
@@ -158,8 +195,20 @@ export function spawnEnemyImmediate(
     speed = C.bossSpeed;
     radius = C.bossRadius;
     dps = C.bossMeleeDps;
-    w.bossEnemyIdx = id;
-    w.state[CYBER_HEADER.bossPhase] = 1;
+    w.bossEnemyIdx[bossSlot] = id;
+    w.bossLaserAngle[bossSlot] = 0;
+    w.bossLaserTimer[bossSlot] = 3.0;
+    w.bossLaserActive[bossSlot] = 0;
+    w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
+    w.bossFirstDashSlot[bossSlot] = -1;
+    w.bossFirstDashAngle[bossSlot] = 0;
+    w.bossDualDashTimer[bossSlot] = 0;
+    w.bossVulnerableTimer[bossSlot] = 0;
+    w.bossWeakMask[bossSlot] = 0;
+    w.bossPhase[bossSlot] = 1;
+    if (w.state[CYBER_HEADER.bossPhase]! < 1) {
+      w.state[CYBER_HEADER.bossPhase] = 1;
+    }
   } else {
     hp = C.droneBaseHp * hpMult;
     speed = C.droneSpeed;

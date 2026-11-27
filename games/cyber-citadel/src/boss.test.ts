@@ -11,7 +11,7 @@ import {
   ENEMY_TYPE,
 } from './constants.ts';
 import { createCyberCitadelSimulation } from './simulation.ts';
-import { createAuxView, playerBase, readEnemy, readMetaTrailer } from './state.ts';
+import { createAuxView, playerBase, readBossSlotMeta, readEnemy, readMetaTrailer } from './state.ts';
 
 test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
   // Pure arc math: brute at (0, 0) facing +X (heading 0)
@@ -147,4 +147,169 @@ test('Wave 8 Dreadnought transitions phases at 66% and 33%, exposes weak points 
   sim.step(C.dt);
   expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.MATCH_OVER);
   expect(sim.getMatchWon()).toBe(true);
+});
+
+test('concurrent multi-boss slots track independent laser sweeps, dual-dash vulnerability, Phase 2 carriers, and isolated death cleanup', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1, 2, 3], 909);
+  sim.jumpToWave(8);
+  sim.clearSpawnQueueForTest();
+  const view = createAuxView(sim.auxState);
+
+  // Spawn two Dreadnoughts on opposite sides of the arena (North & South) with high HP so auto-fire won't prematurely trigger Phase 2
+  const bossA = sim.spawnEnemyForTest(ENEMY_TYPE.BOSS, 0, -240, Math.PI * 0.5, 2000);
+  const bossB = sim.spawnEnemyForTest(ENEMY_TYPE.BOSS, 0, 240, -Math.PI * 0.5, 2000);
+  expect(bossA).toBeGreaterThanOrEqual(0);
+  expect(bossB).toBeGreaterThanOrEqual(0);
+  expect(bossA).not.toBe(bossB);
+
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+  const b2 = playerBase(2);
+  const b3 = playerBase(3);
+
+  // Position P0 & P1 on opposite flanks of Boss A; P2 & P3 safely near Boss B (non-dashing initially)
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = -68;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = -240;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 68;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = -240;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = Math.PI;
+
+  sim.state[b2 + CYBER_PLAYER_OFFSET.x] = -220;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.y] = 240;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.heading] = 0;
+
+  sim.state[b3 + CYBER_PLAYER_OFFSET.x] = 220;
+  sim.state[b3 + CYBER_PLAYER_OFFSET.y] = 240;
+  sim.state[b3 + CYBER_PLAYER_OFFSET.heading] = Math.PI;
+
+  // Dual-dash Boss A only (P0 from West, P1 from East)
+  sim.applyInput(0, BUTTON_BIT.DASH, 127, 0);
+  for (let i = 0; i < 8; i += 1) {
+    sim.step(C.dt);
+    sim.applyInput(0, 0, 127, 0);
+  }
+  const bossANow = readEnemy(view, bossA);
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = bossANow.x + 68;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = bossANow.y;
+  sim.applyInput(1, BUTTON_BIT.DASH, -127, 0);
+  for (let i = 0; i < 8; i += 1) {
+    sim.step(C.dt);
+    sim.applyInput(1, 0, -127, 0);
+  }
+  sim.applyInput(0, 0, 0, 0);
+  sim.applyInput(1, 0, 0, 0);
+
+  // Per-boss slot meta: Boss A is VULNERABLE while Boss B has weakMask === 0
+  const slotA = readBossSlotMeta(view, 0);
+  const slotB = readBossSlotMeta(view, 1);
+  expect(slotA.enemyIdx).toBe(bossA);
+  expect(slotB.enemyIdx).toBe(bossB);
+  expect(slotA.weakMask & BOSS_WEAK_FLAG.VULNERABLE).not.toBe(0);
+  expect(slotB.weakMask).toBe(0);
+
+  // Boss A must be vulnerable while Boss B remains armored: fire identical RAIL shots at each
+  const bossAPos = readEnemy(view, bossA);
+  const bossBPos = readEnemy(view, bossB);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = bossAPos.x - 160;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = bossAPos.y;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.railCooldown] = 0;
+
+  sim.state[b2 + CYBER_PLAYER_OFFSET.x] = bossBPos.x - 160;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.y] = bossBPos.y;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.heading] = 0;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.railCooldown] = 0;
+
+  const hpABeforeRail = readEnemy(view, bossA).hpPct;
+  const hpBBeforeRail = readEnemy(view, bossB).hpPct;
+  sim.applyInput(0, BUTTON_BIT.RAIL, 0, 0);
+  sim.applyInput(2, BUTTON_BIT.RAIL, 0, 0);
+  sim.step(C.dt);
+  sim.applyInput(0, 0, 0, 0);
+  sim.applyInput(2, 0, 0, 0);
+
+  const dmgDropA = hpABeforeRail - readEnemy(view, bossA).hpPct;
+  const dmgDropB = hpBBeforeRail - readEnemy(view, bossB).hpPct;
+  // Vulnerable Boss A takes full railDamage (90) while armored Boss B takes 0.6x (54)
+  expect(dmgDropA).toBeGreaterThan(dmgDropB);
+
+  // Park players facing away so auto-fire does not prematurely push bosses into Phase 2 before testing sweeps
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = -360;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = -360;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = Math.PI;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = 360;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = -360;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = 0;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.x] = -360;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.y] = 360;
+  sim.state[b2 + CYBER_PLAYER_OFFSET.heading] = Math.PI;
+  sim.state[b3 + CYBER_PLAYER_OFFSET.x] = 360;
+  sim.state[b3 + CYBER_PLAYER_OFFSET.y] = 360;
+  sim.state[b3 + CYBER_PLAYER_OFFSET.heading] = 0;
+
+  // Advance ~3.1s so BOTH Boss A and Boss B independently activate LASER_SWEEP simultaneously at distinct angles
+  let sawBothSweeping = false;
+  for (let i = 0; i < 420; i += 1) {
+    if (i % 30 === 0) {
+      sim.state[b0 + CYBER_PLAYER_OFFSET.hp] = C.playerMaxHp;
+      sim.state[b1 + CYBER_PLAYER_OFFSET.hp] = C.playerMaxHp;
+      sim.state[b2 + CYBER_PLAYER_OFFSET.hp] = C.playerMaxHp;
+      sim.state[b3 + CYBER_PLAYER_OFFSET.hp] = C.playerMaxHp;
+    }
+    sim.step(C.dt);
+    const eA = readEnemy(view, bossA);
+    const eB = readEnemy(view, bossB);
+    if (
+      (eA.stateFlags & ENEMY_STATE_FLAG.LASER_SWEEP) !== 0 &&
+      (eB.stateFlags & ENEMY_STATE_FLAG.LASER_SWEEP) !== 0
+    ) {
+      const sweepA = readBossSlotMeta(view, 0);
+      const sweepB = readBossSlotMeta(view, 1);
+      expect(sweepA.laserAngleU16).not.toBe(sweepB.laserAngleU16);
+      sawBothSweeping = true;
+      break;
+    }
+  }
+  expect(sawBothSweeping).toBe(true);
+
+  // Drop Boss A into Phase 2 (spawns carrier #1), then drop Boss B into Phase 2 (must also spawn carrier #2)
+  const countCarriers = () => {
+    let n = 0;
+    for (let i = 0; i < 160; i += 1) {
+      const e = readEnemy(view, i);
+      if (e.hpPct > 0 && e.type === ENEMY_TYPE.CARRIER) n += 1;
+    }
+    return n;
+  };
+  const carriersBefore = countCarriers();
+  expect(carriersBefore).toBe(0);
+  sim.damageEnemyForTest(bossA, 850);
+  sim.step(C.dt);
+  sim.step(C.dt);
+  expect(countCarriers()).toBeGreaterThan(carriersBefore);
+  const carriersAfterA = countCarriers();
+
+  sim.damageEnemyForTest(bossB, 850);
+  sim.step(C.dt);
+  sim.step(C.dt);
+  expect(countCarriers()).toBeGreaterThan(carriersAfterA);
+
+  // Kill Boss A completely: Boss B must remain alive and keep bossPhase >= 2 and meta bossHpPct > 0
+  sim.damageEnemyForTest(bossA, 5000);
+  sim.step(C.dt);
+  sim.step(C.dt);
+  expect(readEnemy(view, bossA).hpPct).toBe(0);
+  expect(readEnemy(view, bossB).hpPct).toBeGreaterThan(0);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBeGreaterThanOrEqual(2);
+  expect(readMetaTrailer(view).bossHpPct).toBeGreaterThan(0);
+
+  // Kill Boss B too -> bossPhase returns to 0 and meta bossHpPct returns to 0
+  sim.damageEnemyForTest(bossB, 5000);
+  sim.step(C.dt);
+  sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
+  expect(readMetaTrailer(view).bossHpPct).toBe(0);
 });
