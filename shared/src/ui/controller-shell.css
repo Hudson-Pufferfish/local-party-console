@@ -133,3 +133,31 @@
   line-height: 1;
   letter-spacing: -0.02em;
 }
+
+/* Preset 3: tap-only (centered single action button, zero joystick) */
+.controller-hands[data-preset='tap-only'],
+[data-orientation='portrait'] .controller-hands[data-preset='tap-only'],
+[data-orientation='landscape'] .controller-hands[data-preset='tap-only'] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.tap-only-preset {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 12px;
+}
+
+.tap-only-preset .arcade-button {
+  width: min(100%, 420px);
+  height: min(100%, 280px);
+  min-height: 120px;
+  padding: 24px;
+  font-size: clamp(28px, 6vw, 48px);
+  letter-spacing: 0.02em;
+}

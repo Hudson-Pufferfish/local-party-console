@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import type { GameManifest } from '../../shared/src/types/game.ts';
+import { startSession } from './session.ts';
+import { resetTabLocksForTest } from './sim-lock.ts';
 
 vi.mock('phaser', () => ({
   default: {
@@ -154,4 +156,170 @@ test('screenGames registers bomb-pass with lazy runtime and holistic config', as
   expect(typeof runtime.bannerCopy).toBe('function');
   expect(typeof runtime.createRoundRanking).toBe('function');
   expect(runtime.rematchEventType).toBe('bomb:rematch');
+});
+
+test('screenGames registers last-light with lazy runtime, rehydrateEvent, and holistic tap-only config', async () => {
+  const manifests = listScreenManifests();
+  const light = manifests.find((m) => m.id === 'last-light');
+  expect(light).toBeDefined();
+  expect(light?.title).toBe('LAST LIGHT');
+  expect(light?.supportsBots).toBe(true);
+  expect(light?.viewConfig.mode).toBe('holistic');
+  expect(light?.controllerLayout.preset).toBe('tap-only');
+
+  const runtime = await screenGames.load('last-light');
+  expect(typeof runtime.createSim).toBe('function');
+  expect(typeof runtime.eventsFromHeaderDiff).toBe('function');
+  expect(typeof runtime.rehydrateEvent).toBe('function');
+  expect(typeof runtime.createRenderer).toBe('function');
+  expect(typeof runtime.writeBotInput).toBe('function');
+  expect(typeof runtime.botLevels).toBe('function');
+  expect(typeof runtime.scoreboardHeader).toBe('function');
+  expect(typeof runtime.scoreboardRows).toBe('function');
+  expect(typeof runtime.scoreRules).toBe('function');
+  expect(typeof runtime.bannerCopy).toBe('function');
+  expect(typeof runtime.createRoundRanking).toBe('function');
+  expect(runtime.rematchEventType).toBe('light:rematch');
+});
+
+afterEach(() => {
+  resetTabLocksForTest();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  Reflect.deleteProperty(globalThis, 'window');
+});
+
+test('session emits ScreenGameRuntime.rehydrateEvent when a player reconnects during an active match', async () => {
+  class MockSocket extends EventTarget {
+    static OPEN = 1;
+    binaryType = 'arraybuffer';
+    readyState = MockSocket.OPEN;
+    sent: string[] = [];
+    constructor(_url: string) {
+      super();
+      sockets.push(this);
+    }
+    send(data: string): void {
+      this.sent.push(data);
+    }
+    close(): void {}
+  }
+
+  class MockChannel {
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    postMessage(): void {}
+    close(): void {}
+  }
+
+  const sockets: MockSocket[] = [];
+  const memory = new Map<string, string>([['party-host-REHY', 'host-secret']]);
+  const win = Object.assign(new EventTarget(), {
+    requestAnimationFrame: () => 1,
+    cancelAnimationFrame: () => {},
+    setInterval: () => 1,
+    clearInterval: () => {},
+  });
+
+  globalThis.window = win as unknown as Window & typeof globalThis;
+  vi.stubGlobal('location', {
+    search: '?room=REHY&view=holistic',
+    host: '10.0.0.1:8443',
+    pathname: '/screen',
+  });
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memory.set(key, value);
+    },
+  });
+  vi.stubGlobal('navigator', {
+    locks: {
+      request: (
+        _name: string,
+        _options: LockOptions,
+        cb: (lock: Lock | null) => Promise<void> | void,
+      ) => Promise.resolve(cb({ name: _name, mode: 'exclusive' } as Lock)),
+    },
+  });
+  vi.stubGlobal('WebSocket', MockSocket);
+  vi.stubGlobal('BroadcastChannel', MockChannel);
+  vi.stubGlobal('fetch', async () => ({ ok: false, json: async () => ({}) }));
+
+  const rehydrateSpy = vi.fn((state: Float32Array) => ({
+    type: 'quiz:state',
+    roomId: '',
+    payload: { tick: state[0] },
+  }));
+
+  const simState = new Float32Array(88);
+  simState[0] = 42;
+  const mockRuntime: ScreenGameRuntime = {
+    createSim: () => ({
+      state: simState,
+      applyInput() {},
+      step() {},
+      startMatch() {},
+    }),
+    rehydrateEvent: rehydrateSpy,
+  };
+
+  screenGames.register({
+    manifest: { ...TEST_MANIFEST, id: 'mock-rehydrate-quiz' },
+    load: async () => mockRuntime,
+  });
+
+  const session = startSession({
+    setRoomId() {},
+    setQrUrl() {},
+    setPlayers() {},
+    setPrimary() {},
+    setSdpWarning() {},
+    setStandby() {},
+    setMatch() {},
+    setMatchOver() {},
+    setScoreRows() {},
+    setBanner() {},
+    setNotice() {},
+    setSelectedId() {},
+    setBotLobby() {},
+  });
+
+  await Promise.resolve();
+  const ws = sockets[0]!;
+  ws.dispatchEvent(new Event('open'));
+
+  const dispatchPlayers = (connected0: boolean, connected1: boolean): void => {
+    ws.dispatchEvent(
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          type: 'room:players',
+          payload: {
+            players: [
+              { index: 0, name: 'ADA', color: '#FF4D00', teamId: null, connected: connected0 },
+              { index: 1, name: 'BEAU', color: '#00C853', teamId: null, connected: connected1 },
+            ],
+          },
+        }),
+      }),
+    );
+  };
+
+  // Initial lobby join does not trigger rehydrateEvent.
+  dispatchPlayers(true, true);
+  expect(rehydrateSpy).not.toHaveBeenCalled();
+
+  session.selectGame('mock-rehydrate-quiz');
+  session.start();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  // Disconnect slot 1, then reconnect slot 1 during active match.
+  dispatchPlayers(true, false);
+  expect(rehydrateSpy).not.toHaveBeenCalled();
+
+  dispatchPlayers(true, true);
+  expect(rehydrateSpy).toHaveBeenCalledTimes(1);
+  expect(ws.sent.some((raw) => raw.includes('"type":"quiz:state"') && raw.includes('"tick":42'))).toBe(true);
+
+  session.stop();
 });

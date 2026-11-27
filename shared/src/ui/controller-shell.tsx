@@ -228,10 +228,40 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
         <div class="controller-shell-alert">{resolvedAlert()}</div>
       </Show>
 
-      <div class="controller-hands">
-        <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
+      <div class="controller-hands" data-preset={props.layout.preset}>
+        <Show when={props.layout.preset !== 'tap-only'}>
+          <VirtualJoystick label="MOVE" onAxes={props.onAxes} />
+        </Show>
 
         <div class="controller-shell-actions">
+          <Show when={props.layout.preset === 'tap-only'}>
+            {(() => {
+              const spec = props.layout.buttons[0];
+              const bit = spec.bit;
+              const active = () => cooldowns()[bit];
+              return (
+                <div class="tap-only-preset">
+                  <ArcadeButton
+                    label={buttonLabel(spec)}
+                    disabled={buttonDisabled(bit)}
+                    onPressedChange={(down, ts) => handleButtonPress(spec, down, ts)}
+                  />
+                  <Show when={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[bit] > 0}>
+                    <div
+                      class="button-cooldown-meter"
+                      data-active={active() ? 'true' : 'false'}
+                      style={{
+                        'transition-duration': active() ? `${buttonCooldownMs(spec)}ms` : '0ms',
+                        'transition-property': 'transform',
+                        'transition-timing-function': 'linear',
+                      }}
+                    />
+                  </Show>
+                </div>
+              );
+            })()}
+          </Show>
+
           <Show when={props.layout.preset === 'stick-single'}>
             {(() => {
               const spec = props.layout.buttons[0];

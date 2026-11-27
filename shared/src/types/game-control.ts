@@ -1,4 +1,4 @@
-export const ALLOWED_GAME_PREFIXES = ['sumo', 'bomb', 'color', 'cyber', 'pad'] as const;
+export const ALLOWED_GAME_PREFIXES = ['sumo', 'bomb', 'color', 'cyber', 'pad', 'light'] as const;
 
 export type AllowedGamePrefix = (typeof ALLOWED_GAME_PREFIXES)[number];
 

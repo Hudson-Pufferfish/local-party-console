@@ -4,6 +4,8 @@ import { BombPassController } from '../../games/bomb-pass/src/controller-view.ts
 import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
 import { ColorClashController } from '../../games/color-clash/src/controller-view.tsx';
 import { COLOR_CLASH_MANIFEST } from '../../games/color-clash/src/manifest.ts';
+import { LastLightController } from '../../games/last-light/src/controller-view.tsx';
+import { LAST_LIGHT_MANIFEST } from '../../games/last-light/src/manifest.ts';
 import { SumoController } from '../../games/sumo-dash/src/controller-view.tsx';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import type { ControllerOrientation, GameManifest } from '../../shared/src/types/game.ts';
@@ -58,6 +60,11 @@ controllerGames.set(BOMB_PASS_MANIFEST.id, {
 controllerGames.set(COLOR_CLASH_MANIFEST.id, {
   manifest: COLOR_CLASH_MANIFEST,
   View: ColorClashController,
+});
+
+controllerGames.set(LAST_LIGHT_MANIFEST.id, {
+  manifest: LAST_LIGHT_MANIFEST,
+  View: LastLightController,
 });
 
 export function controllerView(gameId: string): VoidComponent<ControllerViewProps> | null {

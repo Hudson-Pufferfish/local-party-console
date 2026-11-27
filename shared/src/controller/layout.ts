@@ -21,4 +21,8 @@ export type ControllerLayout =
   | {
       readonly preset: 'stick-diamond';
       readonly buttons: readonly [ButtonSpec, ButtonSpec, ButtonSpec, ButtonSpec];
+    }
+  | {
+      readonly preset: 'tap-only';
+      readonly buttons: readonly [ButtonSpec];
     };

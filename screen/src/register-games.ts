@@ -1,5 +1,6 @@
 import { BOMB_PASS_MANIFEST } from '../../games/bomb-pass/src/manifest.ts';
 import { COLOR_CLASH_MANIFEST } from '../../games/color-clash/src/manifest.ts';
+import { LAST_LIGHT_MANIFEST } from '../../games/last-light/src/manifest.ts';
 import { SUMO_DASH_MANIFEST } from '../../games/sumo-dash/src/manifest.ts';
 import type { Envelope } from '../../shared/src/types/envelope.ts';
 import type { GameManifest, PlayerSlot } from '../../shared/src/types/game.ts';
@@ -58,6 +59,7 @@ export interface RoundRankingAdapter {
 export interface ScreenGameRuntime {
   createSim(): ScreenSim;
   eventsFromHeaderDiff?: (prev: Float32Array, next: Float32Array, matchTarget?: number) => Envelope[];
+  rehydrateEvent?: (state: Float32Array) => Envelope | null;
   createRenderer?: (canvas: HTMLCanvasElement, readState: () => Float32Array, readAux?: () => Uint8Array | null) => ArenaRenderer;
   writeBotInput?: WriteBotInput;
   botLevels?: BotLevels;
@@ -206,6 +208,13 @@ export const screenGames = createScreenGameLoader([
     load: async () => {
       const mod = await import('../../games/color-clash/src/screen-runtime.ts');
       return mod.createColorClashScreenRuntime();
+    },
+  },
+  {
+    manifest: LAST_LIGHT_MANIFEST,
+    load: async () => {
+      const mod = await import('../../games/last-light/src/screen-runtime.ts');
+      return mod.createLastLightScreenRuntime();
     },
   },
 ]);

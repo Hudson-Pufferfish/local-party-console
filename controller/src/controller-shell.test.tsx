@@ -204,4 +204,48 @@ describe('ControllerShell', () => {
     expect(otherSlotHtml).toContain('Y REVIVE');
     expect(otherSlotHtml).not.toContain('Y EMP');
   });
+
+  test('renders tap-only preset without joystick and applies dynamic label and disabled mask', () => {
+    const tapOnlyLayout: ControllerLayout = {
+      preset: 'tap-only',
+      buttons: [{ bit: 0, glyph: 'A', label: 'BUZZ', kind: 'tap' }],
+    };
+
+    const activeHtml = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={tapOnlyLayout}
+        onAxes={() => {}}
+        onButton={() => {}}
+        hud={<span class="tap-hud">IN · 0 PTS</span>}
+      />
+    ));
+
+    expect(activeHtml).toContain('data-preset="tap-only"');
+    expect(activeHtml).toContain('tap-only-preset');
+    expect(activeHtml).toContain('BUZZ');
+    expect(activeHtml).not.toContain('joystick');
+    expect(activeHtml).not.toContain('MOVE');
+
+    const lockedHtml = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={tapOnlyLayout}
+        padState={{
+          slot: 0,
+          labels: ['BUZZED'],
+          disabled: 1,
+        }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+
+    expect(lockedHtml).toContain('BUZZED');
+    expect(lockedHtml).toMatch(/disabled[^>]*>BUZZED</);
+  });
 });
