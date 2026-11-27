@@ -10,7 +10,7 @@ tags: [feature, frontend, game-plugin, phaser-4, solidjs-2, coop, flow-field, sp
 blockedBy: ["PR #43"]
 blocks: []
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-26
 ---
 
 # Plan: Cyber-Citadel Defense (`cyber-citadel`) Implementation
@@ -43,7 +43,7 @@ flowchart LR
 
   subgraph Host["Host Chrome Primary Tab (/screen?view=holistic)"]
     Loop["host-loop.ts (120 Hz)<br/>edge latch + 100ms silence<br/>88f + 3KB auxState snapshot"]
-    Bots["bot-fill.ts (60 Hz even ticks)<br/>writeHeuristic + AWAY<br/>STANDBY_BOT takeover (3s)"]
+    Bots["bot-fill.ts (60 Hz even ticks)<br/>writeHeuristic for lobby bots<br/>AWAY ship idle, inputs zeroed"]
     Sim["CyberCitadelSimulation<br/>6-stage tick pipeline<br/>UniformGridHash (20u cells)<br/>40x40 BFS Flow Field"]
     Events["eventsFromHeaderDiff<br/>cyber:* + slot pad:state"]
     Hud["HolisticMatchShell<br/>ScoreboardPanel (WAVE n/8)<br/>ScoreRulesPanel (Key Guide)"]
@@ -82,8 +82,8 @@ Code inspection against `main` (`51d6d18`) and **PR #43** (`Hudson-Pufferfish/fe
 2. **Server allowlist requires zero edits:** `ALLOWED_GAME_PREFIXES` in `shared/src/types/game-control.ts:1` already includes `'cyber'` and `'pad'`. `server/src/relay.ts:195-200` forwards `cyber:*` and `pad:state` messages from the primary screen without server code changes.
 3. **`auxState` pipeline is already wired end-to-end:** `screen/src/host-loop.ts:15,64-79` copies `sim.auxState` into `auxSnapshot`, `screen/src/session.ts:275-278,351-361,672-679` replicates `auxBytes` over `BroadcastChannel` and passes `readAux` to `createRenderer`, and `screen/src/bot-fill.ts:147,158,189` forwards `sim.auxState` to `WriteBotInput`.
 4. **HUD primitives and 1-player start gating already exist:** `ScoreRules.guide` (`screen/src/score-rules.tsx:8-19`), `ScoreRow.ratio` proportional bars (`screen/src/score-rules.tsx:75-85`), `canStart(connectedCount, minPlayers)` (`shared/src/view/policy.ts:12-13`), and `rosterForStart` (`screen/src/bot-fill.ts:89-143`) support `minPlayers: 1` and co-op HP/guide display today.
-5. **Two remaining platform seams belong in their consuming phases:**
-   - **AWAY standby bot takeover** (`screen/src/bot-fill.ts`, `screen/src/register-games.ts`, `screen/src/session.ts`): build in Phase 6 alongside `heuristic.ts`, strictly opt-in so non-takeover games stay untouched.
+5. **AWAY ships stay idle. One platform seam remains:**
+   - **AWAY disconnect:** While disconnected (AWAY), the ship sits idle with zero inputs. A standby bot never takes over. `simulation.ts` keeps the disconnect timer at `0`. `standbyBotLevel` in `heuristic.ts` always returns `0`. `setConnectedMask` zeros axis, buttons, edges, and the dash timer.
    - **Lazy controller module loader** (`controller/src/register-games.ts`, `controller/src/app.tsx`): build in Phase 7 when registering Cyber-Citadel as the fourth controller game.
 
 ### Explicit Non-Goals (YAGNI / Out of Scope for v1)
@@ -113,7 +113,7 @@ This matrix separates direct platform reuse (including PR #43) from Last Light (
 | **Match Lifecycle & Respawn** | Standard `phaseEnum` (`0..3`), `MATCH_OVER = 3` (`host-loop.ts:11`). | 5 phases (`PRACTICE = 4`, 30s/20s breaks, `ROUND_END = 0.8s`). | **4 phases (`0=COUNTDOWN`, `1=WAVE_ACTIVE`, `2=WAVE_BREAK`, `3=MATCH_OVER`).** No opening practice. 15s wave breaks respawn dead/downed players and heal Core +10%. Downed bleed-out (15s/5s solo) + respawn (8s/4s solo, 3% Core cost, 12%/wave cap, 1 HP floor). |
 | **HUD & 8P Responsive Layout** | Reuse `<HolisticMatchShell>`, `<ScoreboardPanel>` (`ScoreRow.ratio`), `<ScoreRulesPanel>` (`ScoreRules.guide`), `<MatchRejoinQr>`, and PR #43's **8-player responsive HUD clamping** (`screen/src/styles/match.css`). | Adds `<RoundRanking>` (`createRoundPanelModel`) with blind `'live'` mode. | **No `<RoundRanking>` needed** (`createRoundRanking` omitted). Right panel shows `WAVE <n>/8`, player tags, `LIVE`/`AWAY`, HP ratio bars, and `DOWN` text. Left guide shows `A: RAIL`, `B: DASH`, `X: SHIELD`, `Y: REVIVE / EMP`. |
 | **Phone Controller & `pad:state`** | Reuse `<ControllerShell>` with existing **`stick-diamond`** preset (`shared/src/controller/layout.ts:21-24`), and PR #43's **`pad:state`** dynamic labels, `disabled` bitmask, host cooldown wipes, and `CONTROLLER_REV = '0.4.0'`. | Adds net-new `'tap-only'` preset (no joystick); host-confirmed `LOCKED` button; blowout white flash. | **Dynamic Button Y labels via `pad:state`** (`REVIVE`, `EMP`, `JOINED`, or dimmed disabled when idle), host-synced Button A 2.5s radial wipe, Android `navigator.vibrate` + iOS screen flash / switch Taptic on `cyber:emp`. |
-| **Disconnect & Mid-Match Rejoin** | Reuse `setConnectedMask` (`host-loop.ts:175`), 100ms silence zeroing, `<MatchRejoinQr>`, and `MATCH_IN_PROGRESS` (`server/src/rooms.ts:97-101`). | No bot takeover; lock persists; uses `rehydrateEvent` -> `light:state`. | **3.0s AWAY standby Medium bot takeover** via opt-in `isStandbyBot` seam (`bot-fill.ts`), paused bleed-out while downed AWAY, immediate human handback on rejoin (+ `pad:state` cooldown re-sync). |
+| **Disconnect & Mid-Match Rejoin** | Reuse `setConnectedMask` (`host-loop.ts:175`), 100ms silence zeroing, `<MatchRejoinQr>`, and `MATCH_IN_PROGRESS` (`server/src/rooms.ts:97-101`). | No bot takeover; lock persists; uses `rehydrateEvent` -> `light:state`. | **AWAY ship sits idle with zero inputs.** `standbyBotLevel` returns `0`. A standby bot never takes over. Bleed-out pauses while downed and AWAY. Rejoin restores the human at once (`pad:state` cooldown re-sync). |
 | **Heuristic Bots** | Reuse `createBotFill` (`bot-fill.ts:168`), `assignBotScores` (`shared/src/bot-difficulty.ts`), difficulty ranges (`11-20`, `30-50`, `50-70`). | Information-barrier timing bot reading public state only. | **1.0s periodic tactical role planner** reading `state` + `auxState`: flank guard, brute intercept, human-first `<5.0s` urgent revive, and human-initiated EMP join (never starts EMP solo). |
 
 ---
@@ -134,14 +134,16 @@ This matrix separates direct platform reuse (including PR #43) from Last Light (
 > [!IMPORTANT]
 > **Base Requirement:** Rebase Phase 2+ implementation work onto `main` after PR #43 merges (or branch from `Hudson-Pufferfish/feat-cyber-citadel-p1`). Do not re-create `grid-hash.ts`, `pad:state`, or `match.css` clamping.
 
-### 4.2 Remaining Minimal Platform Seams (Deferred to Owning Phases)
+### 4.2 AWAY Rule and Remaining Platform Seam
 
-Only **two** small, game-agnostic platform seams remain, each owned by the phase that first requires it:
+While disconnected (AWAY), the ship sits idle with zero inputs. A standby bot never takes over. One platform seam remains for a later phase:
 
-1. **Opt-In AWAY Standby Bot Takeover + Reconnect Rehydration (Phase 6):**
-   - `screen/src/register-games.ts`: Add optional `standbyBotLevel?: (state: Float32Array, slot: number) => number` (returns `0` when human-controlled, or `1..100` skill level when a disconnected human slot is under standby bot takeover) and optional `rehydrateEvents?: (state: Float32Array, slot: number) => Envelope[]` (coordinates with Last Light's `rehydrateEvent` seam; if Last Light lands first with `rehydrateEvent?: (state: Float32Array) => Envelope | null`, extend it cleanly to accept `Envelope | readonly Envelope[] | null` and optional `slot`).
-   - `screen/src/bot-fill.ts`: Update `createBotFill(write, levelsFor?, standbyLevelFor?)` so `fill(slot, sim)` checks `botMask[slot] === 1` first, else checks `standbyLevelFor?.(sim.state, slot) ?? 0`. When `> 0`, it calls `write(sim.state, slot, axisX, axisY, buttons, standbyLevel, sim.auxState)` on even ticks (60 Hz) and feeds `sim.applyInput` every 120 Hz substep, returning `true` so `host-loop.ts:189` skips the silence-zero path. All existing games omit `standbyBotLevel`, keeping behavior 100% unchanged.
-   - `screen/src/session.ts`: Forward `activeRuntime?.standbyBotLevel` into `createBotFill`, and inside `applyPlayers()` on `!before && after` reconnect during an active match, emit any envelopes from `rehydrateEvents(loop.state, slot)` so a rejoining phone receives current `pad:state` cooldowns and Button Y context immediately (FR-9.9).
+1. **AWAY idle ships (shipped rule):**
+   - `games/cyber-citadel/src/simulation.ts`: While disconnected (AWAY), the ship sits idle with zero inputs. The input stage keeps the disconnect timer at `0`. A standby bot never takes over.
+   - `games/cyber-citadel/src/heuristic.ts`: `standbyBotLevel` always returns `0`.
+   - `setConnectedMask`: On disconnect, set `DISCONNECTED`, clear `EMP_JOINED`, cancel the revive channel, and zero axis, buttons, edges, and the dash timer. On rejoin, clear `DISCONNECTED` and return control to the human at once. If the slot is `RESPAWNING`, respawn at the Core with no Core-HP cost (FR-9.14).
+   - `screen/src/session.ts` may call `standbyBotLevel`. Cyber-Citadel returns `0`, so `bot-fill.ts` does not write inputs for that human slot.
+   - Reconnect still emits `rehydrateEvents` so the phone receives current `pad:state` (FR-9.9).
 2. **Lazy Controller Module Loader (Phase 7):**
    - `controller/src/register-games.ts` & `controller/src/app.tsx`: Refactor `controllerGames` from eager static component imports (`controller/src/register-games.ts:3-8`) to eager `manifest` + lazy `load: () => Promise<VoidComponent<ControllerViewProps>>`, matching `screen/src/register-games.ts:189-211` before shipping Cyber-Citadel as the fourth game (`cyber-citadel.md` Section 9).
    - Bump `CONTROLLER_REV` by one MINOR version (`'0.4.0'` -> `'0.5.0'`, or `'0.5.0'` -> `'0.6.0'` if Last Light ships first) when `CyberCitadelController` registers.
@@ -175,7 +177,7 @@ Matches `SNAPSHOT_FLOATS = 88` (`screen/src/host-loop.ts:4`) and `cyber-citadel.
 | `+1` | `y` | Float `[-400, 400]` | World Y position (`INV-2`). |
 | `+2` | `heading` | Float radians `[-π, π]` | Facing angle (follows velocity vector; retained when stationary). |
 | `+3` | `hp` | Float `[0, PLAYER_MAX_HP]` | Current player health (`0` when `DOWNED` or `RESPAWNING`). |
-| `+4` | `flags` | Bitmask `0..255` | `Bit0 (1) = ACTIVE`, `Bit1 (2) = DOWNED`, `Bit2 (4) = IS_BOT`, `Bit3 (8) = DISCONNECTED`, `Bit4 (16) = EMP_JOINED`, `Bit5 (32) = STANDBY_BOT`, `Bit6 (64) = RESPAWNING`, `Bit7 (128) = JOINED`. |
+| `+4` | `flags` | Bitmask `0..255` | `Bit0 (1) = ACTIVE`, `Bit1 (2) = DOWNED`, `Bit2 (4) = IS_BOT`, `Bit3 (8) = DISCONNECTED`, `Bit4 (16) = EMP_JOINED`, `Bit5 (32) = STANDBY_BOT` (unused; AWAY never sets it), `Bit6 (64) = RESPAWNING`, `Bit7 (128) = JOINED`. |
 | `+5` | `downTimer` | Float seconds `>= 0` | Remaining bleed-out timer when `DOWNED` (`15s` or `5s` solo) or respawn timer when `RESPAWNING` (`8s` or `4s` solo). |
 | `+6` | `railCooldown` | Float `[0, 2.5]` | Remaining RAIL cooldown seconds (`INV-4`). |
 | `+7` | `dashCooldown` | Float `[0, DASH_COOLDOWN_SEC]` | Remaining DASH cooldown seconds (`>= 0`, `INV-4`). |
@@ -183,7 +185,7 @@ Matches `SNAPSHOT_FLOATS = 88` (`screen/src/host-loop.ts:4`) and `cyber-citadel.
 | `+9` | `barricades` | Integer `0..2` | Count of active kinetic barricades owned by this slot (`INV-6`). |
 
 > [!NOTE]
-> Adding `Bit7 (128) = JOINED` on `flags` preserves exact squad membership for `scoreboardRows` and `W` scaling across downed, respawning, and disconnected states without relying on `(x, y)` coordinates.
+> Adding `Bit7 (128) = JOINED` on `flags` preserves exact squad membership for `scoreboardRows` and `W` scaling across downed, respawning, and disconnected states without relying on `(x, y)` coordinates. While disconnected (AWAY), the ship sits idle with zero inputs. The sim never sets `STANDBY_BOT`. A standby bot never takes over.
 
 ### 5.2 Auxiliary Entity Pool Buffer (`auxState` — `Uint8Array(3072)`, Exact 3.0 KB)
 
@@ -247,7 +249,7 @@ Allocated once inside `createCyberCitadelSimulation()` and wrapped in one pre-al
 
 - **Weighted Squad Size ($W$):**
   $$W = \sum_{h \in \text{humans}} 1.0 + \sum_{b \in \text{bots}} \left(0.5 + \frac{\text{level}_b}{200}\right)$$
-  For bot levels $\text{level}_b \in [11, 70]$, each bot contributes $w_b \in [0.555, 0.850]$. Note: $W$ is locked at `startMatch` from the initial human + bot roster (an AWAY standby takeover does not alter $W$ mid-wave).
+  For bot levels $\text{level}_b \in [11, 70]$, each bot contributes $w_b \in [0.555, 0.850]$. Note: $W$ is locked at `startMatch` from the initial human + bot roster. An AWAY disconnect does not alter $W$. The ship sits idle with zero inputs.
 - **Dynamic Wave Multipliers:**
   $$M_{\text{count}}(W) = 0.6 + 0.2 \cdot W \qquad M_{\text{hp}}(W) = 1.0 + 0.1 \cdot W \qquad M_{\text{boss}}(W) = 1.0 + 0.35 \cdot (W - 1)$$
   | Squad Composition | $W$ | Count ($M_{\text{count}}$) | Enemy HP ($M_{\text{hp}}$) | Boss HP ($M_{\text{boss}}$) | Solo Timers? |
@@ -305,7 +307,7 @@ For player $p$ with position $\vec{p} = (x_p, y_p)$ and heading unit vector $\ha
 
 Every `step(1 / 120)` tick executes strictly in this deterministic order:
 
-1. **Process Inputs:** Update player velocity & heading from `(axisX, axisY)`, clamp to $[-400, 400]$ via `clampBoxBoundary`, decrement cooldowns (clamped $\ge 0$), process Button X barricade placement (validating $\le 2$ active, not on Core ring, not overlapping living entities -> marks `flowDirty = true`), process Button Y context priority (`DOWNED` ally in reach -> start/hold 2.5s revive channel; else inside Core ring & EMP ready -> set `EMP_JOINED`), tick 3.0s AWAY disconnect timers (`STANDBY_BOT` activation).
+1. **Process Inputs:** Update player velocity & heading from `(axisX, axisY)`, clamp to $[-400, 400]$ via `clampBoxBoundary`, decrement cooldowns (clamped $\ge 0$), process Button X barricade placement (validating $\le 2$ active, not on Core ring, not overlapping living entities -> marks `flowDirty = true`), process Button Y context priority (`DOWNED` ally in reach -> start/hold 2.5s revive channel; else inside Core ring & EMP ready -> set `EMP_JOINED`). While disconnected (AWAY), the ship sits idle with zero inputs. The disconnect timer stays at `0`. A standby bot never takes over.
 2. **Apply Dashes:** Trigger Button B dash impulse (`dashCooldown` check), integrate dash motion, stop cleanly on walls/Core/barricades with 0 damage, body-check brutes (`spinTimer = 1.0`s + 180° flip), record Dreadnought dual-dash opposite-flank hits (1.0s coordination window).
 3. **Resolve Rail Beams:** Trigger Button A (`railCooldown === 0`), run 15° snap + `gridHash.queryRay`, break frontal shields, apply piercing damage + knockback, spawn rail tracer entry in `auxState`, set `railCooldown = 2.5`s.
 4. **Process Auto-Fire:** Tick per-player fire interval; run 60° cone query + Core-distance priority + 10% stickiness; resolve hitscan damage (deflected by brute 120° frontal shield) and emit hitscan tracer in `auxState`.
@@ -346,7 +348,7 @@ All `TBD (tune in playtest)` parameters in `cyber-citadel.md` start with explici
 | **3** | Core Simulation, 40×40 Flow Field, Auto-Fire & Waves 1–2 | Pending | 6h | `games/cyber-citadel/src/{flow-field,simulation}.*` | Flow-field + auto-fire stickiness + 3,000-tick Wave 1–2 fuzz |
 | **4** | Tactical Abilities (RAIL, DASH, SHIELD, REVIVE/EMP) & Events | Pending | 5h | `games/cyber-citadel/src/{abilities,events,simulation}.*` | All FR-9 edge cases + `pad:state` + EMP/revive/respawn floor tests |
 | **5** | Shielded Brutes, Dreadnought Boss & Weighted Scaling (Waves 3–8) | Pending | 5h | `games/cyber-citadel/src/{waves,boss,simulation}.*` | 120° shield arc + 3-phase boss + dual-dash + $W$ scaling + pool cap |
-| **6** | Heuristic AI Teammates & AWAY Standby Takeover | Pending | 4h | `games/cyber-citadel/src/heuristic.*`, `screen/src/{bot-fill,register-games,session}.*` | Role planner + 3.0s AWAY takeover + rejoin handback + zero-alloc |
+| **6** | Heuristic AI Teammates (AWAY ships stay idle) | Pending | 4h | `games/cyber-citadel/src/heuristic.*`, `screen/src/{bot-fill,register-games,session}.*` | Role planner + AWAY idle (inputs zeroed, no bot) + zero-alloc |
 | **7** | Procedural Phaser 4 Renderer, Controller UI, Lazy Loader & QA | Pending | 5h | `games/cyber-citadel/src/{renderer,scoreboard,banner,screen-runtime,controller-view}.*`, `screen/src/register-games.ts`, `controller/src/{register-games,app}.*` | Full `pnpm test && pnpm typecheck && pnpm build` + M5 Pro/Phone QA |
 
 ---
@@ -475,20 +477,20 @@ corepack pnpm --filter @games/cyber-citadel test && corepack pnpm --filter @game
 
 ---
 
-### Phase 6: Heuristic AI Teammates & AWAY Standby Takeover (`games/cyber-citadel/` + `screen/src/`)
+### Phase 6: Heuristic AI Teammates (AWAY ships stay idle) (`games/cyber-citadel/` + `screen/src/`)
 
-**Objective:** Implement the 1.0s periodic role-planning heuristic bot policy and wire the opt-in 3.0s AWAY standby takeover seam into `bot-fill.ts` and `session.ts`.
+**Objective:** Implement the 1.0s periodic role-planning heuristic bot policy for lobby bots. While disconnected (AWAY), the human ship sits idle with zero inputs. A standby bot never takes over.
 
 **Step-by-Step Tasks (TDD — Write Failing Tests Before Code):**
 1. **Platform Seam (TDD first in `screen/src/bot-fill.test.ts`):**
-   - Add failing unit test proving `createBotFill(write, levelsFor, standbyLevelFor)` leaves `botMask` untouched for normal games, activates `write` at the returned skill level when `standbyLevelFor(state, slot) > 0`, and stops immediately when it returns `0`.
-   - Update `screen/src/bot-fill.ts`, `screen/src/register-games.ts` (add optional `standbyBotLevel` and `rehydrateEvents`), and `screen/src/session.ts` (pass `standbyBotLevel` into `createBotFill` and call `rehydrateEvents` on `!before && after` reconnect during an active match).
+   - Add a unit test that `createBotFill` does not write inputs when `standbyLevelFor` returns `0`. Cyber-Citadel's `standbyBotLevel` always returns `0`, so an AWAY human stays idle.
+   - `screen/src/session.ts` passes `standbyBotLevel` into `createBotFill` and calls `rehydrateEvents` on reconnect during an active match. A `0` return leaves the human slot on the silence-zero path.
 2. **Heuristic Bot (TDD first in `games/cyber-citadel/src/heuristic.test.ts`):**
    - **Role Evaluation:** Verify 1.0s periodic role assignment assigns bots to: (a) urgent revive when a human is downed with `<5.0s` bleed-out (human prioritized over downed bot), (b) join Core EMP ring **only after** at least one human has `EMP_JOINED` (never initiates EMP solo, FR-9.12), (c) intercept nearest shielded brute (using RAIL or DASH spin), and (d) guard active flank / place kinetic barricade along high-density enemy lane.
    - **Difficulty Scaling:** Verify `Easy (11-20)`, `Medium (30-50)`, and `Hard (50-70)` scale reaction interval, aim jitter, and role refresh cadence via `assignBotScores` (`shared/src/bot-difficulty.ts`).
-   - **AWAY Standby Takeover & Rejoin Handback:** Verify disconnecting a human via `setConnectedMask` pauses bleed-out if downed, sets `FLAG_STANDBY_BOT` after `3.0s` continuous disconnect, runs Medium (`level = 40`) heuristic via `standbyBotLevel`, and immediately hands control back on reconnect (canceling bot channels, respawning at Core with 0 cost if dead, FR-6 / FR-9.14).
+   - **AWAY idle ship:** Verify disconnecting a human via `setConnectedMask` zeros inputs, leaves `standbyBotLevel` at `0`, pauses bleed-out if downed, and never sets `STANDBY_BOT`. The ship sits idle. Rejoin clears `DISCONNECTED` and returns control to the human at once. If the slot is `RESPAWNING`, respawn at the Core with no Core-HP cost (FR-6 / FR-9.14).
    - **Zero-Allocation Audit:** Confirm `writeHeuristic` uses only module-level pre-allocated TypedArrays (`roleBySlot`, `roleTimer`, `targetCell`, `lastDecisionTick`).
-3. Implement `games/cyber-citadel/src/heuristic.ts` exporting `writeHeuristic`, `levelsForMask`, and `standbyBotLevel`.
+3. Implement `games/cyber-citadel/src/heuristic.ts` exporting `writeHeuristic`, `levelsForMask`, and `standbyBotLevel` (always `0`).
 
 **Vitest Gate:**
 ```bash
@@ -536,7 +538,7 @@ corepack pnpm test && corepack pnpm typecheck && corepack pnpm build
 - [ ] **Ergonomics (iOS Safari + Android Chrome):** Confirm `stick-diamond` controls maintain $\ge 36\text{px}$ edge clearance in portrait and landscape with zero iOS edge-gesture freeze.
 - [ ] **Dynamic `pad:state`:** Confirm Button A renders host-synced 2.5s radial wipe and Button Y switches live between `REVIVE`, `EMP`, `JOINED`, and dimmed disabled state.
 - [ ] **EMP Haptics & Flash:** Confirm Android vibrates and iOS Safari flashes high-contrast white/accent overlay + Taptic switch on `cyber:emp`.
-- [ ] **AWAY Takeover & Rejoin:** Disconnect one phone mid-wave; confirm Medium standby bot takes over at 3.0s; scan `<MatchRejoinQr>` and confirm instant control handback + cooldown sync; verify stranger gets `MATCH_IN_PROGRESS`.
+- [ ] **AWAY idle ship & rejoin:** Disconnect one phone mid-wave. Confirm the ship sits idle with zero inputs. Confirm a standby bot never takes over. Scan `<MatchRejoinQr>` and confirm the human regains control and cooldown sync on rejoin. Verify a stranger gets `MATCH_IN_PROGRESS`.
 - [ ] **8-Player HUD & View Isolation (`INV-10`):** Test 8-slot squad on 720p and 1080p holistic screen (zero clipping); open `/screen?view=team-1` and confirm standby screen.
 - [ ] **Host Exit & Rematch (FR-8):** Confirm `[x]` (`MatchExitControl`) resets all screens and phones cleanly to unselected lobby.
 
@@ -585,7 +587,7 @@ Implement a dedicated fuzz suite in `games/cyber-citadel/src/simulation.test.ts`
 
 1. **Scenario Matrix:** Execute 3,000 deterministic fixed-step ticks (`25.0s` simulated combat per run) across three wave & squad profiles:
    - **Profile A (Wave 1, Solo `1H`):** $W = 1.0$, verifies solo timers (`5s`/`4s`), boundary clamping, auto-fire stickiness, and Core damage.
-   - **Profile B (Wave 4, Mixed `2H + 2B`):** $W \approx 3.4$, exercises drones + shielded brutes, simultaneous `DASH + RAIL`, barricade sealing & enemy breach fallback, downed revive channels, and AWAY disconnect/reconnect toggling across the 3.0s standby threshold.
+   - **Profile B (Wave 4, Mixed `2H + 2B`):** $W \approx 3.4$, exercises drones + shielded brutes, simultaneous `DASH + RAIL`, barricade sealing & enemy breach fallback, downed revive channels, and AWAY disconnect/reconnect. While disconnected, the ship sits idle with zero inputs. A standby bot never takes over.
    - **Profile C (Wave 8, Full `8H`):** $W = 8.0$, exercises Dreadnought 3-phase transitions, drone carrier spawns, pool-cap queuing (`160` enemies), 4+ player EMP charging/decaying, and max 16 simultaneous player barricades (`2 × 8`).
 2. **Input Fuzz Generator (Seeded):** Each tick drives random stick sweeps (`-127..127`), edge bursts across all 4 button bits (`0x01..0x0F`, including simultaneous `DASH | RAIL`), and periodic `setConnectedMask` flips.
 3. **Bit-Exact Replay Check:** Record the generated input tape into a pre-allocated `Uint8Array(3000 * 8 * 3)`, run a fresh `createCyberCitadelSimulation()` with the same seed and tape, and assert byte-exact equality of `state.buffer` and `auxState.buffer` at ticks `1000`, `2000`, and `3000`.
@@ -604,7 +606,7 @@ Implement a dedicated fuzz suite in `games/cyber-citadel/src/simulation.test.ts`
 | **Players seal all paths to Core with barricades** | High | Enemies stall indefinitely and waves never end | Detect `cost[idx] === 0xFFFF` on unreachable enemy cells (FR-9.15) and switch affected enemies to attack the nearest blocking barricade; reject barricade placement on the Core ring or over living entities. |
 | **Enemy pool overflow in Wave 6–8 with 8 humans ($W=8.0$)** | High | Lost wave enemies soft-lock wave completion or corrupt memory | Enforce hard `MAX_ENEMIES = 160` cap (`INV-3`); route unspawned wave enemies through a pre-allocated spawn queue ring buffer that retries each tick until a slot opens and the spawn cell is clear (FR-9.16). |
 | **`pad:state` WebSocket message flood at 120 Hz** | High | Saturates Wi-Fi control plane and causes phone UI re-render jank | Emit `pad:state` strictly on **state transitions** (diffing cached per-slot Y label, `disabled` bitmask, and rounded cooldown end timestamp inside `events.ts`), never on every simulation tick. |
-| **AWAY standby bot takeover leaks into competitive games** | Medium | Breaks Sumo Dash, Bomb Pass, Color Clash, or Last Light disconnect rules | Make `standbyBotLevel` an opt-in optional callback on `ScreenGameRuntime` (`undefined` by default). Unit-test `bot-fill.ts` confirming existing games remain unaffected. |
+| **AWAY ship must stay idle** | Medium | A positive `standbyBotLevel` would drive a disconnected human | `standbyBotLevel` always returns `0`. `simulation.ts` keeps the disconnect timer at `0`. `setConnectedMask` zeros inputs. Unit-test that disconnect leaves `standbyBotLevel === 0`. |
 | **`auxState` BroadcastChannel cloning overhead** | Medium | Secondary holistic tabs lag or trigger GC | Keep default `auxState` at exactly `3,072 bytes` (omit 1,600 B debug flow field in production) and reuse `session.ts:353-358`'s pre-allocated `publishAuxBytes` buffer. |
 | **Merge/version conflict between PR #43, Last Light, and Cyber-Citadel** | Medium | Duplicate `CONTROLLER_REV` bumps or conflicting `ScreenGameRuntime` reconnect hooks | Rebase Phase 2 on PR #43; coordinate `rehydrateEvents` with Last Light's `rehydrateEvent` signature; apply `CONTROLLER_REV` MINOR bump only when Phase 7 controller view merges. |
 | **iOS Safari lacks `navigator.vibrate` for EMP burst** | Low | Weak tactile feedback on iPhones | Pair `navigator.vibrate` with a high-contrast CSS screen flash (`data-emp-flash="true"`, zero `rAF`) and hidden `<input type="checkbox" switch>` Taptic Engine fallback (`SPEC.md` line 100). |
@@ -621,7 +623,7 @@ Per `ak-plan` extension-trace discipline and the multi-game mandate in `AGENTS.m
   1. **Spatial Broadphase (`shared/src/physics-2d/grid-hash.ts` — PR #43):** `UniformGridHash` indexes ambush raiders, mines, and line-of-sight turret rays with zero changes (configure `cellSize` and `maxEntities` via `UniformGridConfig`).
   2. **Dynamic Controller State (`pad:state` + `<ControllerShell>` — PR #43):** `stick-diamond` layout dynamically relabels Button Y (`REVIVE` / `REPAIR` / `BOOST`) and syncs mine/ability cooldown wipes via `pad:state` with zero `ControllerShell` edits.
   3. **Extended World State (`ScreenSim.auxState`):** `host-loop.ts`, `session.ts`, and `bot-fill.ts` replicate and expose `payload-convoy`'s convoy waypoint/raider `Uint8Array` pool over `BroadcastChannel` and to heuristic bots automatically.
-  4. **AWAY Standby Bot Takeover (`ScreenGameRuntime.standbyBotLevel` — Phase 6):** `payload-convoy` sets its own `STANDBY_BOT` flag after 3.0s disconnect and exports `standbyBotLevel`, automatically gaining mid-match bot cover and human handback without touching `bot-fill.ts` or `session.ts`.
+  4. **AWAY idle ships (`standbyBotLevel` returns `0`):** Cyber-Citadel keeps a disconnected human idle. While disconnected (AWAY), the ship sits idle with zero inputs. A later co-op game keeps the same idle-ship rule.
   5. **8-Player Holistic HUD & Lazy Loading (PR #43 + Phase 7):** `<HolisticMatchShell>`, 8-player `match.css` clamping, `ScoreRow.ratio` (HP/shield bars), `ScoreRules.guide`, and lazy dynamic `import()` loaders in both `screen/src/register-games.ts` and `controller/src/register-games.ts` absorb `payload-convoy` with zero initial-bundle growth.
 - **Pieces That Change for `payload-convoy`:**
   - Create `specifications/games-spec/payload-convoy.md` and plugin directory `games/payload-convoy/`.
@@ -630,7 +632,7 @@ Per `ak-plan` extension-trace discipline and the multi-game mandate in `AGENTS.m
   - **Zero edits** to `/server`, `<HolisticMatchShell>`, `<ControllerShell>`, `host-loop.ts`, `bot-fill.ts`, or `session.ts`.
 - **How This Plan Proves the Claim:**
   - PR #43's `grid-hash.test.ts`, `game-control.test.ts`, and `controller-shell.test.tsx` already test `UniformGridHash` and `pad:state` with game-agnostic inputs.
-  - Phase 6 tests `standbyBotLevel` in `screen/src/bot-fill.test.ts` using a minimal synthetic `ScreenSim` with zero Cyber-Citadel imports.
+  - Phase 6 tests that `standbyBotLevel` returns `0` after disconnect, so the AWAY ship stays idle. `bot-fill.ts` does not write inputs when that callback returns `0`.
   - Phase 7 tests the lazy loader in `controller/src/register-games.ts` using mock game descriptors.
 
 ### 11.2 Validation Log
@@ -654,3 +656,9 @@ Per `ak-plan` extension-trace discipline and the multi-game mandate in `AGENTS.m
   - `controller/src/register-games.ts:3-8` — Confirmed eager static controller imports (queued for lazy `import()` refactor in Phase 7).
   - `games/bomb-pass/src/simulation.ts:705-734` — Confirmed seeded Mulberry32 PRNG pattern for `startMatch(slots, seed?)`.
   - `docs/last-light-implementation-plan:plans/last-light-implementation-plan.md` — Cross-referenced reuse contrast, PR #43 baseline, `CONTROLLER_REV` sequencing, and `rehydrateEvent` coordination.
+
+#### Session 2 — 2026-11-26
+
+- **Trigger:** Align mid-match AWAY text with shipped code.
+- **Fact:** `games/cyber-citadel/src/simulation.ts` (input stage) keeps a disconnected ship idle with zero inputs. `heuristic.ts` `standbyBotLevel` returns `0`. `setConnectedMask` zeros axis, buttons, edges, and the dash timer. The sim never sets `STANDBY_BOT`.
+- **Edit:** This plan now states that rule. It no longer describes a 3.0s Medium standby bot.
