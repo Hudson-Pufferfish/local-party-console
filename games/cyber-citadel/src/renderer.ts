@@ -13,7 +13,13 @@ import {
   PROJECTILE_FLAG,
 } from './constants.ts';
 import { cellCenter } from './flow-field.ts';
-import { decodeAngleU8, decodeCoordU16, decodeFacingSector4, playerBase } from './state.ts';
+import {
+  decodeAngleU8,
+  decodeBossLaserLenU16,
+  decodeCoordU16,
+  decodeFacingSector4,
+  playerBase,
+} from './state.ts';
 
 /**
  * Industrial Neo-Brutalist Cyber-Citadel palette.
@@ -299,11 +305,15 @@ export function createCyberCitadelRenderer(
         if (type === ENEMY_TYPE.BOSS) {
           let weakMask = bossWeakMask;
           let laserAngle = bossLaserAngle;
+          let laserLen: number = C.bossLaserRange;
           for (let bs = 0; bs < C.maxBosses; bs += 1) {
             const bOff = AUX_LAYOUT.META_BOSS_SLOTS + bs * AUX_LAYOUT.META_BOSS_SLOT_STRIDE;
             if ((aux[bOff] ?? 0) === i + 1) {
               weakMask = aux[bOff + 1] ?? 0;
               laserAngle = (readU16LE(aux, bOff + 2) / 65535) * Math.PI * 2;
+              laserLen = decodeBossLaserLenU16(
+                readU16LE(aux, AUX_LAYOUT.META_BOSS_LASER_LEN + bs * 2),
+              );
               break;
             }
           }
@@ -336,10 +346,10 @@ export function createCyberCitadelRenderer(
           g.arc(sx, sy, r + 9, -Math.PI * 0.5, -Math.PI * 0.5 + (hpPct / 255) * Math.PI * 2, false, 0);
           g.strokePath();
 
-          // Active laser sweep beam
-          if ((eFlags & ENEMY_STATE_FLAG.LASER_SWEEP) !== 0) {
-            const lx = sx + Math.cos(laserAngle) * C.bossLaserRange * scale;
-            const ly = sy + Math.sin(laserAngle) * C.bossLaserRange * scale;
+          // Active laser sweep beam (terminated at blocking barricade or arena edge)
+          if ((eFlags & ENEMY_STATE_FLAG.LASER_SWEEP) !== 0 && laserLen > 0) {
+            const lx = sx + Math.cos(laserAngle) * laserLen * scale;
+            const ly = sy + Math.sin(laserAngle) * laserLen * scale;
             g.lineStyle(8 * scale, CYBER_PALETTE.warningRed, 0.85);
             g.lineBetween(sx, sy, lx, ly);
             g.lineStyle(3 * scale, CYBER_PALETTE.paper, 0.9);

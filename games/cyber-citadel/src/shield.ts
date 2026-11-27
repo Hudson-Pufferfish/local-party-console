@@ -7,8 +7,89 @@ import {
 } from './constants.ts';
 import { cellCenter, worldToCell } from './flow-field.ts';
 import { playerBase } from './state.ts';
-import type { Vec2Out } from './types.ts';
+import type { BarricadeRayHitOut, Vec2Out } from './types.ts';
 import type { CyberWorld } from './world.ts';
+
+/**
+ * Raycasts from `(ox, oy)` along unit direction `(dx, dy)` up to `maxDist` against all
+ * active barricade AABBs using the zero-allocation slab method.
+ */
+export function raycastBarricades(
+  w: CyberWorld,
+  ox: number,
+  oy: number,
+  dx: number,
+  dy: number,
+  maxDist: number,
+  out: BarricadeRayHitOut,
+): void {
+  let bestDist = maxDist > 0 ? maxDist : 0;
+  let bestIdx = -1;
+
+  if (w.barPool.activeCount() === 0 || bestDist <= 0) {
+    out.dist = bestDist;
+    out.barIdx = -1;
+    return;
+  }
+
+  const halfCell = C.cellSize * 0.5;
+  const maxB = AUX_LAYOUT.MAX_BARRICADES;
+  const hasDx = Math.abs(dx) > 1e-8;
+  const hasDy = Math.abs(dy) > 1e-8;
+  const invDx = hasDx ? 1 / dx : 0;
+  const invDy = hasDy ? 1 / dy : 0;
+
+  for (let bi = 0; bi < maxB; bi += 1) {
+    if (w.bActive[bi] === 0) continue;
+    const bx = cellCenter(w.bCellX[bi]!);
+    const by = cellCenter(w.bCellY[bi]!);
+    const minX = bx - halfCell;
+    const maxX = bx + halfCell;
+    const minY = by - halfCell;
+    const maxY = by + halfCell;
+
+    let tMin = 0;
+    let tMax = bestDist;
+
+    if (!hasDx) {
+      if (ox < minX || ox > maxX) continue;
+    } else {
+      let tx1 = (minX - ox) * invDx;
+      let tx2 = (maxX - ox) * invDx;
+      if (tx1 > tx2) {
+        const tmp = tx1;
+        tx1 = tx2;
+        tx2 = tmp;
+      }
+      if (tx1 > tMin) tMin = tx1;
+      if (tx2 < tMax) tMax = tx2;
+      if (tMin > tMax) continue;
+    }
+
+    if (!hasDy) {
+      if (oy < minY || oy > maxY) continue;
+    } else {
+      let ty1 = (minY - oy) * invDy;
+      let ty2 = (maxY - oy) * invDy;
+      if (ty1 > ty2) {
+        const tmp = ty1;
+        ty1 = ty2;
+        ty2 = tmp;
+      }
+      if (ty1 > tMin) tMin = ty1;
+      if (ty2 < tMax) tMax = ty2;
+      if (tMin > tMax) continue;
+    }
+
+    if (tMin < bestDist) {
+      bestDist = tMin;
+      bestIdx = bi;
+    }
+  }
+
+  out.dist = bestDist;
+  out.barIdx = bestIdx;
+}
 
 export function circleOverlapsCellAabb(
   x: number,

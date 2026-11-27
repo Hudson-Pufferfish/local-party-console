@@ -8,7 +8,8 @@ import {
   ENEMY_TYPE,
   PROJECTILE_FLAG,
 } from './constants.ts';
-import { pointToSegmentDistSq } from './rail.ts';
+import { computeRayArenaMaxDist, pointToSegmentDistSq } from './rail.ts';
+import { raycastBarricades } from './shield.ts';
 import { playerBase } from './state.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 import { clearBossSlot, spawnTracer, type CyberWorld } from './world.ts';
@@ -201,18 +202,36 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
       w.bossLaserTimer[b] = nextLaserTimer;
 
       if (w.bossLaserActive[b] === 0 && nextLaserTimer <= 0) {
+        const initAngle = w.eHeading[bIdx]! - 0.7;
         w.bossLaserActive[b] = 1;
         w.bossLaserTimer[b] = phase === 3 ? 2.4 : 1.8;
-        w.bossLaserAngle[b] = w.eHeading[bIdx]! - 0.7;
+        w.bossLaserAngle[b] = initAngle;
+        const initCos = Math.cos(initAngle);
+        const initSin = Math.sin(initAngle);
+        const initArenaMax = computeRayArenaMaxDist(bx, by, initCos, initSin, C.bossLaserRange);
+        raycastBarricades(w, bx, by, initCos, initSin, initArenaMax, w.scratchRayHit);
+        w.bossLaserLen[b] = w.scratchRayHit.dist;
         w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
       } else if (w.bossLaserActive[b] !== 0) {
         const sweepSpeed = phase === 3 ? C.bossLaserSweepSpeed * 1.35 : C.bossLaserSweepSpeed;
         const angle = w.bossLaserAngle[b]! + sweepSpeed * dt;
         w.bossLaserAngle[b] = angle;
-        const tipX = bx + Math.cos(angle) * C.bossLaserRange;
-        const tipY = by + Math.sin(angle) * C.bossLaserRange;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const arenaMaxLen = computeRayArenaMaxDist(bx, by, cos, sin, C.bossLaserRange);
+        raycastBarricades(w, bx, by, cos, sin, arenaMaxLen, w.scratchRayHit);
+        const hitDist = w.scratchRayHit.dist;
+        const hitBarIdx = w.scratchRayHit.barIdx;
+        w.bossLaserLen[b] = hitDist;
 
-        // Apply laser damage to players intersecting beam
+        const tipX = bx + cos * hitDist;
+        const tipY = by + sin * hitDist;
+
+        if (hitBarIdx >= 0) {
+          w.bPendingDamage[hitBarIdx] = w.bPendingDamage[hitBarIdx]! + C.bossLaserDps * dt;
+        }
+
+        // Apply laser damage to players intersecting beam (skipping players behind blocking barricade)
         const state = w.state;
         const hitR = C.playerRadius + C.bossLaserHalfWidth;
         const hitRSq = hitR * hitR;
@@ -220,20 +239,16 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
           if (w.pJoined[s] === 0) continue;
           const pb = playerBase(s);
           if ((state[pb + CYBER_PLAYER_OFFSET.flags]! & CYBER_FLAG.ACTIVE) === 0) continue;
-          const dSq = pointToSegmentDistSq(
-            state[pb + CYBER_PLAYER_OFFSET.x]!,
-            state[pb + CYBER_PLAYER_OFFSET.y]!,
-            bx,
-            by,
-            tipX,
-            tipY,
-          );
+          const px = state[pb + CYBER_PLAYER_OFFSET.x]!;
+          const py = state[pb + CYBER_PLAYER_OFFSET.y]!;
+          if (hitBarIdx >= 0 && (px - bx) * cos + (py - by) * sin > hitDist) continue;
+          const dSq = pointToSegmentDistSq(px, py, bx, by, tipX, tipY);
           if (dSq <= hitRSq) {
             w.pPendingDamage[s] = w.pPendingDamage[s]! + C.bossLaserDps * dt;
           }
         }
 
-        // Emit boss laser visual tracer every 4 ticks
+        // Emit boss laser visual tracer every 4 ticks at the clipped endpoint
         if (((w.state[CYBER_HEADER.tickId]! | 0) & 3) === 0) {
           spawnTracer(
             w,
@@ -247,6 +262,7 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
 
         if (w.bossLaserTimer[b]! <= 0) {
           w.bossLaserActive[b] = 0;
+          w.bossLaserLen[b] = 0;
           w.bossLaserTimer[b] = phase === 3 ? 3.0 : 4.2;
           w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
         }

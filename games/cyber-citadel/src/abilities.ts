@@ -1,7 +1,13 @@
 export { processAutoFireStage, selectAutoFireTarget } from './auto-fire.ts';
 export { processDashStage } from './dash.ts';
 export { isInsideEmpRing, tickEmpSystem, tryJoinEmp } from './emp.ts';
-export { computeRayToArenaEdge, pointToSegmentDistSq, processRailStage, selectRailSnapDirection } from './rail.ts';
+export {
+  computeRayArenaMaxDist,
+  computeRayToArenaEdge,
+  pointToSegmentDistSq,
+  processRailStage,
+  selectRailSnapDirection,
+} from './rail.ts';
 export {
   cancelReviveChannelForReviver,
   respawnAllPlayersForWaveBreak,
@@ -14,6 +20,7 @@ export {
   circleOverlapsAnyBarricade,
   circleOverlapsCellAabb,
   destroyBarricade,
+  raycastBarricades,
   resolveBarricadeCollision,
   tickBarricades,
   tryPlaceBarricade,

@@ -48,6 +48,11 @@ export interface Vec2Out {
   y: number;
 }
 
+export interface BarricadeRayHitOut {
+  dist: number;
+  barIdx: number;
+}
+
 export interface FlowField {
   readonly blocked: Uint8Array;
   readonly cost: Uint16Array;
