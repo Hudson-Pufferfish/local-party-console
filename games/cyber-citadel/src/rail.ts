@@ -181,10 +181,10 @@ export function processRailStage(w: CyberWorld): void {
         const distSq = pointToSegmentDistSq(w.eX[eid]!, w.eY[eid]!, px, py, end.x, end.y);
         if (distSq > hitRadius * hitRadius) continue;
 
-        // Prevent multi-hit on same enemy in a single V-beam shot
-        const curTick = (w.state[CYBER_HEADER.tickId]! | 0) + 1;
-        if (w.eHitRailTick[eid] === curTick) continue;
-        w.eHitRailTick[eid] = curTick;
+        // One hit per enemy per shot: a shot is (tick, shooter slot)
+        const shotKey = (((w.state[CYBER_HEADER.tickId]! | 0) * C.maxPlayers + s + 1) >>> 0);
+        if (w.eHitRailTick[eid] === shotKey) continue;
+        w.eHitRailTick[eid] = shotKey;
 
         // RAIL unconditionally pierces brute frontal shields, breaks SHIELD_UP, and applies knockback
         const type = w.eType[eid]!;
