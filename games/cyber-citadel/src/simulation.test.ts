@@ -21,6 +21,7 @@ import shieldSrc from './shield.ts?raw';
 import { createCyberCitadelSimulation } from './simulation.ts';
 import simSrc from './simulation.ts?raw';
 import { createAuxView, playerBase, readEnemy, readMetaTrailer } from './state.ts';
+import { getWaveDefinition } from './waves.ts';
 import wavesSrc from './waves.ts?raw';
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -462,8 +463,10 @@ test('natural Wave 7 -> WAVE_BREAK -> Wave 8 transition heals Core, resets boss 
   expect(sim.state[CYBER_HEADER.phaseEnum]).toBe(CYBER_PHASE.WAVE_ACTIVE);
   expect(sim.state[CYBER_HEADER.wave]).toBe(8);
   expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
-  // Wave 8 queues 4 Dreadnoughts plus scaled minions (for 2 players, mult = 1.0 -> 40 minions + 4 bosses = 44)
-  expect(sim.getDebugStats().queuedEnemies).toBe(44);
+  const def8 = getWaveDefinition(8);
+  // Wave 8 queues 4 Dreadnoughts plus scaled minions (for 2 players, mult = 1.0)
+  const expectedWave8Queued = def8.drones + def8.fastDrones + def8.brutes + 4;
+  expect(sim.getDebugStats().queuedEnemies).toBe(expectedWave8Queued);
 
   // Advance past 2.0s telegraph -> Wave 8 Boss 1 spawns cleanly on North flank
   for (let i = 0; i < 252; i += 1) sim.step(C.dt);
