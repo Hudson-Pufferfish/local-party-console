@@ -265,13 +265,13 @@ test('Button Y prioritizes revive over EMP, enforces 1 HP Core respawn floor + 1
 
 test(
   '3,000-tick multi-wave fuzz (Waves 1, 4, 8) holds INV-1..8 and bit-exact replay determinism',
-  { timeout: 20000 },
+  { timeout: 40000 },
   () => {
     const profiles = [
       { name: 'Wave 1 Solo', slots: [0], wave: 1, seed: 1001, ticks: 3000 },
       { name: 'Wave 4 Mixed', slots: [0, 1, 2, 3], wave: 4, seed: 4004, ticks: 3000 },
-      // Wave 8 runs to 4800 ticks (40.0s) so all 4 bosses (N@2s, S@20s, E@30s, W@35s) are fuzzed
-      { name: 'Wave 8 Full 8P', slots: [0, 1, 2, 3, 4, 5, 6, 7], wave: 8, seed: 8008, ticks: 4800 },
+      // Wave 8 runs to 8400 ticks (70.0s) so all 4 bosses (N@2s, S@25s, E@50s, W@65s) are fuzzed
+      { name: 'Wave 8 Full 8P', slots: [0, 1, 2, 3, 4, 5, 6, 7], wave: 8, seed: 8008, ticks: 8400 },
     ] as const;
 
     for (const profile of profiles) {
