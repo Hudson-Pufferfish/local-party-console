@@ -437,3 +437,17 @@ test('Dreadnought sweeping laser deals 52 DPS to an active player inside the bea
   updateBossFsm(w, C.dt);
   expect(w.pPendingDamage[0]).toBeCloseTo(52 * C.dt, 5);
 });
+
+test('Dreadnought spawns with 600 base HP scaled by squad weight', () => {
+  const solo = createCyberWorld();
+  solo.squadWeight = 1.0;
+  const soloBoss = spawnEnemyImmediate(solo, ENEMY_TYPE.BOSS, 0, -200, 0);
+  expect(solo.eMaxHp[soloBoss]).toBeCloseTo(600, 5);
+  expect(solo.eHp[soloBoss]).toBeCloseTo(600, 5);
+
+  const duo = createCyberWorld();
+  duo.squadWeight = 2.0;
+  const duoBoss = spawnEnemyImmediate(duo, ENEMY_TYPE.BOSS, 0, -200, 0);
+  expect(duo.eMaxHp[duoBoss]).toBeCloseTo(600 * 1.28, 5);
+  expect(duo.eHp[duoBoss]).toBeCloseTo(600 * 1.28, 5);
+});
