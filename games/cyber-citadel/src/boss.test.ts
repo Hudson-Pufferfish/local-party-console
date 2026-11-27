@@ -13,8 +13,8 @@ import {
 } from './constants.ts';
 import { createCyberCitadelSimulation } from './simulation.ts';
 import { createAuxView, playerBase, readBossSlotMeta, readEnemy, readMetaTrailer } from './state.ts';
-import { createCyberWorld } from './world.ts';
-import { clearBossSlot, findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget } from './boss.ts';
+import { clearBossSlot, createCyberWorld } from './world.ts';
+import { findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget } from './boss.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 
 test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
@@ -364,8 +364,8 @@ test('per-boss threat isolates aggro across players and supports split-tanking',
   w.state[base1 + CYBER_PLAYER_OFFSET.x] = 0;
   w.state[base1 + CYBER_PLAYER_OFFSET.y] = 300; // 100px from Boss B
 
-  const bossEidA = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, -200);
-  const bossEidB = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 2, 0, 200);
+  const bossEidA = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, -200, 0);
+  const bossEidB = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 200, 2);
   const slotA = findBossSlotByEnemyIdx(w, bossEidA);
   const slotB = findBossSlotByEnemyIdx(w, bossEidB);
 
@@ -404,7 +404,7 @@ test('unengaged boss > 350px from all active players falls back to Core (target 
 test('slot reuse clears previous threat values for that boss slot', () => {
   const w = createCyberWorld();
   w.pJoined[0] = 1;
-  const eid1 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, -200);
+  const eid1 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, -200, 0);
   const slot = findBossSlotByEnemyIdx(w, eid1);
   const off = slot * C.maxPlayers + 0;
   w.bossThreat[off] = 750;
@@ -414,7 +414,7 @@ test('slot reuse clears previous threat values for that boss slot', () => {
   expect(w.bossThreat[off]).toBe(0);
 
   // Spawn new boss in the cleared slot
-  const eid2 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, -200);
+  const eid2 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, -200, 0);
   const slot2 = findBossSlotByEnemyIdx(w, eid2);
   expect(slot2).toBe(slot);
   expect(w.bossThreat[slot2 * C.maxPlayers + 0]).toBe(0);

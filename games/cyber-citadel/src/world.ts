@@ -271,6 +271,24 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
   };
 }
 
+/** Reset one boss slot, including that slot's per-player threat row. */
+export function clearBossSlot(w: CyberWorld, bossSlot: number): void {
+  w.bossEnemyIdx[bossSlot] = -1;
+  w.bossLaserAngle[bossSlot] = 0;
+  w.bossLaserTimer[bossSlot] = 3.0;
+  w.bossLaserActive[bossSlot] = 0;
+  w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
+  w.bossFirstDashSlot[bossSlot] = -1;
+  w.bossFirstDashAngle[bossSlot] = 0;
+  w.bossDualDashTimer[bossSlot] = 0;
+  w.bossVulnerableTimer[bossSlot] = 0;
+  w.bossWeakMask[bossSlot] = 0;
+  w.bossPhase[bossSlot] = 0;
+
+  const threatOffset = bossSlot * C.maxPlayers;
+  w.bossThreat.fill(0, threatOffset, threatOffset + C.maxPlayers);
+}
+
 /** Deterministic Mulberry32 PRNG matching bomb-pass. */
 export function nextRand(w: CyberWorld): number {
   w.rngState = (w.rngState + 0x6d2b79f5) >>> 0;

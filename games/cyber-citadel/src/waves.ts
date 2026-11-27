@@ -4,10 +4,9 @@ import {
   ENEMY_STATE_FLAG,
   ENEMY_TYPE,
 } from './constants.ts';
-import { clearBossSlot } from './boss.ts';
 import { worldToCell } from './flow-field.ts';
 import { bossHpMultiplier, waveCountMultiplier, waveHpMultiplier } from './scaling.ts';
-import { nextRand, SPAWN_QUEUE_CAP, type CyberWorld } from './world.ts';
+import { clearBossSlot, nextRand, SPAWN_QUEUE_CAP, type CyberWorld } from './world.ts';
 
 export interface WaveDefinition {
   readonly wave: number;

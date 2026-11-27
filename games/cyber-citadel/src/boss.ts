@@ -11,24 +11,7 @@ import {
 import { pointToSegmentDistSq } from './rail.ts';
 import { playerBase } from './state.ts';
 import { spawnEnemyImmediate } from './waves.ts';
-import { spawnTracer, type CyberWorld } from './world.ts';
-
-export function clearBossSlot(w: CyberWorld, bossSlot: number): void {
-  w.bossEnemyIdx[bossSlot] = -1;
-  w.bossLaserAngle[bossSlot] = 0;
-  w.bossLaserTimer[bossSlot] = 3.0;
-  w.bossLaserActive[bossSlot] = 0;
-  w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
-  w.bossFirstDashSlot[bossSlot] = -1;
-  w.bossFirstDashAngle[bossSlot] = 0;
-  w.bossDualDashTimer[bossSlot] = 0;
-  w.bossVulnerableTimer[bossSlot] = 0;
-  w.bossWeakMask[bossSlot] = 0;
-  w.bossPhase[bossSlot] = 0;
-
-  const threatOffset = bossSlot * C.maxPlayers;
-  w.bossThreat.fill(0, threatOffset, threatOffset + C.maxPlayers);
-}
+import { clearBossSlot, spawnTracer, type CyberWorld } from './world.ts';
 
 export function findBossSlotByEnemyIdx(w: CyberWorld, enemyIdx: number): number {
   for (let b = 0; b < C.maxBosses; b += 1) {
@@ -71,7 +54,7 @@ export function resetBossState(w: CyberWorld): void {
 
 /**
  * Called from dash.ts when a player dashes into a Dreadnought.
- * Finds the targeted active boss slot by distance/intersection and applies
+ * Finds the targeted active boss slot and applies
  * opposite-flank dual-dash coordination independently per boss instance.
  */
 export function onBossDashHit(w: CyberWorld, slot: number, enemyIdx: number, px: number, py: number): void {
