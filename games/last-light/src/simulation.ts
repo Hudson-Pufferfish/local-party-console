@@ -7,7 +7,7 @@ import {
   LIGHT_PLAYER_OFFSET as OFF,
 } from './constants.ts';
 import { createLastLightState, playerBase } from './state.ts';
-import type { LastLightSimulation } from './types.ts';
+import type { LastLightSimulation, StartMatchRoster } from './types.ts';
 
 interface Channel {
   buttons: number;
@@ -36,10 +36,7 @@ function stepMulberry32(seed: number): number {
   return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
 }
 
-export interface StartMatchRoster {
-  readonly botMask?: Uint8Array;
-  readonly botLevels?: Uint8Array;
-}
+export { type StartMatchRoster };
 
 export function createLastLightSimulation(): LastLightSimulation {
   const store = createLastLightState();

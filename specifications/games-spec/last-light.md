@@ -190,11 +190,12 @@ Top screen banner displays `BREAK <n>` in practice, countdown numbers `3 / 2 / 1
 ### Scoreboard, Round End & Match Over
 
 * **Right Scoreboard Panel (`ScoreboardPanel`):** Renders match header `THRESHOLD: <n>` (or `SUDDEN DEATH`), displaying player rows with color dots, tags, scores, and `LIVE` / `AWAY` status badges.
-* **Left Rules & Lock-In Panel (`ScoreRulesPanel`):**
-  1. Top instructional copy: `Tap to lock in`, `Latest tap before the blowout wins`, `Never tapped? You are out`.
-  2. Public Lock-In Roster: Displays color dots and short tags of players who have successfully locked in. Does not reveal timestamps or chronological rank order.
-  3. Payout Table: Lists point distribution (`1ST: +7 PTS`, etc.), collapsing to `1ST: +1 PTS` during sudden death.
-* **ScoreRules Extension:** Uses the `ScoreRules` type (`screen/src/register-games.ts:29-30`) with optional `howTo: string[]` and `lockedIn: { slot: number, name: string, color: string }[]` fields rendered above standard rule rows.
+* **Left Rules Panel (`ScoreRulesPanel`):**
+  1. Top instructional copy (`ScoreRules.guide`): `TAP TO LOCK IN`, `LATEST TAP BEFORE THE BLOWOUT WINS`, `NEVER TAPPED? YOU ARE OUT`.
+  2. Payout Table (`ScoreRules.rows`): Lists point distribution (`1ST: +(N-1) PTS` through `NTH: +0 PTS`), collapsing to `1ST: +1 PTS` during sudden death.
+* **Round Ranking Panel (`RoundRanking`):** Renders under `ScoreRulesPanel` via `createRoundRanking`:
+  1. Live Round Status: Displays public lock-in roster during active rounds with color dots, names, and `IN` / `LOCKED` / `WATCHING` status without revealing secret lock timestamps or ranking.
+  2. Round End Reveal: Reveals exact lock times and places once blowout concludes, freezing for 2.0 s before updating match totals.
 * **Podium Sequence:** Displays final match standings, winner highlight, and host rematch controls.
 
 ---
@@ -359,7 +360,7 @@ MATCH_OVER -> [light:rematch action]
 3. **Flickers:** None, honest only, or mixed fakes? **Default: mixed and rare.**
 4. **Windows:** 3 to 12 s scored, 1 to 3.5 s practice, increasing hazard after the floor? **Default: yes.**
 5. **Controller layout:** New `tap-only` preset, or hide the `stick-single` joystick with CSS? **Default: `tap-only` preset.**
-6. **Left column:** Extend `ScoreRules` with `howTo` and `lockedIn`, or draw in the arena canvas? **Default: extend `ScoreRules`.**
+6. **Left column:** Extend `ScoreRules` with custom fields, or reuse standard `ScoreRules.guide` plus `createRoundRanking`? **Default: standard `ScoreRules.guide` plus `createRoundRanking`.**
 7. **Same-tick tie in sudden death:** Replay with no $+1$? **Default: replay.**
 8. **Late join in practice breaks:** Keep `MATCH_IN_PROGRESS` for v1? **Default: yes.**
 9. **Ids:** Game id `last-light`, event prefix `light`? **Default: yes.**
