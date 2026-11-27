@@ -132,6 +132,7 @@ Dynamic scaling formulas:
 * **Enemy Count Scaling:** Scaled by factor $(0.6 + 0.2 \times W)$.
 * **Enemy HP Scaling:** Scaled by factor $(1.0 + 0.1 \times W)$.
 * **Boss HP Scaling:** Scaled by factor $(1.0 + 0.28 \times (W - 1))$.
+* **Spawn Cadence Scaling:** `populateWaveSpawns` spaces minions by `spawnCadenceSec * waveCadenceMultiplier(W)`. The multiplier is `1.8` when $W < 2.0$, `1.5` when $2.0 \le W < 4.0$, `1.25` when $4.0 \le W < 6.0$, and `1.0` when $W \ge 6.0$. `WAVE_TABLE` base cadences stay fixed. Wave 8 boss timestamps stay fixed at 2.0s (North), 20.0s (South), 32.0s (East), and 35.0s (West).
 
 Run flow and simulation phases:
 

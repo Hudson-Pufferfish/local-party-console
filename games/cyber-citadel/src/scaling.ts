@@ -15,6 +15,13 @@ export function waveCountMultiplier(weight: number): number {
   return 0.6 + 0.2 * weight;
 }
 
+export function waveCadenceMultiplier(weight: number): number {
+  if (weight < 2.0) return 1.8;
+  if (weight < 4.0) return 1.5;
+  if (weight < 6.0) return 1.25;
+  return 1.0;
+}
+
 export function waveHpMultiplier(weight: number): number {
   return 1.0 + 0.1 * weight;
 }

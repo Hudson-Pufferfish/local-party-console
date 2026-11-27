@@ -5,7 +5,12 @@ import {
   ENEMY_TYPE,
 } from './constants.ts';
 import { worldToCell } from './flow-field.ts';
-import { bossHpMultiplier, waveCountMultiplier, waveHpMultiplier } from './scaling.ts';
+import {
+  bossHpMultiplier,
+  waveCadenceMultiplier,
+  waveCountMultiplier,
+  waveHpMultiplier,
+} from './scaling.ts';
 import { clearBossSlot, nextRand, SPAWN_QUEUE_CAP, type CyberWorld } from './world.ts';
 
 export interface WaveDefinition {
@@ -71,6 +76,7 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   w.state[CYBER_HEADER.empCharge] = 0;
 
   const countMult = waveCountMultiplier(w.squadWeight);
+  const cadence = def.spawnCadenceSec * waveCadenceMultiplier(w.squadWeight);
   const drones = Math.max(1, Math.round(def.drones * countMult));
   const fastDrones = def.fastDrones > 0 ? Math.max(1, Math.round(def.fastDrones * countMult)) : 0;
   const brutes = def.brutes > 0 ? Math.max(1, Math.round(def.brutes * countMult)) : 0;
@@ -131,7 +137,7 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
       enqueueSpawn(w, ENEMY_TYPE.DRONE, flank, delay);
       dLeft -= 1;
     }
-    delay += def.spawnCadenceSec;
+    delay += cadence;
     turn += 1;
   }
 
