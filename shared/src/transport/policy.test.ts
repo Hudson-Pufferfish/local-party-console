@@ -10,8 +10,8 @@ test('drops an open channel when the buffer is above 64 bytes', () => {
   ).toBe('dc');
 });
 
-test('a full or unready data channel still delivers on the websocket', () => {
-  expect(inputDeliveries('dc')).toEqual({ dc: true, ws: true });
+test('delivers on data channel only when healthy, and falls back to websocket otherwise', () => {
+  expect(inputDeliveries('dc')).toEqual({ dc: true, ws: false });
   expect(inputDeliveries('drop')).toEqual({ dc: false, ws: true });
   expect(inputDeliveries('wait')).toEqual({ dc: false, ws: true });
   expect(inputDeliveries('ws')).toEqual({ dc: false, ws: true });

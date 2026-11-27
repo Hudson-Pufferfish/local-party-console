@@ -158,7 +158,8 @@ function flushSend(): 'sent' | 'wait' | 'drop' | 'closed' {
   const which = inputDeliveries(route);
   let queued = false;
   if (which.dc && sendDc(scratch)) queued = true;
-  if (which.ws) {
+  const needWs = which.ws || (which.dc && !queued);
+  if (needWs) {
     scratchWsBytes.set(scratchBytes);
     if (sendWs(scratchWs)) queued = true;
   }

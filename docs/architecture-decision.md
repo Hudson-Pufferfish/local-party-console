@@ -108,6 +108,8 @@ If a restrictive router blocks UDP peer-to-peer traffic altogether:
 | **Failure Mode** | Network drops UDP packets | Buffers behind TCP head-of-line blocking |
 | **When Used** | Normal gameplay on standard Wi-Fi | Guest Wi-Fi / client-isolation enabled |
 
+Each fast-path input packet uses one transport at a time. When the DataChannel is open and `bufferedAmount <= 64`, the controller sends on the DataChannel only. The controller uses the binary WebSocket only when the channel is not open, is still in the `'wait'` window, has `bufferedAmount > 64`, or `dc.send` fails.
+
 ### References
 
 - [shared/src/sdp/](../shared/src/sdp/)
