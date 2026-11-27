@@ -111,7 +111,7 @@ export const CYBER_CITADEL_CONSTANTS = {
   bossEnrageSpeed: 25,
   bossRadius: 44,
   bossMeleeDps: 45,
-  bossLaserDps: 55,
+  bossLaserDps: 52,
   bossLaserRange: 340,
   bossLaserSweepSpeed: 0.55, // rad/sec
   bossLaserHalfWidth: 16,

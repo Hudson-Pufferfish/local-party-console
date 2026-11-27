@@ -91,11 +91,13 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   // For Wave 7, spawn boss near the end alongside the final few enemies (~88% through minion spawns)
   const bossSpawnThreshold = def.wave === 7 ? Math.max(1, Math.round(totalMinions * 0.88)) : -1;
   let bossSpawnedInWave7 = false;
-  // For Wave 8, interleave Boss 2 (South @ 20.0s) and Bosses 3 & 4 (East & West @ 35.0s) in FIFO delay order
+  // For Wave 8, interleave Boss 2 (South @ 20.0s), Boss 3 (East @ 32.0s), and Boss 4 (West @ 35.0s) in FIFO delay order
   const WAVE8_BOSS2_DELAY = 20.0;
-  const WAVE8_BOSS34_DELAY = 35.0;
+  const WAVE8_BOSS3_DELAY = 32.0;
+  const WAVE8_BOSS4_DELAY = 35.0;
   let wave8Boss2Queued = false;
-  let wave8Boss34Queued = false;
+  let wave8Boss3Queued = false;
+  let wave8Boss4Queued = false;
 
   while (dLeft > 0 || fLeft > 0 || bLeft > 0) {
     const minionsSpawned = totalMinions - (dLeft + fLeft + bLeft);
@@ -108,10 +110,13 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
         enqueueSpawn(w, ENEMY_TYPE.BOSS, 2, WAVE8_BOSS2_DELAY);
         wave8Boss2Queued = true;
       }
-      if (!wave8Boss34Queued && delay >= WAVE8_BOSS34_DELAY) {
-        enqueueSpawn(w, ENEMY_TYPE.BOSS, 1, WAVE8_BOSS34_DELAY);
-        enqueueSpawn(w, ENEMY_TYPE.BOSS, 3, WAVE8_BOSS34_DELAY);
-        wave8Boss34Queued = true;
+      if (!wave8Boss3Queued && delay >= WAVE8_BOSS3_DELAY) {
+        enqueueSpawn(w, ENEMY_TYPE.BOSS, 1, WAVE8_BOSS3_DELAY);
+        wave8Boss3Queued = true;
+      }
+      if (!wave8Boss4Queued && delay >= WAVE8_BOSS4_DELAY) {
+        enqueueSpawn(w, ENEMY_TYPE.BOSS, 3, WAVE8_BOSS4_DELAY);
+        wave8Boss4Queued = true;
       }
     }
 
@@ -137,9 +142,11 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
     if (!wave8Boss2Queued) {
       enqueueSpawn(w, ENEMY_TYPE.BOSS, 2, WAVE8_BOSS2_DELAY);
     }
-    if (!wave8Boss34Queued) {
-      enqueueSpawn(w, ENEMY_TYPE.BOSS, 1, WAVE8_BOSS34_DELAY);
-      enqueueSpawn(w, ENEMY_TYPE.BOSS, 3, WAVE8_BOSS34_DELAY);
+    if (!wave8Boss3Queued) {
+      enqueueSpawn(w, ENEMY_TYPE.BOSS, 1, WAVE8_BOSS3_DELAY);
+    }
+    if (!wave8Boss4Queued) {
+      enqueueSpawn(w, ENEMY_TYPE.BOSS, 3, WAVE8_BOSS4_DELAY);
     }
   }
 }

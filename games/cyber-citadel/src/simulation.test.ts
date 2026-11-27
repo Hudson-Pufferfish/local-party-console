@@ -269,7 +269,7 @@ test(
     const profiles = [
       { name: 'Wave 1 Solo', slots: [0], wave: 1, seed: 1001, ticks: 3000 },
       { name: 'Wave 4 Mixed', slots: [0, 1, 2, 3], wave: 4, seed: 4004, ticks: 3000 },
-      // Wave 8 runs to 4800 ticks (40.0s) so all 4 bosses (N@2s, S@20s, E&W@35s) are fuzzed
+      // Wave 8 runs to 4800 ticks (40.0s) so all 4 bosses (N@2s, S@20s, E@32s, W@35s) are fuzzed
       { name: 'Wave 8 Full 8P', slots: [0, 1, 2, 3, 4, 5, 6, 7], wave: 8, seed: 8008, ticks: 4800 },
     ] as const;
 

@@ -173,7 +173,7 @@ test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wav
   expect(w8Boss!.y).toBeLessThan(-320);
 });
 
-test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E&W@35s) alongside 0.9s minion cadence', () => {
+test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s minion cadence', () => {
   const sim = createCyberCitadelSimulation();
   sim.startMatch([0, 1], 8888);
   sim.jumpToWave(8);
@@ -232,18 +232,28 @@ test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E&W@35s) alongside 0.9s mini
   expect(southBoss).toBeDefined();
   expect(southBoss!.y).toBeGreaterThan(320);
 
-  // At t = 34.8s: Boss 3 & Boss 4 have not spawned yet
-  advanceToSec(34.8);
+  // At t = 31.8s: Boss 3 & Boss 4 have not spawned yet
+  advanceToSec(31.8);
   expect(collectBosses().length).toBe(2);
 
-  // At t = 35.1s: Boss 3 (East, flank 1) and Boss 4 (West, flank 3) spawn simultaneously
+  // At t = 32.1s: Boss 3 (East, flank 1) has spawned while Boss 4 (West) has not
+  advanceToSec(32.1);
+  bosses = collectBosses();
+  expect(bosses.length).toBe(3);
+  const eastBoss = bosses.find((b) => b.flankId === 1);
+  expect(eastBoss).toBeDefined();
+  expect(eastBoss!.x).toBeGreaterThan(320);
+  expect(bosses.find((b) => b.flankId === 3)).toBeUndefined();
+
+  // At t = 34.8s: Boss 4 has still not spawned yet
+  advanceToSec(34.8);
+  expect(collectBosses().length).toBe(3);
+
+  // At t = 35.1s: Boss 4 (West, flank 3) spawns
   advanceToSec(35.1);
   bosses = collectBosses();
   expect(bosses.length).toBe(4);
-  const eastBoss = bosses.find((b) => b.flankId === 1);
   const westBoss = bosses.find((b) => b.flankId === 3);
-  expect(eastBoss).toBeDefined();
   expect(westBoss).toBeDefined();
-  expect(eastBoss!.x).toBeGreaterThan(320);
   expect(westBoss!.x).toBeLessThan(-320);
 });

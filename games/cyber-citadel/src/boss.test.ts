@@ -14,7 +14,7 @@ import {
 import { createCyberCitadelSimulation } from './simulation.ts';
 import { createAuxView, playerBase, readBossSlotMeta, readEnemy, readMetaTrailer } from './state.ts';
 import { clearBossSlot, createCyberWorld } from './world.ts';
-import { findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget } from './boss.ts';
+import { findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget, updateBossFsm } from './boss.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 
 test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
@@ -418,4 +418,22 @@ test('slot reuse clears previous threat values for that boss slot', () => {
   const slot2 = findBossSlotByEnemyIdx(w, eid2);
   expect(slot2).toBe(slot);
   expect(w.bossThreat[slot2 * C.maxPlayers + 0]).toBe(0);
+});
+
+test('Dreadnought sweeping laser deals 52 DPS to an active player inside the beam', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  const base0 = playerBase(0);
+  w.state[base0 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.ACTIVE;
+  w.state[base0 + CYBER_PLAYER_OFFSET.x] = 150;
+  w.state[base0 + CYBER_PLAYER_OFFSET.y] = 0;
+
+  const bossEid = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, 0);
+  const slot = findBossSlotByEnemyIdx(w, bossEid);
+  w.bossLaserActive[slot] = 1;
+  w.bossLaserTimer[slot] = 1.0;
+  w.bossLaserAngle[slot] = 0;
+
+  updateBossFsm(w, C.dt);
+  expect(w.pPendingDamage[0]).toBeCloseTo(52 * C.dt, 5);
 });
