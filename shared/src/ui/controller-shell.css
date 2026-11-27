@@ -181,3 +181,11 @@
   font-size: clamp(28px, 6vw, 48px);
   letter-spacing: 0.02em;
 }
+
+.controller-taptic-switch {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

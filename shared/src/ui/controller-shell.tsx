@@ -65,6 +65,47 @@ export interface ButtonMeter {
   readonly ms: number;
 }
 
+interface TapticSwitch {
+  click: () => void;
+}
+
+export function pressControllerButton(
+  down: boolean,
+  timeStamp: number,
+  bit: ButtonBit,
+  disabled: boolean,
+  hapticMs: number | undefined,
+  onButton: (down: boolean, timeStamp: number, bit: number) => void,
+  armCooldown: boolean,
+  cooldownMs: number,
+  arm: (bit: ButtonBit, durationMs: number) => void,
+  taptic: TapticSwitch | undefined,
+): void {
+  if (down && disabled) return;
+  onButton(down, timeStamp, bit);
+  if (!down) return;
+  if (armCooldown && cooldownMs > 0) arm(bit, cooldownMs);
+  pulseTapHaptic(hapticMs, taptic);
+}
+
+function pulseTapHaptic(ms: number | undefined, taptic: TapticSwitch | undefined): void {
+  if (ms === undefined || ms <= 0) return;
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try {
+      navigator.vibrate(ms);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  if (taptic === undefined) return;
+  try {
+    taptic.click();
+  } catch {
+    // ignore
+  }
+}
+
 export interface ControllerShellProps {
   readonly color: string;
   readonly name: string;
@@ -100,6 +141,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
   );
 
   const timers: Array<ReturnType<typeof setTimeout> | null> = [null, null, null, null];
+  let tapticRef: HTMLInputElement | undefined;
 
   onCleanup(() => {
     for (const t of timers) {
@@ -222,29 +264,26 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
 
   function handleButtonPress(spec: ButtonSpec, down: boolean, timeStamp: number): void {
     const bit = spec.bit;
-    if (down && buttonDisabled(bit)) return;
-    const isCool = cooldowns()[bit];
-
-    if (down) {
-      if (
-        props.meters?.[bit] === undefined &&
-        spec.kind === 'tap' &&
-        spec.cooldownMs &&
-        spec.cooldownMs > 0 &&
-        !isCool
-      ) {
-        triggerCooldown(bit, spec.cooldownMs);
-      }
-      if (spec.hapticMs && spec.hapticMs > 0 && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate(spec.hapticMs);
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    props.onButton(down, timeStamp, bit);
+    const disabled = buttonDisabled(bit);
+    const duration = spec.cooldownMs ?? 0;
+    const armCooldown =
+      !disabled &&
+      props.meters?.[bit] === undefined &&
+      spec.kind === 'tap' &&
+      duration > 0 &&
+      !cooldowns()[bit];
+    pressControllerButton(
+      down,
+      timeStamp,
+      bit,
+      disabled,
+      spec.hapticMs,
+      props.onButton,
+      armCooldown,
+      duration,
+      triggerCooldown,
+      tapticRef,
+    );
   }
 
   const label = (): string => (props.slot < 0 ? 'P-' : `P${props.slot + 1}`);
@@ -267,6 +306,14 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
       style={playerStyleVars(props.slot, props.color)}
       {...(props.customBoardAttrs ?? {})}
     >
+      <input
+        ref={tapticRef}
+        class="controller-taptic-switch"
+        type="checkbox"
+        aria-hidden="true"
+        tabindex={-1}
+        {...({ switch: '' } as Record<string, string>)}
+      />
       <header class="controller-shell-bar">
         <PlayerBadge name={title()} label={label()} />
         <Show when={resolvedHud()}>
