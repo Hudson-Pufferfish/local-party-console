@@ -165,7 +165,7 @@ function handleText(
 
   if (client.role === 'controller') {
     if (!CONTROLLER_TYPES.has(type)) return;
-    if (type !== 'room:join' && client.slotIndex === null) return;
+    if (type !== 'room:join' && type !== 'net:ping' && client.slotIndex === null) return;
   }
 
   if (type === 'viewport:claim') {
@@ -233,11 +233,6 @@ function handleText(
       if (slot !== client.slotIndex) return;
     }
     fanOutToScreens(clients, room, raw);
-    return;
-  }
-  if (type.startsWith('signal:')) {
-    if (client.role !== 'screen' && client.slotIndex === null) return;
-    fanOut(clients, room, client, raw);
     return;
   }
   fanOut(clients, room, client, raw);

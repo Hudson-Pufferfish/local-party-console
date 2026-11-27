@@ -1283,7 +1283,7 @@ test('a phone net:ping reaches screens but not other phones', async () => {
   }
 });
 
-test('an unjoined controller phone:tier is dropped', async () => {
+test('an unjoined controller net:ping reaches screens only while phone:tier is dropped', async () => {
   const relay = await startRelay();
   const sockets: WebSocket[] = [];
   try {
@@ -1292,21 +1292,32 @@ test('an unjoined controller phone:tier is dropped', async () => {
       relay.port,
       `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
     );
-    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
-    sockets.push(screen, phone);
+    const other = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const unjoined = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, other, unjoined);
 
     screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const otherJoined = waitForText(other, 'room:joined');
+    other.send(JSON.stringify({ type: 'room:join', payload: { name: 'BOB' } }));
+    await otherJoined;
     await settle();
 
-    const seen = collectTypes(screen);
-    phone.send(JSON.stringify({
+    const screenSeen = collectTypes(screen);
+    const otherSeen = collectTypes(other);
+    const screenPing = waitForText(screen, 'net:ping');
+
+    unjoined.send(JSON.stringify({
       type: 'phone:tier',
       payload: { slot: 0, tier: 60, lowPower: false, cores: 4 },
     }));
-    phone.send(JSON.stringify({ type: 'net:ping', payload: { t: 4 } }));
+    unjoined.send(JSON.stringify({ type: 'net:ping', payload: { t: 4 } }));
+
+    const frame = await screenPing;
+    expect((frame.payload as { t?: number } | undefined)?.t).toBe(4);
     await settle();
-    expect(seen).not.toContain('phone:tier');
-    expect(seen).not.toContain('net:ping');
+    expect(screenSeen).not.toContain('phone:tier');
+    expect(otherSeen).not.toContain('net:ping');
+    expect(otherSeen).not.toContain('phone:tier');
   } finally {
     for (const socket of sockets) socket.close();
     await relay.close();
