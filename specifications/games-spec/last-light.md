@@ -31,7 +31,7 @@ export const LAST_LIGHT_MANIFEST: GameManifest = {
   supportedOrientations: ['portrait', 'landscape'],
   controllerLayout: {
     preset: 'tap-only',
-    buttons: [{ bit: 0, glyph: 'A', label: 'LOCK IN', kind: 'tap' }],
+    buttons: [{ bit: 0, glyph: 'A', label: 'LOCK IN', kind: 'tap', hapticMs: 20 }],
   },
   themeTokens: {
     '--bg-surface': '#F4F1EA',
@@ -124,7 +124,7 @@ Top screen banner displays `BREAK <n>` in practice, countdown numbers `3 / 2 / 1
 
 ### FR-5: Phone Controller Layout & Feedback
 
-* **Primary Interface:** Displays a single prominent `<ArcadeButton/>` bound to bit 0, labeled `LOCK IN`. Directional sticks are omitted.
+* **Primary Interface:** Displays a single prominent `<ArcadeButton/>` bound to bit 0, labeled `LOCK IN` (`hapticMs: 20`). Directional sticks are omitted.
 * **Header Bar:** Renders `<PlayerBadge/>` with player slot number, tag, and current match score.
 * **State Label Feedback:** Dynamic text displays current player status:
   * `IN`: Unlocked and active during a live blowout.

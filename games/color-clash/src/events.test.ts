@@ -12,6 +12,7 @@ import { targetScoreForCount, targetScoreForState } from './scoreboard';
 
 const TICK = 0;
 const PHASE = 1;
+const HIT = 6;
 const WINNER = 7;
 const PLAYER = 8;
 const STRIDE = 10;
@@ -59,7 +60,16 @@ test('eventsFromHeaderDiff generates round_start, round_end, match_start, boost,
 
   envelopes = eventsFromHeaderDiff(prev, next);
   expect(envelopes.some((e) => e.type === 'color:boost')).toBe(true);
-  expect(envelopes.some((e) => e.type === 'color:haptic')).toBe(true);
+  expect(envelopes.some((e) => e.type === 'color:haptic')).toBe(false);
+
+  prev[PLAYER + 0 * STRIDE + BOOST_ACTIVE] = 3;
+  next[PLAYER + 0 * STRIDE + BOOST_ACTIVE] = 3;
+  prev[HIT] = 0;
+  next[HIT] = 2;
+  envelopes = eventsFromHeaderDiff(prev, next);
+  expect(envelopes.find((e) => e.type === 'color:haptic')?.payload).toMatchObject({
+    intensity: 'heavy',
+  });
 
   // Round end event
   prev[PHASE] = PHASE_ROUND_ACTIVE;

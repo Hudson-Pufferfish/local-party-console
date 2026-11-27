@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderToString } from '@solidjs/web';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { ControllerLayout } from '../../shared/src/controller/layout.ts';
 import { ControllerShell } from '../../shared/src/ui/index.tsx';
+import { pressControllerButton } from '../../shared/src/ui/controller-shell.tsx';
 
 describe('ControllerShell', () => {
   const singleLayout: ControllerLayout = {
@@ -280,4 +281,75 @@ describe('ControllerShell', () => {
     expect(lockedHtml).toContain('BUZZED');
     expect(lockedHtml).toMatch(/disabled[^>]*>BUZZED</);
   });
+
+  test('pressing a button with hapticMs vibrates or clicks the iOS switch label, and skips when disabled', () => {
+    const hapticLayout: ControllerLayout = {
+      preset: 'stick-single',
+      buttons: [{ bit: 0, glyph: 'A', label: 'DASH', kind: 'tap', hapticMs: 20 }],
+    };
+    const html = renderToString(() => (
+      <ControllerShell
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        layout={hapticLayout}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    const labelMatch = html.match(
+      /<label\b([^>]*class="controller-taptic-switch"[^>]*)>(.*?)<\/label>/s,
+    );
+    expect(labelMatch).not.toBeNull();
+    const labelAttrs = labelMatch?.[1] ?? '';
+    const labelBody = labelMatch?.[2] ?? '';
+    expect(labelAttrs).toContain('aria-hidden="true"');
+    expect(labelBody).toMatch(/<input\b[^>]*type="checkbox"/);
+    expect(labelBody).toContain('tabindex="-1"');
+    expect(labelBody).toMatch(/\sswitch(?:\s|>|\/)/);
+
+    const shellCss = fs.readFileSync(
+      path.resolve(import.meta.dirname, '../../shared/src/ui/controller-shell.css'),
+      'utf8',
+    );
+    const tapticBlock = shellCss.match(/\.controller-taptic-switch\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(tapticBlock).toContain('overflow: hidden');
+    expect(tapticBlock).toContain('opacity: 0');
+    expect(tapticBlock).toContain('pointer-events: none');
+
+    const order: string[] = [];
+    const onButton = () => {
+      order.push('send');
+    };
+    const arm = () => {
+      order.push('ui');
+    };
+    const taptic = {
+      click: () => {
+        order.push('taptic');
+      },
+    };
+
+    vi.stubGlobal('navigator', {
+      vibrate: (ms: number) => {
+        order.push(`vibrate:${ms}`);
+        return true;
+      },
+    });
+    pressControllerButton(true, 10, 0, false, 20, onButton, true, 1500, arm, taptic);
+    expect(order).toEqual(['send', 'ui', 'vibrate:20']);
+
+    order.length = 0;
+    vi.stubGlobal('navigator', {});
+    pressControllerButton(true, 11, 0, false, 20, onButton, true, 1500, arm, taptic);
+    expect(order).toEqual(['send', 'ui', 'taptic']);
+
+    order.length = 0;
+    pressControllerButton(true, 12, 0, true, 20, onButton, true, 1500, arm, taptic);
+    expect(order).toEqual([]);
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

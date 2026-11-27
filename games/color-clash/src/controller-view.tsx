@@ -254,8 +254,6 @@ function buzz(payload: unknown): void {
     navigator.vibrate([25, 40, 40]);
   } else if (intensity === 'heavy') {
     navigator.vibrate(25);
-  } else if (intensity === 'light') {
-    navigator.vibrate(15);
   }
 }
 

@@ -147,10 +147,11 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
 * **Controls (Strict `/shared/ui` Primitives Only):**
   * **Top Bar:** `<PlayerBadge/>` displaying slot (`P1`–`P8`) and player name, paired with a **Paint Color Splash Indicator** (crisp `2.5px solid #111111` Neo-Brutalist paint-splatter swatch filled with `var(--player-color)` that stamps a solid yellow rim while `BOOST` is active) and tabular percentage + boost readout (`24.5% · READY`, `24.5% · BOOSTING`, `24.5% · RECHARGE`, or `OVERTIME`).
   * **Left Zone:** `<VirtualJoystick label="MOVE"/>` mapping continuous steering to `Int8` `[-127, 127]` (`Bytes 6..7`).
-  * **Right Zone:** Oversized `<ArcadeButton label="BOOST"/>` mapped to `Bit 0` (`Byte 5`), paired with a hard-edged charge/cooldown meter (`3.0s` active yellow drain bar followed by `5.0s` recharge fill bar).
+  * **Right Zone:** Oversized `<ArcadeButton label="BOOST"/>` mapped to `Bit 0` (`Byte 5`, `hapticMs: 20`), paired with a hard-edged charge/cooldown meter (`3.0s` active yellow drain bar followed by `5.0s` recharge fill bar).
 * **Feedback & Haptics:**
   * Local press starts the visual charge/cooldown bar immediately when ready to avoid extra network traffic; host `color:boost` and `color:match_start` / `color:overtime` control-plane messages keep state synchronized.
-  * On boost activation, boost shove impact, or Golden Tile capture, the host sends `color:haptic` (`'light' | 'heavy' | 'golden'`) triggering `navigator.vibrate()` / iOS Taptic switch feedback.
+  * The local `BOOST` tap (`hapticMs: 20`) owns the press buzz through `navigator.vibrate()` or the iOS switch Taptic fallback.
+  * On boost shove impact or Golden Tile capture, the host sends `color:haptic` (`'heavy' | 'golden'`) and the phone plays `navigator.vibrate()` / iOS Taptic switch feedback.
   * All interactive targets stay inset **$\ge 36\text{px}$** from screen edges with `setPointerCapture`. Zero continuous `rAF` loops on the phone.
 
 ### FR-6: Disconnect & Mid-Match Rejoin (`SCAN TO REJOIN`)
@@ -237,7 +238,7 @@ The host Chrome tab is the authority for these payloads. Fastify relays `{ type,
 | `color:boost` | Server $\rightarrow$ All | `{ playerIndex: number, activeMs: 3000, cooldownMs: 8000 }` | Syncs phone splash-badge boost pulse and charge bar for the activating player. |
 | `color:scores` | Server $\rightarrow$ All | `{ percents: number[] }` *(throttled to 4Hz max)* | Updates lightweight tabular `%` readout on phone top bars without saturating TCP. |
 | `color:overtime` | Server $\rightarrow$ All | `{ contenderMask: number, goldenCell: number, durationMs: 30000 }` | Switches phone status to `OVERTIME` (contenders) or `WATCHING` (parked slots). |
-| `color:haptic` | Server $\rightarrow$ Phone | `{ playerIndex?: number, intensity: 'light' \| 'heavy' \| 'golden' }` | Fires short local vibration / Taptic Engine feedback on boost, shove, or Golden Tile capture. |
+| `color:haptic` | Server $\rightarrow$ Phone | `{ playerIndex?: number, intensity: 'heavy' \| 'golden' }` | Fires vibration / Taptic Engine feedback on boost shove or Golden Tile capture. |
 | `color:match_end` | Server $\rightarrow$ All | `{ winnerIndex: number, percents: number[], cells: number[], overtime: boolean }` | Locks final reveal percentages and transitions to `MATCH_OVER` podium. |
 | `color:rematch` | Host $\rightarrow$ Server | `{ action: 'restart' \| 'lobby' }` | Restarts match cleanly or returns all clients to Lobby Carousel. |
 
@@ -345,7 +346,7 @@ No new HTTP endpoints are required beyond the Console OS routes:
 | Current State | Trigger / Condition | Next State | Side Effects |
 | :--- | :--- | :--- | :--- |
 | `SPAWN_LOCKED` | `phase === ROUND_ACTIVE` | `MOVING` | Enables steering, `BOOST`, and normal-radius (`24`) grid stamping. |
-| `MOVING` | `BOOST` rising edge & `boostCooldown <= 0` | `BOOSTING` | Sets `boostActiveTimer = 3.00`, `boostCooldown = 8.00`; expands stamp radius to `54`; sets `BOOSTING` bit; emits `color:boost` + haptic. |
+| `MOVING` | `BOOST` rising edge & `boostCooldown <= 0` | `BOOSTING` | Sets `boostActiveTimer = 3.00`, `boostCooldown = 8.00`; expands stamp radius to `54`; sets `BOOSTING` bit; emits `color:boost`. |
 | `BOOSTING` | `boostActiveTimer <= 0` | `RECHARGING` | Restores normal stamp radius (`24`) and speed cap (`400`); clears `BOOSTING` bit. |
 | `RECHARGING` | `boostCooldown <= 0` | `MOVING` | Re-enables `BOOST` trigger. |
 | `MOVING` / `BOOSTING` / `RECHARGING` | `phase === OVERTIME` & slot is not tied for 1st | `PARKED_NON_CONTENDER` | Clears `ACTIVE` and `CONTENDER` bits; ignores inputs; keeps already-painted cells on the grid. |

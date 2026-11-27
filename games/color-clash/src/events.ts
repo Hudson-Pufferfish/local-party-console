@@ -62,10 +62,6 @@ export function eventsFromHeaderDiff(
         activeMs: C.boostActive * 1000,
         cooldownMs: C.boostCooldown * 1000,
       }));
-      events.push(envelope('color:haptic', {
-        playerIndex: index,
-        intensity: 'light',
-      }));
     }
   }
 
