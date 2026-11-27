@@ -16,7 +16,7 @@ import {
   waveHpMultiplier,
 } from './scaling.ts';
 import { createCyberCitadelSimulation } from './simulation.ts';
-import { createAuxView, readMetaTrailer } from './state.ts';
+import { createAuxView, readEnemy, readMetaTrailer } from './state.ts';
 import { getWaveDefinition } from './waves.ts';
 
 test('weighted squad scaling computes exact W, multipliers, and solo timers', () => {
@@ -58,7 +58,7 @@ test('weighted squad scaling computes exact W, multipliers, and solo timers', ()
   expect(bossHpMultiplier(w8)).toBeCloseTo(3.45, 5);
 });
 
-test('Wave 1-8 escalation tables match flank counts, 2.0s telegraph glow, and 160 enemy pool cap queuing', () => {
+test('Wave 1-8 escalation tables match flank counts, tuned cadences, boss flags, 2.0s telegraph glow, and 160 enemy pool cap queuing', () => {
   expect(getWaveDefinition(1).flanks).toBe(1);
   expect(getWaveDefinition(2).flanks).toBe(2);
   expect(getWaveDefinition(3).flanks).toBe(2);
@@ -67,6 +67,20 @@ test('Wave 1-8 escalation tables match flank counts, 2.0s telegraph glow, and 16
   expect(getWaveDefinition(6).flanks).toBe(4);
   expect(getWaveDefinition(7).flanks).toBe(4);
   expect(getWaveDefinition(8).flanks).toBe(4);
+
+  expect(getWaveDefinition(1).spawnCadenceSec).toBe(0.45);
+  expect(getWaveDefinition(2).spawnCadenceSec).toBe(0.4);
+  expect(getWaveDefinition(3).spawnCadenceSec).toBe(0.35);
+  expect(getWaveDefinition(4).spawnCadenceSec).toBe(0.3);
+  expect(getWaveDefinition(5).spawnCadenceSec).toBe(0.29);
+  expect(getWaveDefinition(6).spawnCadenceSec).toBe(0.28);
+  expect(getWaveDefinition(7).spawnCadenceSec).toBe(0.28);
+  expect(getWaveDefinition(8).spawnCadenceSec).toBe(0.9);
+
+  for (let w = 1; w <= 6; w += 1) {
+    expect(getWaveDefinition(w).hasBoss).toBe(false);
+  }
+  expect(getWaveDefinition(7).hasBoss).toBe(true);
   expect(getWaveDefinition(8).hasBoss).toBe(true);
 
   const sim = createCyberCitadelSimulation();
@@ -94,4 +108,67 @@ test('Wave 1-8 escalation tables match flank counts, 2.0s telegraph glow, and 16
   expect(sim.getDebugStats().activeEnemies).toBeLessThanOrEqual(AUX_LAYOUT.MAX_ENEMIES);
   expect(sim.getDebugStats().queuedEnemies).toBeGreaterThan(0);
   expect(sim.getDebugStats().queuedEnemies).toBeLessThanOrEqual(queuedBefore);
+});
+
+test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wave 8 spawns Boss at wave start', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0], 7777);
+  sim.jumpToWave(7);
+  const view = createAuxView(sim.auxState);
+
+  const def7 = getWaveDefinition(7);
+  const mult = waveCountMultiplier(sim.getSquadWeight());
+  const expectedMinions =
+    Math.max(1, Math.round(def7.drones * mult)) +
+    Math.max(1, Math.round(def7.fastDrones * mult)) +
+    Math.max(1, Math.round(def7.brutes * mult));
+  expect(sim.getDebugStats().queuedEnemies).toBe(expectedMinions + 1);
+
+  const findActiveBoss = () => {
+    for (let i = 0; i < AUX_LAYOUT.MAX_ENEMIES; i += 1) {
+      const e = readEnemy(view, i);
+      if (e.hpPct > 0 && e.type === ENEMY_TYPE.BOSS) return e;
+    }
+    return null;
+  };
+
+  // Right after 2.0s telegraph: minions begin spawning, but Wave 7 Boss has NOT spawned yet
+  for (let i = 0; i < 252; i += 1) sim.step(C.dt);
+  expect(sim.getDebugStats().activeEnemies).toBeGreaterThan(0);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
+  expect(findActiveBoss()).toBeNull();
+
+  // Advance until ~80% through minion spawns: boss has not spawned yet
+  const thresholdMinions = Math.max(1, Math.round(expectedMinions * 0.88));
+  const beforeBossDelay = C.flankTelegraphSec + Math.max(0, thresholdMinions - 2) * def7.spawnCadenceSec;
+  const ticksAlreadyRun = 252;
+  const ticksBeforeBoss = Math.floor(beforeBossDelay / C.dt);
+  for (let i = ticksAlreadyRun; i < ticksBeforeBoss; i += 1) {
+    if (i % 60 === 0) sim.state[CYBER_HEADER.coreHp] = C.coreMaxHp;
+    sim.step(C.dt);
+  }
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
+  expect(findActiveBoss()).toBeNull();
+
+  // Advance through 88% threshold: gatekeeper Boss spawns at flank 0 alongside final minions
+  const atBossDelay = C.flankTelegraphSec + (thresholdMinions + 1) * def7.spawnCadenceSec;
+  const ticksAtBoss = Math.ceil((atBossDelay + 0.1) / C.dt);
+  for (let i = ticksBeforeBoss; i < ticksAtBoss; i += 1) {
+    if (i % 60 === 0) sim.state[CYBER_HEADER.coreHp] = C.coreMaxHp;
+    sim.step(C.dt);
+  }
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(1);
+  const w7Boss = findActiveBoss();
+  expect(w7Boss).not.toBeNull();
+  expect(w7Boss!.y).toBeLessThan(-320);
+  expect(sim.getDebugStats().queuedEnemies).toBeGreaterThan(0);
+
+  // Wave 8 keeps Boss spawn at the beginning (delay = C.flankTelegraphSec) before minion trickle
+  sim.jumpToWave(8);
+  for (let i = 0; i < 252; i += 1) sim.step(C.dt);
+  expect(sim.state[CYBER_HEADER.bossPhase]).toBe(1);
+  expect(sim.getDebugStats().activeEnemies).toBe(1);
+  const w8Boss = findActiveBoss();
+  expect(w8Boss).not.toBeNull();
+  expect(w8Boss!.y).toBeLessThan(-320);
 });
