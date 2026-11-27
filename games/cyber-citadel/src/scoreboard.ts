@@ -65,6 +65,7 @@ export function scoreRules(_state: Float32Array): ScoreRules {
   return {
     guide: [
       '• DEFEND THE CORE: Stop enemies before Core reaches 0% Health.',
+      '• BETWEEN WAVES: Core heals +10% HP; all players recover to 100% HP.',
       '• SHOOTING: Ship automatically shoots enemies in front of you.',
       '• SUPER BOMB: 1 use per wave! At least 50% of living squad must stand in blue ring and press Y.',
       '• REVIVE: Stand next to a downed teammate and hold Y for 2.5s.',

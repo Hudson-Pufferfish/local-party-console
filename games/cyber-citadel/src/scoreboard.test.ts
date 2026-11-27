@@ -55,6 +55,9 @@ test('scoreboardHeader, scoreboardRows, and scoreRules format co-op wave HUD acc
 
   const rules = scoreRules(s);
   expect(rules?.guide).toBeDefined();
+  expect(rules?.guide).toContain(
+    '• BETWEEN WAVES: Core heals +10% HP; all players recover to 100% HP.',
+  );
   expect(rules?.rows.map((r) => `${r.label}: ${r.value}`)).toEqual([
     'A: LASER BEAM — Pierces entire line of enemies (2.5s Cooldown)',
     'B: QUICK DASH — Speed dodge to escape or flank (1.8s Cooldown)',
