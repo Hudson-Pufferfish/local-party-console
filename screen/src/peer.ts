@@ -52,11 +52,12 @@ export function createPeerMap(hooks: PeerHooks): PeerMap {
   const modes: TransportMode[] = ['idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'idle'];
 
   function ingest(slot: number, view: DataView, mode: TransportMode): void {
-    if (slot < 0 || slot >= SLOT_COUNT) return;
+    if (!Number.isInteger(slot) || slot < 0 || slot >= SLOT_COUNT) return;
+    const idx = slot | 0;
     const packet = decode(view);
-    modes[slot] = mode;
+    modes[idx] = mode;
     hooks.onPacket(
-      slot,
+      idx,
       packet.seq,
       packet.buttons,
       packet.axisX,
@@ -185,12 +186,13 @@ export function createPeerMap(hooks: PeerHooks): PeerMap {
   function handleBinary(data: ArrayBuffer): void {
     if (data.byteLength === 5) {
       const bytes = new Uint8Array(data);
-      const slot = bytes[0] ?? 0;
-      if (slot > 7) return;
-      const heart = bytes.subarray(1, 5);
-      if (heartbeatSlot(heart) === null) return;
-      modes[slot] = 'ws';
-      hooks.onHeartbeat(slot);
+      const raw = bytes[0];
+      if (raw === undefined || raw < 0 || raw >= SLOT_COUNT) return;
+      const idx = raw | 0;
+      const parsed = heartbeatSlot(bytes.subarray(1, 5));
+      if (parsed === null || parsed !== idx) return;
+      modes[idx] = 'ws';
+      hooks.onHeartbeat(idx);
       return;
     }
     if (data.byteLength !== 9) return;

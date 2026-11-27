@@ -140,3 +140,25 @@ test('createHostLoop copies optional auxState into auxSnapshot each tick and ret
   expect(Array.from(auxLoop.auxSnapshot ?? [])).toEqual(Array.from(auxState));
   expect(auxLoop.auxSnapshot).not.toBe(auxState);
 });
+
+test('clearSeq ignores non-integer and out-of-range slots while resetting valid slots', () => {
+  const loop = createHostLoop(createSumoSimulation(), undefined, () => {});
+  loop.startMatch([0, 1]);
+
+  expect(loop.accept(0, 10, 0, 0, 0, 1000)).toBe(true);
+  expect(loop.accept(1, 10, 0, 0, 0, 1000)).toBe(true);
+
+  loop.clearSeq(Number.NaN);
+  loop.clearSeq(1.5);
+  loop.clearSeq(-1);
+  loop.clearSeq(8);
+
+  // Older sequence numbers remain rejected when invalid clearSeq calls are ignored.
+  expect(loop.accept(0, 5, 0, 0, 0, 1010)).toBe(false);
+  expect(loop.accept(1, 5, 0, 0, 0, 1010)).toBe(false);
+
+  // A valid clearSeq resets sequence tracking for that slot only.
+  loop.clearSeq(0);
+  expect(loop.accept(0, 5, 0, 0, 0, 1020)).toBe(true);
+  expect(loop.accept(1, 5, 0, 0, 0, 1020)).toBe(false);
+});
