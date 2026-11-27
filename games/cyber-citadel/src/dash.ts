@@ -2,14 +2,13 @@ import { clampBoxBoundary } from '../../../shared/src/physics-2d/boundary.ts';
 import { onBossDashHit } from './boss.ts';
 import { applyBruteDashSpin } from './brute.ts';
 import {
-  AUX_LAYOUT,
   BUTTON_BIT,
   CYBER_CITADEL_CONSTANTS as C,
   CYBER_FLAG,
   CYBER_PLAYER_OFFSET,
   ENEMY_TYPE,
 } from './constants.ts';
-import { cellCenter } from './flow-field.ts';
+import { circleOverlapsAnyBarricade } from './shield.ts';
 import { playerBase } from './state.ts';
 import type { CyberWorld } from './world.ts';
 
@@ -75,24 +74,10 @@ export function processDashStage(w: CyberWorld, dt: number): void {
       stopped = true;
     }
 
-    const halfCell = C.cellSize * 0.5;
-    const maxB = AUX_LAYOUT.MAX_BARRICADES;
-    for (let i = 0; i < maxB; i += 1) {
-      if (w.bActive[i] === 0) continue;
-      const bx = cellCenter(w.bCellX[i]!);
-      const by = cellCenter(w.bCellY[i]!);
-      const dx = x - bx;
-      const dy = y - by;
-      const clampedDx = dx < -halfCell ? -halfCell : dx > halfCell ? halfCell : dx;
-      const clampedDy = dy < -halfCell ? -halfCell : dy > halfCell ? halfCell : dy;
-      const rx = dx - clampedDx;
-      const ry = dy - clampedDy;
-      if (rx * rx + ry * ry < C.playerRadius * C.playerRadius) {
-        x = prevX;
-        y = prevY;
-        stopped = true;
-        break;
-      }
+    if (circleOverlapsAnyBarricade(w, x, y, C.playerRadius)) {
+      x = prevX;
+      y = prevY;
+      stopped = true;
     }
 
     const body = w.scratchBody;

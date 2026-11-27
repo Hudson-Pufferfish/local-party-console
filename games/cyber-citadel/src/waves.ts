@@ -11,7 +11,16 @@ import {
   waveCountMultiplier,
   waveHpMultiplier,
 } from './scaling.ts';
+import { circleOverlapsAnyBarricade } from './shield.ts';
 import { clearBossSlot, nextRand, SPAWN_QUEUE_CAP, type CyberWorld } from './world.ts';
+
+function enemyRadiusForType(type: number): number {
+  if (type === ENEMY_TYPE.FAST_DRONE) return C.fastDroneRadius;
+  if (type === ENEMY_TYPE.BRUTE) return C.bruteRadius;
+  if (type === ENEMY_TYPE.CARRIER) return C.carrierRadius;
+  if (type === ENEMY_TYPE.BOSS) return C.bossRadius;
+  return C.droneRadius;
+}
 
 export interface WaveDefinition {
   readonly wave: number;
@@ -297,8 +306,11 @@ export function tickWaveSpawns(w: CyberWorld, dt: number): void {
 
     const cx = worldToCell(sx);
     const cy = worldToCell(sy);
-    if (w.flowField.isBlocked(cx, cy)) {
-      // Barricade on spawn corridor -> delay 1 tick (FR-9.16)
+    if (
+      w.flowField.isBlocked(cx, cy) ||
+      circleOverlapsAnyBarricade(w, sx, sy, enemyRadiusForType(type))
+    ) {
+      // Barricade overlaps spawn footprint -> delay 1 tick (FR-9.16)
       break;
     }
 

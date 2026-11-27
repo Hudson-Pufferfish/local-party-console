@@ -7,7 +7,158 @@ import {
 } from './constants.ts';
 import { cellCenter, worldToCell } from './flow-field.ts';
 import { playerBase } from './state.ts';
+import type { Vec2Out } from './types.ts';
 import type { CyberWorld } from './world.ts';
+
+export function circleOverlapsCellAabb(
+  x: number,
+  y: number,
+  radius: number,
+  bx: number,
+  by: number,
+): boolean {
+  const halfCell = C.cellSize * 0.5;
+  const dx = x - bx;
+  const dy = y - by;
+  const clampedDx = dx < -halfCell ? -halfCell : dx > halfCell ? halfCell : dx;
+  const clampedDy = dy < -halfCell ? -halfCell : dy > halfCell ? halfCell : dy;
+  const rx = dx - clampedDx;
+  const ry = dy - clampedDy;
+  return rx * rx + ry * ry < radius * radius;
+}
+
+export function circleOverlapsAnyBarricade(
+  w: CyberWorld,
+  x: number,
+  y: number,
+  radius: number,
+): boolean {
+  if (w.barPool.activeCount() === 0) return false;
+  const maxB = AUX_LAYOUT.MAX_BARRICADES;
+  for (let bi = 0; bi < maxB; bi += 1) {
+    if (w.bActive[bi] === 0) continue;
+    if (
+      circleOverlapsCellAabb(x, y, radius, cellCenter(w.bCellX[bi]!), cellCenter(w.bCellY[bi]!))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolves circle-vs-AABB collisions against active barricades with zero heap allocations.
+ * Writes the clamped position to `out` and returns the closest barricade index that motion
+ * `(moveX, moveY)` pushes into, or `-1` when none is pushed into.
+ */
+export function resolveBarricadeCollision(
+  w: CyberWorld,
+  x: number,
+  y: number,
+  prevX: number,
+  prevY: number,
+  radius: number,
+  out: Vec2Out,
+  moveX = 0,
+  moveY = 0,
+): number {
+  if (w.barPool.activeCount() === 0) {
+    out.x = x;
+    out.y = y;
+    return -1;
+  }
+
+  const halfCell = C.cellSize * 0.5;
+  const radiusSq = radius * radius;
+  const maxB = AUX_LAYOUT.MAX_BARRICADES;
+  const origX = x;
+  const origY = y;
+  const checkDamage = moveX !== 0 || moveY !== 0;
+
+  let curX = x;
+  let curY = y;
+  let closestBarIdx = -1;
+  let closestBarDistSq = Number.POSITIVE_INFINITY;
+
+  // Run up to two passes so multi-barricade corners and narrow gaps settle cleanly.
+  for (let pass = 0; pass < 2; pass += 1) {
+    let anyHit = false;
+    for (let bi = 0; bi < maxB; bi += 1) {
+      if (w.bActive[bi] === 0) continue;
+      const bx = cellCenter(w.bCellX[bi]!);
+      const by = cellCenter(w.bCellY[bi]!);
+      const dx = curX - bx;
+      const dy = curY - by;
+      const clampedDx = dx < -halfCell ? -halfCell : dx > halfCell ? halfCell : dx;
+      const clampedDy = dy < -halfCell ? -halfCell : dy > halfCell ? halfCell : dy;
+      const rx = dx - clampedDx;
+      const ry = dy - clampedDy;
+      const distSq = rx * rx + ry * ry;
+      if (distSq >= radiusSq) continue;
+
+      anyHit = true;
+      let nx = rx;
+      let ny = ry;
+
+      if (distSq > 1e-6) {
+        const d = Math.sqrt(distSq);
+        const push = radius - d;
+        curX += (rx / d) * push;
+        curY += (ry / d) * push;
+      } else {
+        // Center embedded inside AABB: clamp to entry side when prev was outside,
+        // else push out along the minimum-penetration axis.
+        const pdx = prevX - bx;
+        const pdy = prevY - by;
+        const pClampedDx = pdx < -halfCell ? -halfCell : pdx > halfCell ? halfCell : pdx;
+        const pClampedDy = pdy < -halfCell ? -halfCell : pdy > halfCell ? halfCell : pdy;
+        const prx = pdx - pClampedDx;
+        const pry = pdy - pClampedDy;
+        const pDistSq = prx * prx + pry * pry;
+        if (pDistSq > 1e-6) {
+          const pd = Math.sqrt(pDistSq);
+          curX = bx + pClampedDx + (prx / pd) * radius;
+          curY = by + pClampedDy + (pry / pd) * radius;
+          nx = prx;
+          ny = pry;
+        } else {
+          const penX = halfCell - Math.abs(dx);
+          const penY = halfCell - Math.abs(dy);
+          if (penX <= penY) {
+            const signX = dx >= 0 ? 1 : -1;
+            curX = bx + signX * (halfCell + radius);
+            nx = signX;
+            ny = 0;
+          } else {
+            const signY = dy >= 0 ? 1 : -1;
+            curY = by + signY * (halfCell + radius);
+            nx = 0;
+            ny = signY;
+          }
+        }
+      }
+
+      if (checkDamage && moveX * nx + moveY * ny < 0) {
+        const odx = origX - bx;
+        const ody = origY - by;
+        const oClampedDx = odx < -halfCell ? -halfCell : odx > halfCell ? halfCell : odx;
+        const oClampedDy = ody < -halfCell ? -halfCell : ody > halfCell ? halfCell : ody;
+        const orx = odx - oClampedDx;
+        const ory = ody - oClampedDy;
+        const oDistSq = orx * orx + ory * ory;
+        if (oDistSq < closestBarDistSq) {
+          closestBarDistSq = oDistSq;
+          closestBarIdx = bi;
+        }
+      }
+    }
+    if (!anyHit) break;
+  }
+
+  out.x = curX;
+  out.y = curY;
+  return closestBarIdx;
+}
 
 function isCellValidForBarricade(w: CyberWorld, cx: number, cy: number): boolean {
   if (cx < 1 || cx >= C.gridCols - 1 || cy < 1 || cy >= C.gridRows - 1) return false;
@@ -21,28 +172,34 @@ function isCellValidForBarricade(w: CyberWorld, cx: number, cy: number): boolean
     return false;
   }
 
-  // FR-9.15: disallow placement over living players
+  // FR-9.15: disallow placement over living players (exact circle-vs-AABB)
   const state = w.state;
-  const playerClearSq = (C.playerRadius + C.cellSize * 0.5) * (C.playerRadius + C.cellSize * 0.5);
   for (let s = 0; s < C.maxPlayers; s += 1) {
     if (w.pJoined[s] === 0) continue;
     const base = playerBase(s);
     const flags = state[base + CYBER_PLAYER_OFFSET.flags]!;
     if ((flags & (CYBER_FLAG.ACTIVE | CYBER_FLAG.DOWNED)) === 0) continue;
-    const dx = state[base + CYBER_PLAYER_OFFSET.x]! - xc;
-    const dy = state[base + CYBER_PLAYER_OFFSET.y]! - yc;
-    if (dx * dx + dy * dy < playerClearSq) return false;
+    if (
+      circleOverlapsCellAabb(
+        state[base + CYBER_PLAYER_OFFSET.x]!,
+        state[base + CYBER_PLAYER_OFFSET.y]!,
+        C.playerRadius,
+        xc,
+        yc,
+      )
+    ) {
+      return false;
+    }
   }
 
-  // FR-9.15: disallow placement over living enemies
+  // FR-9.15: disallow placement over living enemies (exact circle-vs-AABB)
   const enemyHitCount = w.gridHash.queryRadius(xc, yc, C.bossRadius + C.cellSize, w.queryBuf);
   for (let i = 0; i < enemyHitCount; i += 1) {
     const eid = w.queryBuf[i]!;
     if (!w.enemyPool.isActive(eid) || w.eHp[eid]! <= 0) continue;
-    const dx = w.eX[eid]! - xc;
-    const dy = w.eY[eid]! - yc;
-    const minR = w.eRadius[eid]! + C.cellSize * 0.5;
-    if (dx * dx + dy * dy < minR * minR) return false;
+    if (circleOverlapsCellAabb(w.eX[eid]!, w.eY[eid]!, w.eRadius[eid]!, xc, yc)) {
+      return false;
+    }
   }
 
   return true;

@@ -10,4 +10,11 @@ export {
   transitionPlayerToDowned,
   tryStartReviveChannel,
 } from './revive.ts';
-export { destroyBarricade, tickBarricades, tryPlaceBarricade } from './shield.ts';
+export {
+  circleOverlapsAnyBarricade,
+  circleOverlapsCellAabb,
+  destroyBarricade,
+  resolveBarricadeCollision,
+  tickBarricades,
+  tryPlaceBarricade,
+} from './shield.ts';

@@ -5,6 +5,7 @@ import {
   processAutoFireStage,
   processDashStage,
   processRailStage,
+  resolveBarricadeCollision,
   respawnAllPlayersForWaveBreak,
   spawnPlayerNearCore,
   tickBarricades,
@@ -28,7 +29,7 @@ import {
   ENEMY_STATE_FLAG,
   ENEMY_TYPE,
 } from './constants.ts';
-import { cellCenter, findNearestBarricadeCell, worldToCell } from './flow-field.ts';
+import { cellCenter, findNearestBarricadeCell } from './flow-field.ts';
 import { computeSquadWeight } from './scaling.ts';
 import { playerBase } from './state.ts';
 import type { CyberCitadelSimulation, CyberRosterMeta, CyberSimOptions } from './types.ts';
@@ -72,8 +73,6 @@ function resetAllPools(w: CyberWorld): void {
 function processStage1Inputs(w: CyberWorld, dt: number): void {
   const state = w.state;
   const minCore = C.coreRadius + C.playerRadius;
-  const halfCell = C.cellSize * 0.5;
-  const maxB = AUX_LAYOUT.MAX_BARRICADES;
 
   for (let s = 0; s < C.maxPlayers; s += 1) {
     if (w.pJoined[s] === 0) continue;
@@ -132,28 +131,10 @@ function processStage1Inputs(w: CyberWorld, dt: number): void {
       }
 
       // Barricade collision (players cannot walk through solid kinetic barricades)
-      for (let bi = 0; bi < maxB; bi += 1) {
-        if (w.bActive[bi] === 0) continue;
-        const bx = cellCenter(w.bCellX[bi]!);
-        const by = cellCenter(w.bCellY[bi]!);
-        const dx = x - bx;
-        const dy = y - by;
-        const clampedDx = dx < -halfCell ? -halfCell : dx > halfCell ? halfCell : dx;
-        const clampedDy = dy < -halfCell ? -halfCell : dy > halfCell ? halfCell : dy;
-        const rx = dx - clampedDx;
-        const ry = dy - clampedDy;
-        const distSq = rx * rx + ry * ry;
-        if (distSq < C.playerRadius * C.playerRadius) {
-          if (distSq > 1e-6) {
-            const d = Math.sqrt(distSq);
-            const push = C.playerRadius - d;
-            x += (rx / d) * push;
-            y += (ry / d) * push;
-          } else {
-            x = prevX;
-            y = prevY;
-          }
-        }
+      if (w.barPool.activeCount() > 0) {
+        resolveBarricadeCollision(w, x, y, prevX, prevY, C.playerRadius, w.scratchVec);
+        x = w.scratchVec.x;
+        y = w.scratchVec.y;
       }
 
       // Outer box containment (INV-2)
@@ -290,8 +271,11 @@ function processStage5Enemies(w: CyberWorld, dt: number): void {
     }
 
     // Apply knockback decay
-    let ex = w.eX[i]!;
-    let ey = w.eY[i]!;
+    const prevX = w.eX[i]!;
+    const prevY = w.eY[i]!;
+    let ex = prevX;
+    let ey = prevY;
+    const radius = w.eRadius[i]!;
     const kx = w.eKnockX[i]!;
     const ky = w.eKnockY[i]!;
     if (kx !== 0 || ky !== 0) {
@@ -304,108 +288,115 @@ function processStage5Enemies(w: CyberWorld, dt: number): void {
       w.eKnockY[i] = Math.abs(nky) < 1 ? 0 : nky;
     }
 
-    if (w.eStunTimer[i]! > 0) {
-      w.eX[i] = ex;
-      w.eY[i] = ey;
-      continue;
-    }
-
-    // Carrier periodically deploys escort drones
-    if (type === ENEMY_TYPE.CARRIER) {
-      const nextCt = w.eCarrierTimer[i]! - dt;
-      if (nextCt <= 0) {
-        w.eCarrierTimer[i] = C.carrierSpawnIntervalSec;
-        spawnEnemyImmediate(w, ENEMY_TYPE.DRONE, ex, ey, w.eFlank[i]!);
-      } else {
-        w.eCarrierTimer[i] = nextCt;
-      }
-    }
-
-    const radius = w.eRadius[i]!;
+    const isStunned = w.eStunTimer[i]! > 0;
     const speed = w.eSpeed[i]!;
     const dps = w.eDps[i]!;
     let moveX = 0;
     let moveY = 0;
     let attackingBarricade = -1;
 
-    // FR-9.15: If sealed corridor makes Core unreachable, attack nearest blocking barricade
-    if (w.flowField.isUnreachable(ex, ey)) {
-      const barIdx = findNearestBarricadeCell(ex, ey, w.bCellX, w.bCellY, w.bActive, maxB);
-      if (barIdx >= 0) {
-        w.eTarget[i] = 9; // barricade
-        const bx = cellCenter(w.bCellX[barIdx]!);
-        const by = cellCenter(w.bCellY[barIdx]!);
-        const dx = bx - ex;
-        const dy = by - ey;
-        const dist = Math.hypot(dx, dy);
-        if (dist <= radius + C.cellSize * 0.75) {
-          attackingBarricade = barIdx;
-        } else if (dist > 1e-4) {
-          moveX = dx / dist;
-          moveY = dy / dist;
+    if (!isStunned) {
+      // Carrier periodically deploys escort drones
+      if (type === ENEMY_TYPE.CARRIER) {
+        const nextCt = w.eCarrierTimer[i]! - dt;
+        if (nextCt <= 0) {
+          w.eCarrierTimer[i] = C.carrierSpawnIntervalSec;
+          spawnEnemyImmediate(w, ENEMY_TYPE.DRONE, ex, ey, w.eFlank[i]!);
+        } else {
+          w.eCarrierTimer[i] = nextCt;
         }
       }
-    } else if (type === ENEMY_TYPE.BRUTE || type === ENEMY_TYPE.BOSS) {
-      const targetSlot = type === ENEMY_TYPE.BRUTE ? selectBruteTarget(w, ex, ey) : w.eTarget[i]!;
-      w.eTarget[i] = targetSlot;
-      if (targetSlot < C.maxPlayers) {
-        const pb = playerBase(targetSlot);
-        const px = state[pb + CYBER_PLAYER_OFFSET.x]!;
-        const py = state[pb + CYBER_PLAYER_OFFSET.y]!;
-        const dx = px - ex;
-        const dy = py - ey;
-        const dist = Math.hypot(dx, dy);
-        if (dist <= radius + C.playerRadius + 10) {
-          w.pPendingDamage[targetSlot] = w.pPendingDamage[targetSlot]! + dps * dt;
-        } else if (dist > 1e-4) {
-          moveX = dx / dist;
-          moveY = dy / dist;
+
+      // FR-9.15: If sealed corridor makes Core unreachable, attack nearest blocking barricade
+      if (w.flowField.isUnreachable(ex, ey)) {
+        const barIdx = findNearestBarricadeCell(ex, ey, w.bCellX, w.bCellY, w.bActive, maxB);
+        if (barIdx >= 0) {
+          w.eTarget[i] = 9; // barricade
+          const bx = cellCenter(w.bCellX[barIdx]!);
+          const by = cellCenter(w.bCellY[barIdx]!);
+          const dx = bx - ex;
+          const dy = by - ey;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= radius + C.cellSize * 0.75) {
+            attackingBarricade = barIdx;
+          } else if (dist > 1e-4) {
+            moveX = dx / dist;
+            moveY = dy / dist;
+          }
         }
-        if (w.eSpinTimer[i]! <= 0 && dist > 1e-4) {
-          w.eHeading[i] = Math.atan2(dy, dx);
+      } else if (type === ENEMY_TYPE.BRUTE || type === ENEMY_TYPE.BOSS) {
+        const targetSlot = type === ENEMY_TYPE.BRUTE ? selectBruteTarget(w, ex, ey) : w.eTarget[i]!;
+        w.eTarget[i] = targetSlot;
+        if (targetSlot < C.maxPlayers) {
+          const pb = playerBase(targetSlot);
+          const px = state[pb + CYBER_PLAYER_OFFSET.x]!;
+          const py = state[pb + CYBER_PLAYER_OFFSET.y]!;
+          const dx = px - ex;
+          const dy = py - ey;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= radius + C.playerRadius + 10) {
+            w.pPendingDamage[targetSlot] = w.pPendingDamage[targetSlot]! + dps * dt;
+          } else if (dist > 1e-4) {
+            moveX = dx / dist;
+            moveY = dy / dist;
+          }
+          if (w.eSpinTimer[i]! <= 0 && dist > 1e-4) {
+            w.eHeading[i] = Math.atan2(dy, dx);
+          }
+        } else {
+          w.flowField.sample(ex, ey, vec);
+          moveX = vec.x;
+          moveY = vec.y;
+          if (w.eSpinTimer[i]! <= 0 && (moveX !== 0 || moveY !== 0)) {
+            w.eHeading[i] = Math.atan2(moveY, moveX);
+          }
         }
       } else {
+        // Drones / Fast Drones / Carriers navigate along flow field directly toward Core
+        w.eTarget[i] = 8;
         w.flowField.sample(ex, ey, vec);
         moveX = vec.x;
         moveY = vec.y;
-        if (w.eSpinTimer[i]! <= 0 && (moveX !== 0 || moveY !== 0)) {
+        if (moveX !== 0 || moveY !== 0) {
           w.eHeading[i] = Math.atan2(moveY, moveX);
         }
       }
-    } else {
-      // Drones / Fast Drones / Carriers navigate along flow field directly toward Core
-      w.eTarget[i] = 8;
-      w.flowField.sample(ex, ey, vec);
-      moveX = vec.x;
-      moveY = vec.y;
-      if (moveX !== 0 || moveY !== 0) {
-        w.eHeading[i] = Math.atan2(moveY, moveX);
+
+      if (attackingBarricade >= 0) {
+        w.bPendingDamage[attackingBarricade] = w.bPendingDamage[attackingBarricade]! + dps * dt;
+      } else if (moveX !== 0 || moveY !== 0) {
+        ex += moveX * speed * dt;
+        ey += moveY * speed * dt;
       }
     }
 
-    if (attackingBarricade >= 0) {
-      w.bPendingDamage[attackingBarricade] = w.bPendingDamage[attackingBarricade]! + dps * dt;
-    } else if (moveX !== 0 || moveY !== 0) {
-      const candX = ex + moveX * speed * dt;
-      const candY = ey + moveY * speed * dt;
-      const ccx = worldToCell(candX);
-      const ccy = worldToCell(candY);
-      if (w.flowField.isBlocked(ccx, ccy)) {
-        // Blocked by barricade directly ahead -> attack it
-        const barIdx = findNearestBarricadeCell(candX, candY, w.bCellX, w.bCellY, w.bActive, maxB);
-        if (barIdx >= 0) {
-          w.bPendingDamage[barIdx] = w.bPendingDamage[barIdx]! + dps * dt;
-        }
-      } else {
-        ex = candX;
-        ey = candY;
+    // Exact circle-vs-AABB barricade clamping for all active enemies (including stunned and knockback)
+    if (w.barPool.activeCount() > 0) {
+      const hitBarIdx = resolveBarricadeCollision(
+        w,
+        ex,
+        ey,
+        prevX,
+        prevY,
+        radius,
+        vec,
+        isStunned ? 0 : moveX,
+        isStunned ? 0 : moveY,
+      );
+      ex = vec.x;
+      ey = vec.y;
+      if (!isStunned && attackingBarricade < 0 && hitBarIdx >= 0) {
+        w.bPendingDamage[hitBarIdx] = w.bPendingDamage[hitBarIdx]! + dps * dt;
       }
     }
 
-    // Core melee damage & contact stop
+    // Core melee damage (unstunned only) & contact stop
     const coreStopR = C.coreRadius + radius;
     const coreDistSq = ex * ex + ey * ey;
-    if (coreDistSq <= (coreStopR + C.droneAttackRange) * (coreStopR + C.droneAttackRange)) {
+    if (
+      !isStunned &&
+      coreDistSq <= (coreStopR + C.droneAttackRange) * (coreStopR + C.droneAttackRange)
+    ) {
       w.corePendingDamage += dps * dt;
     }
     if (coreDistSq < coreStopR * coreStopR) {
@@ -420,7 +411,7 @@ function processStage5Enemies(w: CyberWorld, dt: number): void {
     }
 
     // Contact melee against overlapping active players for drones
-    if (type !== ENEMY_TYPE.BRUTE && type !== ENEMY_TYPE.BOSS) {
+    if (!isStunned && type !== ENEMY_TYPE.BRUTE && type !== ENEMY_TYPE.BOSS) {
       const hitR = radius + C.playerRadius;
       const hitRSq = hitR * hitR;
       for (let s = 0; s < C.maxPlayers; s += 1) {
