@@ -82,7 +82,7 @@ test('Wave 1-8 escalation tables match flank counts, tuned cadences, boss flags,
   expect(getWaveDefinition(5).spawnCadenceSec).toBe(0.29);
   expect(getWaveDefinition(6).spawnCadenceSec).toBe(0.28);
   expect(getWaveDefinition(7).spawnCadenceSec).toBe(0.28);
-  expect(getWaveDefinition(8).spawnCadenceSec).toBe(0.9);
+  expect(getWaveDefinition(8).spawnCadenceSec).toBe(1.1);
 
   for (let w = 1; w <= 6; w += 1) {
     expect(getWaveDefinition(w).hasBoss).toBe(false);
@@ -118,12 +118,12 @@ test('Wave 1-8 escalation tables match flank counts, tuned cadences, boss flags,
 });
 
 test('waveCadenceMultiplier uses four squad-weight bands', () => {
-  expect(waveCadenceMultiplier(1.0)).toBe(1.8);
-  expect(waveCadenceMultiplier(1.99)).toBe(1.8);
-  expect(waveCadenceMultiplier(2.0)).toBe(1.5);
-  expect(waveCadenceMultiplier(3.99)).toBe(1.5);
-  expect(waveCadenceMultiplier(4.0)).toBe(1.25);
-  expect(waveCadenceMultiplier(5.99)).toBe(1.25);
+  expect(waveCadenceMultiplier(1.0)).toBe(2.0);
+  expect(waveCadenceMultiplier(1.99)).toBe(2.0);
+  expect(waveCadenceMultiplier(2.0)).toBe(1.8);
+  expect(waveCadenceMultiplier(3.99)).toBe(1.8);
+  expect(waveCadenceMultiplier(4.0)).toBe(1.3);
+  expect(waveCadenceMultiplier(5.99)).toBe(1.3);
   expect(waveCadenceMultiplier(6.0)).toBe(1.0);
   expect(waveCadenceMultiplier(8.0)).toBe(1.0);
 });
@@ -138,7 +138,7 @@ test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wav
   const squadWeight = sim.getSquadWeight();
   expect(squadWeight).toBeCloseTo(1.0, 5);
   const cadence = def7.spawnCadenceSec * waveCadenceMultiplier(squadWeight);
-  expect(cadence).toBeCloseTo(0.28 * 1.8, 5);
+  expect(cadence).toBeCloseTo(0.28 * 2.0, 5);
   const mult = waveCountMultiplier(squadWeight);
   const expectedMinions =
     Math.max(1, Math.round(def7.drones * mult)) +
@@ -195,7 +195,7 @@ test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wav
   expect(w8Boss!.y).toBeLessThan(-320);
 });
 
-test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s base minion cadence', () => {
+test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@30s, W@35s) alongside 1.1s base minion cadence', () => {
   const sim = createCyberCitadelSimulation();
   sim.startMatch([0, 1], 8888);
   sim.jumpToWave(8);
@@ -237,10 +237,11 @@ test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s
   expect(bosses[0]!.flankId).toBe(0);
   expect(bosses[0]!.y).toBeLessThan(-320);
 
-  // At t = 10.0s: Minions are trickling in (not blocked by Boss 2 at 20s), still only 1 boss
+  // At t = 10.0s: minions have joined Boss 1 under the 1.1s × 1.8 cadence at W = 2. Still only one boss.
   advanceToSec(10.0);
   expect(collectBosses().length).toBe(1);
-  expect(sim.getDebugStats().activeEnemies).toBeGreaterThan(3);
+  expect(sim.getDebugStats().activeEnemies).toBeGreaterThan(1);
+  expect(sim.getDebugStats().queuedEnemies).toBeLessThan(expectedMinions + 4);
 
   // At t = 19.8s: Boss 2 has not spawned yet
   advanceToSec(19.8);
@@ -254,12 +255,12 @@ test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s
   expect(southBoss).toBeDefined();
   expect(southBoss!.y).toBeGreaterThan(320);
 
-  // At t = 31.8s: Boss 3 & Boss 4 have not spawned yet
-  advanceToSec(31.8);
+  // At t = 29.8s: Boss 3 & Boss 4 have not spawned yet
+  advanceToSec(29.8);
   expect(collectBosses().length).toBe(2);
 
-  // At t = 32.1s: Boss 3 (East, flank 1) has spawned while Boss 4 (West) has not
-  advanceToSec(32.1);
+  // At t = 30.1s: Boss 3 (East, flank 1) has spawned while Boss 4 (West) has not
+  advanceToSec(30.1);
   bosses = collectBosses();
   expect(bosses.length).toBe(3);
   const eastBoss = bosses.find((b) => b.flankId === 1);
@@ -280,15 +281,15 @@ test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s
   expect(westBoss!.x).toBeLessThan(-320);
 });
 
-test('Wave 8 at W = 3.0 spaces minions at 1.35s and keeps boss timestamps fixed', () => {
+test('Wave 8 at W = 2.0 spaces minions at 1.98s and keeps boss timestamps fixed', () => {
   const world = createCyberWorld();
-  world.squadWeight = 3;
+  world.squadWeight = 2;
   populateWaveSpawns(world, 8);
 
   const baseCadence = getWaveDefinition(8).spawnCadenceSec;
-  expect(baseCadence).toBe(0.9);
+  expect(baseCadence).toBe(1.1);
   const cadence = baseCadence * waveCadenceMultiplier(world.squadWeight);
-  expect(cadence).toBeCloseTo(1.35, 5);
+  expect(cadence).toBeCloseTo(1.1 * 1.8, 5);
 
   const entries: Array<{ type: number; flank: number; delay: number }> = [];
   let head = world.spawnHead;
@@ -303,12 +304,12 @@ test('Wave 8 at W = 3.0 spaces minions at 1.35s and keeps boss timestamps fixed'
 
   const bosses = entries.filter((entry) => entry.type === ENEMY_TYPE.BOSS);
   expect(bosses.map((boss) => boss.flank)).toEqual([0, 2, 1, 3]);
-  expect(bosses.map((boss) => boss.delay)).toEqual([2, 20, 32, 35]);
+  expect(bosses.map((boss) => boss.delay)).toEqual([2, 20, 30, 35]);
 
   const minions = entries.filter((entry) => entry.type !== ENEMY_TYPE.BOSS);
   expect(minions.length).toBeGreaterThan(1);
   expect(minions[0]!.delay).toBeCloseTo(C.flankTelegraphSec + 3.5, 5);
   for (let i = 1; i < minions.length; i += 1) {
-    expect(minions[i]!.delay - minions[i - 1]!.delay).toBeCloseTo(1.35, 4);
+    expect(minions[i]!.delay - minions[i - 1]!.delay).toBeCloseTo(1.98, 4);
   }
 });

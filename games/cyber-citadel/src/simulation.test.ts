@@ -17,6 +17,7 @@ import empSrc from './emp.ts?raw';
 import flowFieldSrc from './flow-field.ts?raw';
 import railSrc from './rail.ts?raw';
 import reviveSrc from './revive.ts?raw';
+import { waveCadenceMultiplier, waveCountMultiplier } from './scaling.ts';
 import shieldSrc from './shield.ts?raw';
 import { createCyberCitadelSimulation } from './simulation.ts';
 import simSrc from './simulation.ts?raw';
@@ -269,7 +270,7 @@ test(
     const profiles = [
       { name: 'Wave 1 Solo', slots: [0], wave: 1, seed: 1001, ticks: 3000 },
       { name: 'Wave 4 Mixed', slots: [0, 1, 2, 3], wave: 4, seed: 4004, ticks: 3000 },
-      // Wave 8 runs to 4800 ticks (40.0s) so all 4 bosses (N@2s, S@20s, E@32s, W@35s) are fuzzed
+      // Wave 8 runs to 4800 ticks (40.0s) so all 4 bosses (N@2s, S@20s, E@30s, W@35s) are fuzzed
       { name: 'Wave 8 Full 8P', slots: [0, 1, 2, 3, 4, 5, 6, 7], wave: 8, seed: 8008, ticks: 4800 },
     ] as const;
 
@@ -422,9 +423,19 @@ test('natural Wave 7 -> WAVE_BREAK -> Wave 8 transition heals Core, resets boss 
   // Damage Core below max so we can observe the +10% WAVE_BREAK repair
   sim.state[CYBER_HEADER.coreHp] = 700;
 
-  // Advance Wave 7 until all queued enemies including the Wave 7 gatekeeper Dreadnought have spawned
+  // Advance Wave 7 until the queue is empty, including the gatekeeper Dreadnought.
+  // Two players use the 1.8 cadence band (0.28s × 1.8), so the drain window follows that stream.
+  const def7 = getWaveDefinition(7);
+  const squadWeight = sim.getSquadWeight();
+  const cadence = def7.spawnCadenceSec * waveCadenceMultiplier(squadWeight);
+  const countMult = waveCountMultiplier(squadWeight);
+  const minions =
+    Math.max(1, Math.round(def7.drones * countMult)) +
+    Math.max(1, Math.round(def7.fastDrones * countMult)) +
+    Math.max(1, Math.round(def7.brutes * countMult));
+  const drainTicks = Math.ceil((C.flankTelegraphSec + (minions + 4) * cadence + 1) / C.dt);
   let sawWave7Boss = false;
-  for (let i = 0; i < 4000; i += 1) {
+  for (let i = 0; i < drainTicks; i += 1) {
     if (i % 60 === 0 && sim.state[CYBER_HEADER.coreHp]! < 700) {
       sim.state[CYBER_HEADER.coreHp] = 700;
     }

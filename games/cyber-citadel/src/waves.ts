@@ -31,7 +31,7 @@ const WAVE_TABLE: readonly WaveDefinition[] = [
   { wave: 5, flanks: 3, drones: 24, fastDrones: 18, brutes: 10, hasBoss: false, spawnCadenceSec: 0.29 },
   { wave: 6, flanks: 4, drones: 20, fastDrones: 26, brutes: 13, hasBoss: false, spawnCadenceSec: 0.28 },
   { wave: 7, flanks: 4, drones: 28, fastDrones: 26, brutes: 15, hasBoss: true, spawnCadenceSec: 0.28 },
-  { wave: 8, flanks: 4, drones: 24, fastDrones: 12, brutes: 7, hasBoss: true, spawnCadenceSec: 0.9 },
+  { wave: 8, flanks: 4, drones: 24, fastDrones: 12, brutes: 7, hasBoss: true, spawnCadenceSec: 1.1 },
 ];
 
 export function getWaveDefinition(wave: number): WaveDefinition {
@@ -97,9 +97,9 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   // For Wave 7, spawn boss near the end alongside the final few enemies (~88% through minion spawns)
   const bossSpawnThreshold = def.wave === 7 ? Math.max(1, Math.round(totalMinions * 0.88)) : -1;
   let bossSpawnedInWave7 = false;
-  // For Wave 8, interleave Boss 2 (South @ 20.0s), Boss 3 (East @ 32.0s), and Boss 4 (West @ 35.0s) in FIFO delay order
+  // For Wave 8, interleave Boss 2 (South @ 20.0s), Boss 3 (East @ 30.0s), and Boss 4 (West @ 35.0s) in FIFO delay order
   const WAVE8_BOSS2_DELAY = 20.0;
-  const WAVE8_BOSS3_DELAY = 32.0;
+  const WAVE8_BOSS3_DELAY = 30.0;
   const WAVE8_BOSS4_DELAY = 35.0;
   let wave8Boss2Queued = false;
   let wave8Boss3Queued = false;
