@@ -118,3 +118,24 @@ test('buildCyberRehydrateEvents emits slot-scoped pad:state with remaining coold
   expect(payload.disabled & 0x08).toBe(0);
   expect(payload.cooldownEndsAt[0]).toBe(now + 1500);
 });
+
+test("buildCyberRehydrateEvents disables BOMB on rejoin in wave 2 when EMP was fired in wave 2 even if wave 1 EMP was skipped", () => {
+  const s = makeState();
+  s[CYBER_HEADER.phaseEnum] = CYBER_PHASE.WAVE_ACTIVE;
+  s[CYBER_HEADER.wave] = 2;
+  s[CYBER_HEADER.empFiredCount] = 2; // fired in wave 2
+  const b0 = playerBase(0);
+  s[b0 + CYBER_PLAYER_OFFSET.x] = 50;
+  s[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+
+  const events = buildCyberRehydrateEvents(s, 0, 100000);
+  const padEvent = events.find((e) => e.type === PAD_STATE_TYPE);
+  expect(padEvent).toBeDefined();
+  const payload = padEvent?.payload as {
+    slot: number;
+    labels: string[];
+    disabled: number;
+  };
+  expect(payload.labels[3]).toBe("REVIVE");
+  expect((payload.disabled & 0x08)).not.toBe(0);
+});

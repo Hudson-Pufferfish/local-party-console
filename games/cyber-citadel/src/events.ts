@@ -77,7 +77,7 @@ export function buildCyberRehydrateEvents(
   if ((flags & CYBER_FLAG.JOINED) === 0) return [];
 
   const wave = Math.trunc(state[CYBER_HEADER.wave] ?? 1);
-  const empFired = (state[CYBER_HEADER.empFiredCount] ?? 0) >= wave;
+  const empFired = Math.trunc(state[CYBER_HEADER.empFiredCount] ?? 0) === wave;
   const ctx = computeSlotPadContext(state, slot, empFired);
   const railCd = state[base + CYBER_PLAYER_OFFSET.railCooldown] ?? 0;
   const dashCd = state[base + CYBER_PLAYER_OFFSET.dashCooldown] ?? 0;

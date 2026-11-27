@@ -101,7 +101,7 @@ export function tickEmpSystem(w: CyberWorld, dt: number): void {
     if (charge >= 1.0) {
       // Discharge EMP!
       state[CYBER_HEADER.empCharge] = 0;
-      state[CYBER_HEADER.empFiredCount] = state[CYBER_HEADER.empFiredCount]! + 1;
+      state[CYBER_HEADER.empFiredCount] = state[CYBER_HEADER.wave] ?? (state[CYBER_HEADER.empFiredCount]! + 1);
       w.empFiredThisWave = true;
 
       for (let s = 0; s < C.maxPlayers; s += 1) {
