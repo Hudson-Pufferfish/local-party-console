@@ -4,11 +4,16 @@ export type LightPhase = (typeof LIGHT_PHASE)[keyof typeof LIGHT_PHASE];
 
 export type LightPlayerStatus = 'IN' | 'LOCKED' | 'OUT' | 'WATCHING';
 
+export interface StartMatchRoster {
+  readonly botMask?: Uint8Array;
+  readonly botLevels?: Uint8Array;
+}
+
 export interface LastLightSimulation {
   readonly state: Float32Array;
   applyInput(playerIndex: number, buttons: number, axisX: number, axisY: number): void;
   step(dt: number): void;
-  startMatch(slots: number[], seed?: number): void;
+  startMatch(slots: number[], seed?: number | StartMatchRoster, roster?: StartMatchRoster): void;
   setConnectedMask(mask: number): void;
   getMatchTarget(): number;
 }

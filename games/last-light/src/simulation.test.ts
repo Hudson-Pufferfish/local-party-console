@@ -478,4 +478,41 @@ describe('Last Light simulation (TDD)', () => {
       expect(checkedTicks).toBe(10000);
     },
   );
+
+  test('unseeded startMatch generates random baseSeed across invocations', () => {
+    const sim1 = createLastLightSimulation();
+    const sim2 = createLastLightSimulation();
+    sim1.startMatch([0, 1]);
+    sim2.startMatch([0, 1]);
+
+    // Fast-forward to scored active round to observe blowout target differences
+    const dt = 1 / C.stepHz;
+    while (sim1.state[H.phase] !== P.active) sim1.step(dt);
+    while (sim2.state[H.phase] !== P.active) sim2.step(dt);
+
+    // Both simulations step through active round until blowout occurs
+    let t1 = 0;
+    while (sim1.state[H.phase] === P.active && t1 < 2000) {
+      sim1.step(dt);
+      t1 += 1;
+    }
+    let t2 = 0;
+    while (sim2.state[H.phase] === P.active && t2 < 2000) {
+      sim2.step(dt);
+      t2 += 1;
+    }
+    expect(sim1.state[H.blowoutCount]).toBeGreaterThan(0);
+    expect(sim2.state[H.blowoutCount]).toBeGreaterThan(0);
+  });
+
+  test('startMatch sets LIGHT_FLAG.isBot when botMask is provided in roster', () => {
+    const sim = createLastLightSimulation();
+    sim.startMatch([0, 1], {
+      botMask: Uint8Array.from([0, 1, 0, 0, 0, 0, 0, 0]),
+    });
+    const p0Flags = readPlayerFlags(sim.state, 0);
+    const p1Flags = readPlayerFlags(sim.state, 1);
+    expect((p0Flags & LIGHT_FLAG.isBot)).toBe(0);
+    expect((p1Flags & LIGHT_FLAG.isBot)).toBe(LIGHT_FLAG.isBot);
+  });
 });

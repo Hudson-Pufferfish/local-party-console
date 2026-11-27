@@ -111,4 +111,21 @@ describe('Last Light control-plane events and INV-8 audit', () => {
       },
     ]);
   });
+
+  test('emits light:state when lamp resets from blown back to lit in practice', () => {
+    const diff = createLastLightEventsDiff();
+    const prev = new Float32Array(88);
+    const next = new Float32Array(88);
+
+    prev[H.tick] = 100;
+    prev[H.phase] = P.practice;
+    prev[H.lampFlags] = LAMP_FLAG.blown | LAMP_FLAG.practiceBlowout;
+
+    next[H.tick] = 101;
+    next[H.phase] = P.practice;
+    next[H.lampFlags] = LAMP_FLAG.lit | LAMP_FLAG.practiceBlowout;
+
+    const events = diff(prev, next, 3);
+    expect(events.some((e) => e.type === 'light:state')).toBe(true);
+  });
 });

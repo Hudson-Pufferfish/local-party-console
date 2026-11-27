@@ -109,13 +109,13 @@ Do not add per-game exit or rematch UI inside `games/<id>/`.
 
 ## 5. Integration Checklist for Single-Screen Games
 
-Sumo Dash is the initial consumer of `<MatchShell>`. Bomb Pass and Color Clash mount into the same seam.
+Sumo Dash is the initial consumer of `<MatchShell>`. Bomb Pass, Color Clash, and Last Light mount into the same seam.
 
 When adding a new single-screen game:
 
 1. Export a `GameManifest` with `viewConfig.mode: 'holistic'` in `games/<id>/src/manifest.ts`.
 2. Register the manifest eagerly and load `screen-runtime.ts` lazily with `import()` in `screen/src/register-games.ts`.
-3. Implement `ScreenGameRuntime` hooks (`createSim`, `createRenderer`, `scoreboardHeader`, `scoreboardRows`, `scoreRules`, `bannerCopy`, `rematchEventType`, and optionally `createRoundRanking`).
+3. Implement `ScreenGameRuntime` hooks (`createSim`, `createRenderer`, `scoreboardHeader`, `scoreboardRows`, `scoreRules`, `bannerCopy`, `rematchEventType`, `rehydrateEvent`, and optionally `createRoundRanking`).
 4. Do **not** edit `screen/src/app.tsx` or `screen/src/components/holistic/holistic-match-shell.tsx` to add game-specific branches.
 5. Set the simulation phase header to `MATCH_OVER` (`3`) when the match ends so `HostLoop` sets `matchOver` and `<HolisticMatchShell>` shows the podium buttons.
 6. Cite this file from `specifications/games-spec/<id>.md` instead of restating match chrome rules.
@@ -134,6 +134,6 @@ When adding a new single-screen game:
 | Match layout styles | `screen/src/styles/match.css` |
 | Lazy game loader and `ScreenGameRuntime` | `screen/src/register-games.ts` |
 | Host session and canvas binding | `screen/src/session.ts`, `screen/src/host-loop.ts` |
-| Initial consumer (`sumo-dash`) | `games/sumo-dash/src/screen-runtime.ts` |
+| Games (`sumo-dash`, `last-light`, etc.) | `games/<id>/src/screen-runtime.ts` |
 
 Cook plan: `plans/261125-0307-screen-host-infrastructure/`.

@@ -36,6 +36,11 @@ function stepMulberry32(seed: number): number {
   return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
 }
 
+export interface StartMatchRoster {
+  readonly botMask?: Uint8Array;
+  readonly botLevels?: Uint8Array;
+}
+
 export function createLastLightSimulation(): LastLightSimulation {
   const store = createLastLightState();
   const state = store.buffer;
@@ -443,7 +448,7 @@ export function createLastLightSimulation(): LastLightSimulation {
     beginPractice(false);
   }
 
-  function startMatch(slots: number[], seed?: number): void {
+  function startMatch(slots: number[], seed?: number | StartMatchRoster, roster?: StartMatchRoster): void {
     joinedCount = 0;
     joined.fill(0);
     suddenDeathActive = false;
@@ -452,9 +457,12 @@ export function createLastLightSimulation(): LastLightSimulation {
     flickerTicksLeft = 0;
     nextFlickerTick = 0;
 
+    const actualSeed = typeof seed === 'number' ? seed : undefined;
+    const actualRoster = typeof seed === 'object' && seed !== null ? seed : roster;
+
     const baseSeed =
-      (seed !== undefined
-        ? seed
+      (actualSeed !== undefined
+        ? actualSeed
         : typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
           ? crypto.getRandomValues(new Uint32Array(1))[0]!
           : C.defaultSeed) >>> 0;
@@ -475,7 +483,12 @@ export function createLastLightSimulation(): LastLightSimulation {
       joinedCount += 1;
       initialConnected |= 1 << slot;
       const base = playerBase(slot);
-      state[base + OFF.flags] = LIGHT_FLAG.joined | LIGHT_FLAG.active | LIGHT_FLAG.contender;
+      const isBot = actualRoster?.botMask?.[slot] === 1;
+      state[base + OFF.flags] =
+        LIGHT_FLAG.joined |
+        LIGHT_FLAG.active |
+        LIGHT_FLAG.contender |
+        (isBot ? LIGHT_FLAG.isBot : 0);
       state[base + OFF.lockTick] = -1;
     }
 

@@ -30,8 +30,6 @@ export const LAST_LIGHT_MANIFEST: GameManifest = {
   },
   supportedOrientations: ['portrait', 'landscape'],
   controllerLayout: {
-    // Proposal (not built): 'tap-only' is not in ControllerLayout yet
-    // (shared/src/controller/layout.ts). Open question 5, default: add it.
     preset: 'tap-only',
     buttons: [{ bit: 0, glyph: 'A', label: 'LOCK IN', kind: 'tap' }],
   },
@@ -43,7 +41,7 @@ export const LAST_LIGHT_MANIFEST: GameManifest = {
 };
 ```
 
-Existing platform controller presets are `stick-single` and `stick-diamond` (`shared/src/controller/layout.ts`), with `ControllerShell` mounting `<VirtualJoystick label="MOVE" />` by default (`shared/src/ui/controller-shell.tsx:114`). If the dedicated `tap-only` preset proposal is deferred, the controller shell can adopt `stick-single` and suppress joystick display via the existing `customBoardClass` property (`shared/src/ui/controller-shell.tsx:20`). The primary button label `LOCK IN` is the default.
+Platform controller presets include `tap-only`, `stick-single`, and `stick-diamond` (`shared/src/controller/layout.ts`). With `preset: 'tap-only'`, the controller shell renders only the action button and suppresses the virtual joystick. The primary button label `LOCK IN` is the default.
 
 ---
 
@@ -196,7 +194,7 @@ Top screen banner displays `BREAK <n>` in practice, countdown numbers `3 / 2 / 1
   1. Top instructional copy: `Tap to lock in`, `Latest tap before the blowout wins`, `Never tapped? You are out`.
   2. Public Lock-In Roster: Displays color dots and short tags of players who have successfully locked in. Does not reveal timestamps or chronological rank order.
   3. Payout Table: Lists point distribution (`1ST: +7 PTS`, etc.), collapsing to `1ST: +1 PTS` during sudden death.
-* **ScoreRules Extension Proposal:** Proposes extending the `ScoreRules` type (`screen/src/register-games.ts:29-30`) with optional `howTo: string[]` and `lockedIn: { slot: number, name: string, color: string }[]` fields rendered above standard rule rows.
+* **ScoreRules Extension:** Uses the `ScoreRules` type (`screen/src/register-games.ts:29-30`) with optional `howTo: string[]` and `lockedIn: { slot: number, name: string, color: string }[]` fields rendered above standard rule rows.
 * **Podium Sequence:** Displays final match standings, winner highlight, and host rematch controls.
 
 ---
@@ -234,7 +232,7 @@ Byte 7    : [Int8]   axisY       Ignored by Last Light (0)
 
 ### B. Control-Plane WebSocket Contracts (`ws` JSON — Reliable TCP)
 
-**Proposal (not built):** The `light` prefix must be added to `ALLOWED_GAME_PREFIXES` in `shared/src/types/game-control.ts:1`. Payloads broadcast to the room omit secret timestamps:
+The `light` prefix is included in `ALLOWED_GAME_PREFIXES` in `shared/src/types/game-control.ts:1`. Payloads broadcast to the room omit secret timestamps:
 
 | Event `type` | Direction | Payload Schema | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -360,8 +358,8 @@ MATCH_OVER -> [light:rematch action]
 2. **Sudden death break:** Skip the 20 s practice (like Bomb Pass), or keep it (like Color Clash)? **Default: skip.**
 3. **Flickers:** None, honest only, or mixed fakes? **Default: mixed and rare.**
 4. **Windows:** 3 to 12 s scored, 1 to 3.5 s practice, increasing hazard after the floor? **Default: yes.**
-5. **Controller layout:** New `tap-only` preset, or hide the `stick-single` joystick with CSS? **Default: `tap-only` preset (proposal).**
-6. **Left column:** Extend `ScoreRules` with `howTo` and `lockedIn`, or draw in the arena canvas? **Default: extend `ScoreRules` (proposal).**
+5. **Controller layout:** New `tap-only` preset, or hide the `stick-single` joystick with CSS? **Default: `tap-only` preset.**
+6. **Left column:** Extend `ScoreRules` with `howTo` and `lockedIn`, or draw in the arena canvas? **Default: extend `ScoreRules`.**
 7. **Same-tick tie in sudden death:** Replay with no $+1$? **Default: replay.**
 8. **Late join in practice breaks:** Keep `MATCH_IN_PROGRESS` for v1? **Default: yes.**
 9. **Ids:** Game id `last-light`, event prefix `light`? **Default: yes.**

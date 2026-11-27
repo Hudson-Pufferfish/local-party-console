@@ -159,4 +159,53 @@ describe('Last Light tap-only controller view', () => {
     expect(lockedHtml).toContain('LOCKED');
     expect(lockedHtml).toMatch(/disabled[^>]*>LOCKED</);
   });
+
+  test('does not flash 0 score on practice breaks between rounds (breakNumber > 1)', () => {
+    const initialHtml = renderToString(() => (
+      <LastLightController
+        color="#FF4D00"
+        name="Ada"
+        slot={0}
+        control={{
+          type: 'light:round_start',
+          payload: { roundNumber: 1, countdownMs: 3000, scores: [1, 0, 0, 0, 0, 0, 0, 0], suddenDeath: false, contenderMask: 0b11 },
+        }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+    expect(initialHtml).toContain('1 PTS');
+
+    // Break 2 practice start must preserve score 1
+    let hud = reduceLightControl(
+      createInitialLightHudState(),
+      {
+        type: 'light:round_start',
+        payload: { roundNumber: 1, countdownMs: 3000, scores: [1, 0, 0, 0, 0, 0, 0, 0], suddenDeath: false, contenderMask: 0b11 },
+      },
+      0,
+    );
+    expect(hud.score).toBe(1);
+
+    hud = reduceLightControl(
+      hud,
+      {
+        type: 'light:practice_start',
+        payload: { durationMs: 20000, breakNumber: 2 },
+      },
+      0,
+    );
+    expect(hud.score).toBe(1);
+
+    // Initial break 1 practice start must reset score to 0
+    hud = reduceLightControl(
+      hud,
+      {
+        type: 'light:practice_start',
+        payload: { durationMs: 30000, breakNumber: 1 },
+      },
+      0,
+    );
+    expect(hud.score).toBe(0);
+  });
 });

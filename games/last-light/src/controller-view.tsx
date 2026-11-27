@@ -33,7 +33,17 @@ export function reduceLightControl(
   if (message === null) return prev;
   const bit = slot >= 0 && slot < 8 ? 1 << slot : 0;
 
-  if (message.type === 'light:practice_start' || message.type === 'light:rematch') {
+  if (message.type === 'light:practice_start') {
+    const breakNumber = readIntField(message.payload, 'breakNumber');
+    return {
+      ...prev,
+      phase: P.practice,
+      status: 'IN',
+      score: breakNumber === 1 ? 0 : prev.score,
+    };
+  }
+
+  if (message.type === 'light:rematch') {
     return {
       ...prev,
       phase: P.practice,
