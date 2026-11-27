@@ -27,6 +27,7 @@ import {
 } from './state.ts';
 import { clearBossSlot, createCyberWorld, tickAndSyncAuxState } from './world.ts';
 import { findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget, updateBossFsm } from './boss.ts';
+import { tickEmpSystem } from './emp.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 
 test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
@@ -584,4 +585,68 @@ test('EMP stun immediately cancels an active Boss sweeping laser and resets post
   expect(w.bossLaserLen[slot]).toBe(0);
   expect(w.eStateFlags[bossEid]! & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
   expect(w.bossLaserTimer[slot]).toBeCloseTo(3.0, 5);
+});
+
+test('tickEmpSystem discharge clears boss LASER_SWEEP and bossLaserLen on the same tick before updateBossFsm runs', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  const b0 = playerBase(0);
+  w.state[b0 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.JOINED | CYBER_FLAG.ACTIVE | CYBER_FLAG.EMP_JOINED;
+  w.state[b0 + CYBER_PLAYER_OFFSET.x] = 60;
+  w.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  w.state[CYBER_HEADER.wave] = 8;
+  w.state[CYBER_HEADER.empCharge] = 0.999;
+
+  // Phase 1 boss inside EMP blast radius (120 <= 360)
+  const bossP1 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 120, 0, 1);
+  const slotP1 = findBossSlotByEnemyIdx(w, bossP1);
+  w.bossPhase[slotP1] = 1;
+  w.bossLaserActive[slotP1] = 1;
+  w.bossLaserLen[slotP1] = 240;
+  w.bossLaserTimer[slotP1] = 1.2;
+  w.eStateFlags[bossP1] = (w.eStateFlags[bossP1]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+
+  // Phase 3 boss inside EMP blast radius (120 <= 360)
+  const bossP3 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, -120, 0, 3);
+  const slotP3 = findBossSlotByEnemyIdx(w, bossP3);
+  w.bossPhase[slotP3] = 3;
+  w.bossLaserActive[slotP3] = 1;
+  w.bossLaserLen[slotP3] = 190;
+  w.bossLaserTimer[slotP3] = 1.4;
+  w.eStateFlags[bossP3] = (w.eStateFlags[bossP3]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+
+  // Sweeping boss outside EMP blast radius (~495 > 360) must keep sweeping
+  const bossFar = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 350, 350, 1);
+  const slotFar = findBossSlotByEnemyIdx(w, bossFar);
+  w.bossPhase[slotFar] = 1;
+  w.bossLaserActive[slotFar] = 1;
+  w.bossLaserLen[slotFar] = 180;
+  w.bossLaserTimer[slotFar] = 1.1;
+  w.eStateFlags[bossFar] = (w.eStateFlags[bossFar]! | ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+
+  // Discharge EMP without calling updateBossFsm afterward (same tick as Stage 6 -> aux sync)
+  tickEmpSystem(w, C.dt);
+  tickAndSyncAuxState(w);
+
+  expect(w.empFiredThisWave).toBe(true);
+
+  expect(w.eStunTimer[bossP1]).toBeCloseTo(1.5, 5);
+  expect(w.bossLaserActive[slotP1]).toBe(0);
+  expect(w.bossLaserLen[slotP1]).toBe(0);
+  expect(readBossLaserLen(w.auxView, slotP1)).toBe(0);
+  expect(w.eStateFlags[bossP1]! & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(readEnemy(w.auxView, bossP1).stateFlags & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(w.bossLaserTimer[slotP1]).toBeCloseTo(4.2, 5);
+
+  expect(w.eStunTimer[bossP3]).toBeCloseTo(1.5, 5);
+  expect(w.bossLaserActive[slotP3]).toBe(0);
+  expect(w.bossLaserLen[slotP3]).toBe(0);
+  expect(readBossLaserLen(w.auxView, slotP3)).toBe(0);
+  expect(w.eStateFlags[bossP3]! & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(readEnemy(w.auxView, bossP3).stateFlags & ENEMY_STATE_FLAG.LASER_SWEEP).toBe(0);
+  expect(w.bossLaserTimer[slotP3]).toBeCloseTo(3.0, 5);
+
+  expect(w.bossLaserActive[slotFar]).toBe(1);
+  expect(w.bossLaserLen[slotFar]).toBeCloseTo(180, 5);
+  expect(w.eStateFlags[bossFar]! & ENEMY_STATE_FLAG.LASER_SWEEP).not.toBe(0);
 });

@@ -21,6 +21,15 @@ export function findBossSlotByEnemyIdx(w: CyberWorld, enemyIdx: number): number 
   return -1;
 }
 
+export function cancelBossLaser(w: CyberWorld, b: number, bIdx: number): void {
+  if (w.bossLaserActive[b] === 0) return;
+  w.bossLaserActive[b] = 0;
+  w.bossLaserLen[b] = 0;
+  w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+  const phase = w.bossPhase[b]!;
+  w.bossLaserTimer[b] = phase === 3 ? 3.0 : 4.2;
+}
+
 export function isBossVulnerable(w: CyberWorld, enemyIdx: number): boolean {
   const b = findBossSlotByEnemyIdx(w, enemyIdx);
   return b >= 0 && w.bossVulnerableTimer[b]! > 0;
@@ -261,17 +270,11 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
         }
 
         if (w.bossLaserTimer[b]! <= 0) {
-          w.bossLaserActive[b] = 0;
-          w.bossLaserLen[b] = 0;
-          w.bossLaserTimer[b] = phase === 3 ? 3.0 : 4.2;
-          w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
+          cancelBossLaser(w, b, bIdx);
         }
       }
-    } else if (w.bossLaserActive[b] !== 0) {
-      w.bossLaserActive[b] = 0;
-      w.bossLaserLen[b] = 0;
-      w.eStateFlags[bIdx] = (w.eStateFlags[bIdx]! & ~ENEMY_STATE_FLAG.LASER_SWEEP) & 0x3f;
-      w.bossLaserTimer[b] = phase === 3 ? 3.0 : 4.2;
+    } else {
+      cancelBossLaser(w, b, bIdx);
     }
   }
 

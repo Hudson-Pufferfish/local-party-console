@@ -1,3 +1,4 @@
+import { cancelBossLaser, findBossSlotByEnemyIdx } from './boss.ts';
 import {
   AUX_LAYOUT,
   CYBER_CITADEL_CONSTANTS as C,
@@ -130,6 +131,10 @@ export function tickEmpSystem(w: CyberWorld, dt: number): void {
           w.squadDamageDealt += C.empDroneDamage;
           w.eStunTimer[i] = 1.5;
           w.eStateFlags[i] = (w.eStateFlags[i]! | ENEMY_STATE_FLAG.STUNNED) & 0x3f;
+          const b = findBossSlotByEnemyIdx(w, i);
+          if (b >= 0 && b < C.maxBosses) {
+            cancelBossLaser(w, b, i);
+          }
         } else {
           w.ePendingDamage[i] = w.ePendingDamage[i]! + C.empDroneDamage;
           w.squadDamageDealt += C.empDroneDamage;
