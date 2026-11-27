@@ -69,6 +69,11 @@
   transform: scaleX(1);
 }
 
+.button-cooldown-meter[data-phase] {
+  height: 12px;
+  border-top: 2px solid var(--ink, #111111);
+}
+
 .button-cooldown-meter[data-phase='ready'] {
   transform: scaleX(1);
   background: var(--accent-ready, #00c853);
