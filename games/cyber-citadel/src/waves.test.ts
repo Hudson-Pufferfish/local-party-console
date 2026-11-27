@@ -241,7 +241,7 @@ test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@30s, W@35s) alongside 1.1s
   advanceToSec(10.0);
   expect(collectBosses().length).toBe(1);
   expect(sim.getDebugStats().activeEnemies).toBeGreaterThan(1);
-  expect(sim.getDebugStats().queuedEnemies).toBeLessThan(expectedMinions + 4);
+  expect(sim.getDebugStats().queuedEnemies).toBeLessThanOrEqual(expectedMinions);
 
   // At t = 19.8s: Boss 2 has not spawned yet
   advanceToSec(19.8);
