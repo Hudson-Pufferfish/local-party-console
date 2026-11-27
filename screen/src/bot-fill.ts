@@ -39,8 +39,8 @@ export function nextBotDifficulty(
   return { botCount: state.botCount, difficulty, locked: false };
 }
 
-export function clampBotCount(requested: number, humans: number, maxPlayers: number): number {
-  const seats = Math.max(0, maxPlayers - Math.max(0, humans));
+export function clampBotCount(requested: number, occupied: number, maxPlayers: number): number {
+  const seats = Math.max(0, maxPlayers - Math.max(0, occupied));
   if (!Number.isFinite(requested)) return 0;
   let value = Math.trunc(requested);
   if (value < 0) value = 0;
@@ -48,18 +48,33 @@ export function clampBotCount(requested: number, humans: number, maxPlayers: num
   return value;
 }
 
+export interface NextBotCountInput {
+  /** Requested bot count from the lobby stepper. */
+  requested: number;
+  /** Connected (LIVE) human players. Zero makes the call a no-op. */
+  humans: number;
+  /** All joined seats (LIVE and AWAY). Caps the maximum allowed bots. */
+  occupied: number;
+  /** Maximum player slots for the selected game. */
+  maxPlayers: number;
+  /** Whether the selected game supports bots. */
+  supportsBots: boolean;
+}
+
+/**
+ * Compute the next lobby bot state for a stepper request.
+ * Returns `state` unchanged when locked, when `humans <= 0`, when bots are
+ * unsupported, or when a raise exceeds `maxPlayers - occupied`.
+ */
 export function nextBotCount(
   state: BotLobbyState,
-  requested: number,
-  humans: number,
-  maxPlayers: number,
-  supportsBots: boolean,
+  input: NextBotCountInput,
 ): BotLobbyState {
-  if (state.locked || humans <= 0 || !supportsBots) return state;
-  const clamped = clampBotCount(requested, humans, maxPlayers);
-  if (requested > clamped) {
-    const lowered = Math.trunc(requested);
-    if (!Number.isFinite(requested) || lowered >= state.botCount || lowered < 0) return state;
+  if (state.locked || input.humans <= 0 || !input.supportsBots) return state;
+  const clamped = clampBotCount(input.requested, input.occupied, input.maxPlayers);
+  if (input.requested > clamped) {
+    const lowered = Math.trunc(input.requested);
+    if (!Number.isFinite(input.requested) || lowered >= state.botCount || lowered < 0) return state;
     return { botCount: lowered, difficulty: state.difficulty, locked: false };
   }
   if (clamped === state.botCount) return state;
@@ -68,6 +83,7 @@ export function nextBotCount(
 
 export function startBlockReason(input: {
   humans: number;
+  occupied: number;
   bots: number;
   minPlayers: number;
   maxPlayers: number;
@@ -75,7 +91,7 @@ export function startBlockReason(input: {
 }): StartBlock | null {
   const bots = input.supportsBots ? input.bots : 0;
   if (input.humans <= 0) return 'no-human';
-  if (input.humans + bots > input.maxPlayers) return 'over-cap';
+  if (input.occupied + bots > input.maxPlayers) return 'over-cap';
   if (input.humans + bots < input.minPlayers) return 'below-min';
   return null;
 }
@@ -97,6 +113,7 @@ export function rosterForStart(
   }
   if (startBlockReason({
     humans,
+    occupied: players.length,
     bots: botCount,
     minPlayers: manifest.minPlayers,
     maxPlayers: manifest.maxPlayers,
