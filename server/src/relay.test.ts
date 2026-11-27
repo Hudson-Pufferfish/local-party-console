@@ -150,6 +150,15 @@ function settle(): Promise<void> {
   });
 }
 
+function collectTypes(socket: WebSocket): string[] {
+  const seen: string[] = [];
+  socket.on('message', (data, isBinary) => {
+    if (isBinary) return;
+    seen.push((JSON.parse(data.toString()) as TextFrame).type);
+  });
+  return seen;
+}
+
 test('an 8-byte controller frame is forwarded only to the claimed screen', async () => {
   const relay = await startRelay();
   const sockets: WebSocket[] = [];
@@ -1133,6 +1142,171 @@ test('relay forwards phone:tier and phone:longtask telemetry from phone to scree
     const forwardedTypes = screenMessages.map((m) => m.type);
     expect(forwardedTypes).toContain('phone:tier');
     expect(forwardedTypes).toContain('phone:longtask');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+const SPOOFED_ROOM_TYPES = [
+  'room:kicked',
+  'room:players',
+  'room:joined',
+  'room:full',
+  'room:rejected',
+] as const;
+
+test('a phone cannot send room:kicked, room:players, room:joined, room:full, or room:rejected', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const ada = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const bob = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, ada, bob);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const adaJoined = waitForText(ada, 'room:joined');
+    const adaRoster = waitForText(screen, 'room:players');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'ADA' } }));
+    await Promise.all([adaJoined, adaRoster]);
+
+    const bobJoined = waitForText(bob, 'room:joined');
+    const bobRoster = waitForText(screen, 'room:players');
+    bob.send(JSON.stringify({ type: 'room:join', payload: { name: 'BOB' } }));
+    await Promise.all([bobJoined, bobRoster]);
+
+    const phoneSeen = collectTypes(bob);
+    const screenSeen = collectTypes(screen);
+    for (const type of SPOOFED_ROOM_TYPES) {
+      ada.send(JSON.stringify({
+        type,
+        payload: { reason: 'kicked', players: [], index: 1 },
+      }));
+    }
+    await settle();
+
+    for (const type of SPOOFED_ROOM_TYPES) {
+      expect(phoneSeen).not.toContain(type);
+      expect(screenSeen).not.toContain(type);
+    }
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+test('a phone cannot send telemetry or signaling for another slot', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const joined = waitForText(phone, 'room:joined');
+    const roster = waitForText(screen, 'room:players');
+    phone.send(JSON.stringify({ type: 'room:join', payload: { name: 'ADA' } }));
+    const joinFrame = await Promise.all([joined, roster]);
+    expect(joinFrame[0].payload?.index).toBe(0);
+
+    const seen = collectTypes(screen);
+    phone.send(JSON.stringify({
+      type: 'phone:tier',
+      payload: { slot: 1, tier: 60, lowPower: false, cores: 4 },
+    }));
+    phone.send(JSON.stringify({
+      type: 'signal:answer',
+      payload: { slot: 1, sdp: 'v=0' },
+    }));
+    await settle();
+    expect(seen).not.toContain('phone:tier');
+    expect(seen).not.toContain('signal:answer');
+
+    phone.send(JSON.stringify({
+      type: 'phone:tier',
+      payload: { slot: 0, tier: 60, lowPower: false, cores: 4 },
+    }));
+    phone.send(JSON.stringify({
+      type: 'signal:answer',
+      payload: { slot: 0, sdp: 'v=0' },
+    }));
+    await settle();
+    expect(seen).toContain('phone:tier');
+    expect(seen).toContain('signal:answer');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+test('a phone net:ping reaches screens but not other phones', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const ada = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    const bob = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, ada, bob);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    const adaJoined = waitForText(ada, 'room:joined');
+    ada.send(JSON.stringify({ type: 'room:join', payload: { name: 'ADA' } }));
+    await adaJoined;
+    const bobJoined = waitForText(bob, 'room:joined');
+    bob.send(JSON.stringify({ type: 'room:join', payload: { name: 'BOB' } }));
+    await bobJoined;
+
+    const phoneSeen = collectTypes(bob);
+    const screenPing = waitForText(screen, 'net:ping');
+    ada.send(JSON.stringify({ type: 'net:ping', payload: { t: 11 } }));
+    const frame = await screenPing;
+    expect((frame.payload as { t?: number } | undefined)?.t).toBe(11);
+    await settle();
+    expect(phoneSeen).not.toContain('net:ping');
+  } finally {
+    for (const socket of sockets) socket.close();
+    await relay.close();
+  }
+});
+
+test('an unjoined controller phone:tier is dropped', async () => {
+  const relay = await startRelay();
+  const sockets: WebSocket[] = [];
+  try {
+    const created = await postRoom(relay.port);
+    const screen = await connect(
+      relay.port,
+      `room=${created.roomId}&role=screen&hostToken=${created.hostToken}`,
+    );
+    const phone = await connect(relay.port, `room=${created.roomId}&role=controller`);
+    sockets.push(screen, phone);
+
+    screen.send(JSON.stringify({ type: 'viewport:claim', payload: {} }));
+    await settle();
+
+    const seen = collectTypes(screen);
+    phone.send(JSON.stringify({
+      type: 'phone:tier',
+      payload: { slot: 0, tier: 60, lowPower: false, cores: 4 },
+    }));
+    phone.send(JSON.stringify({ type: 'net:ping', payload: { t: 4 } }));
+    await settle();
+    expect(seen).not.toContain('phone:tier');
+    expect(seen).not.toContain('net:ping');
   } finally {
     for (const socket of sockets) socket.close();
     await relay.close();
