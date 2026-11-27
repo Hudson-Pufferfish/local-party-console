@@ -195,7 +195,7 @@ test('Wave 7 spawns gatekeeper Boss at flank 0 alongside final minions while Wav
   expect(w8Boss!.y).toBeLessThan(-320);
 });
 
-test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s minion cadence', () => {
+test('Wave 8 schedules 4 Dreadnoughts (N@2s, S@20s, E@32s, W@35s) alongside 0.9s base minion cadence', () => {
   const sim = createCyberCitadelSimulation();
   sim.startMatch([0, 1], 8888);
   sim.jumpToWave(8);
