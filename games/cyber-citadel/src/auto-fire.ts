@@ -1,4 +1,4 @@
-import { isBossVulnerable } from './boss.ts';
+import { findBossSlotByEnemyIdx, isBossVulnerable } from './boss.ts';
 import { hitsBruteFrontalShield } from './brute.ts';
 import {
   CYBER_CITADEL_CONSTANTS as C,
@@ -140,7 +140,11 @@ export function processAutoFireStage(w: CyberWorld, dt: number): void {
     w.ePendingDamage[targetId] = w.ePendingDamage[targetId]! + dmg;
     w.squadDamageDealt += dmg;
     if (type === ENEMY_TYPE.BOSS) {
-      w.pBossThreat[s] = w.pBossThreat[s]! + dmg;
+      const bSlot = findBossSlotByEnemyIdx(w, targetId);
+      if (bSlot >= 0) {
+        const off = bSlot * C.maxPlayers + s;
+        w.bossThreat[off] = w.bossThreat[off]! + dmg;
+      }
     }
     spawnTracer(w, ex, ey, s, PROJECTILE_FLAG.ACTIVE, C.autoFireTracerTicks);
   }

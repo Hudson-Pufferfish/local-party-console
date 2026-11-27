@@ -578,7 +578,7 @@ export function createCyberCitadelSimulation(
     w.pReviveTarget.fill(-1);
     w.pDisconnectTimer.fill(0);
     w.pPendingDamage.fill(0);
-    w.pBossThreat.fill(0);
+    w.bossThreat.fill(0);
     resetAllPools(w);
 
     w.squadDamageDealt = 0;

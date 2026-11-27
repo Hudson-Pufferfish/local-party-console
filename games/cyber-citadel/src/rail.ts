@@ -1,4 +1,4 @@
-import { isBossVulnerable } from './boss.ts';
+import { findBossSlotByEnemyIdx, isBossVulnerable } from './boss.ts';
 import {
   AUX_LAYOUT,
   BUTTON_BIT,
@@ -189,7 +189,11 @@ export function processRailStage(w: CyberWorld): void {
         w.ePendingDamage[eid] = w.ePendingDamage[eid]! + dmg;
         w.squadDamageDealt += dmg;
         if (type === ENEMY_TYPE.BOSS) {
-          w.pBossThreat[s] = w.pBossThreat[s]! + dmg;
+          const bSlot = findBossSlotByEnemyIdx(w, eid);
+          if (bSlot >= 0) {
+            const off = bSlot * C.maxPlayers + s;
+            w.bossThreat[off] = w.bossThreat[off]! + dmg;
+          }
         } else {
           w.eKnockX[eid] = w.eKnockX[eid]! + rdx * C.railKnockback;
           w.eKnockY[eid] = w.eKnockY[eid]! + rdy * C.railKnockback;

@@ -61,7 +61,7 @@ export interface CyberWorld {
   readonly pReviveTarget: Int8Array; // for reviver slot -> downed target slot (-1 none)
   readonly pDisconnectTimer: Float32Array;
   readonly pPendingDamage: Float32Array;
-  readonly pBossThreat: Float32Array;
+  readonly bossThreat: Float32Array; // C.maxBosses * C.maxPlayers (4 * 8 = 32)
 
   // Enemy SoA (160 cap)
   readonly enemyPool: FreeList;
@@ -192,7 +192,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
     pReviveTarget: new Int8Array(C.maxPlayers),
     pDisconnectTimer: new Float32Array(C.maxPlayers),
     pPendingDamage: new Float32Array(C.maxPlayers),
-    pBossThreat: new Float32Array(C.maxPlayers),
+    bossThreat: new Float32Array(C.maxBosses * C.maxPlayers),
 
     enemyPool: createFreeList(maxE),
     eType: new Uint8Array(maxE),

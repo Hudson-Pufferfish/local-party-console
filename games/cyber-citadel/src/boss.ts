@@ -25,6 +25,9 @@ export function clearBossSlot(w: CyberWorld, bossSlot: number): void {
   w.bossVulnerableTimer[bossSlot] = 0;
   w.bossWeakMask[bossSlot] = 0;
   w.bossPhase[bossSlot] = 0;
+
+  const threatOffset = bossSlot * C.maxPlayers;
+  w.bossThreat.fill(0, threatOffset, threatOffset + C.maxPlayers);
 }
 
 export function findBossSlotByEnemyIdx(w: CyberWorld, enemyIdx: number): number {
@@ -62,7 +65,7 @@ export function resetBossState(w: CyberWorld): void {
   for (let b = 0; b < C.maxBosses; b += 1) {
     clearBossSlot(w, b);
   }
-  w.pBossThreat.fill(0);
+  w.bossThreat.fill(0);
   w.state[CYBER_HEADER.bossPhase] = 0;
 }
 
@@ -76,7 +79,8 @@ export function onBossDashHit(w: CyberWorld, slot: number, enemyIdx: number, px:
   if (targetBossSlot < 0) return;
 
   const bIdx = enemyIdx;
-  w.pBossThreat[slot] = w.pBossThreat[slot]! + 80;
+  const threatOff = targetBossSlot * C.maxPlayers + slot;
+  w.bossThreat[threatOff] = w.bossThreat[threatOff]! + 80;
   const bx = w.eX[bIdx]!;
   const by = w.eY[bIdx]!;
   const hitAngle = Math.atan2(py - by, px - bx);
@@ -107,11 +111,12 @@ export function onBossDashHit(w: CyberWorld, slot: number, enemyIdx: number, px:
 /**
  * Composite threat aggro: accumulated damage + dash hits + proximity bonus.
  */
-export function selectBossThreatTarget(w: CyberWorld, bx: number, by: number): number {
+export function selectBossThreatTarget(w: CyberWorld, bossSlot: number, bx: number, by: number): number {
   const state = w.state;
   let bestSlot = 8; // Core fallback
-  let bestScore = -1;
+  let bestScore = 0; // Threat / proximity must be strictly positive to draw aggro off the Core
 
+  const threatOffset = bossSlot * C.maxPlayers;
   for (let s = 0; s < C.maxPlayers; s += 1) {
     if (w.pJoined[s] === 0) continue;
     const base = playerBase(s);
@@ -121,7 +126,7 @@ export function selectBossThreatTarget(w: CyberWorld, bx: number, by: number): n
     const dy = state[base + CYBER_PLAYER_OFFSET.y]! - by;
     const dist = Math.hypot(dx, dy);
     const proximityBonus = dist < 350 ? (350 - dist) * 0.4 : 0;
-    const score = w.pBossThreat[s]! + proximityBonus;
+    const score = w.bossThreat[threatOffset + s]! + proximityBonus;
     if (score > bestScore) {
       bestScore = score;
       bestSlot = s;
@@ -204,7 +209,7 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
       w.eTarget[bIdx] = 8; // Core
     } else {
       w.eSpeed[bIdx] = C.bossSpeed;
-      w.eTarget[bIdx] = selectBossThreatTarget(w, bx, by);
+      w.eTarget[bIdx] = selectBossThreatTarget(w, b, bx, by);
     }
 
     // Sweeping laser barrage state (independent per boss slot)
@@ -271,11 +276,11 @@ export function updateBossFsm(w: CyberWorld, dt: number): void {
   if (!anyActiveBoss) return;
 
   // Slight threat decay over time so recent damage/dashes steer aggro
-  for (let s = 0; s < C.maxPlayers; s += 1) {
-    const cur = w.pBossThreat[s]!;
+  for (let i = 0; i < C.maxBosses * C.maxPlayers; i += 1) {
+    const cur = w.bossThreat[i]!;
     if (cur > 0) {
       const dec = cur - 10 * dt;
-      w.pBossThreat[s] = dec > 0 ? dec : 0;
+      w.bossThreat[i] = dec > 0 ? dec : 0;
     }
   }
 }

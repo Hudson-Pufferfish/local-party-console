@@ -4,6 +4,7 @@ import {
   BOSS_WEAK_FLAG,
   BUTTON_BIT,
   CYBER_CITADEL_CONSTANTS as C,
+  CYBER_FLAG,
   CYBER_HEADER,
   CYBER_PHASE,
   CYBER_PLAYER_OFFSET,
@@ -13,7 +14,7 @@ import {
 import { createCyberCitadelSimulation } from './simulation.ts';
 import { createAuxView, playerBase, readBossSlotMeta, readEnemy, readMetaTrailer } from './state.ts';
 import { createCyberWorld } from './world.ts';
-import { findBossSlotByEnemyIdx, onBossDashHit } from './boss.ts';
+import { clearBossSlot, findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget } from './boss.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 
 test('Brute 120-degree frontal shield deflects +-59 deg, allows +-61 deg, RAIL pierces, DASH resets 1.0s spin', () => {
@@ -346,4 +347,75 @@ test('onBossDashHit resolves the specific collided enemyIdx even when multiple b
   // Boss A remains un-hit and intact
   expect(w.bossWeakMask[slotA]).toBe(0);
   expect(w.bossVulnerableTimer[slotA]).toBe(0);
+});
+
+test('per-boss threat isolates aggro across players and supports split-tanking', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  w.pJoined[1] = 1;
+
+  const base0 = playerBase(0);
+  const base1 = playerBase(1);
+  w.state[base0 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.ACTIVE;
+  w.state[base0 + CYBER_PLAYER_OFFSET.x] = 0;
+  w.state[base0 + CYBER_PLAYER_OFFSET.y] = -300; // 100px from Boss A
+
+  w.state[base1 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.ACTIVE;
+  w.state[base1 + CYBER_PLAYER_OFFSET.x] = 0;
+  w.state[base1 + CYBER_PLAYER_OFFSET.y] = 300; // 100px from Boss B
+
+  const bossEidA = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, -200);
+  const bossEidB = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 2, 0, 200);
+  const slotA = findBossSlotByEnemyIdx(w, bossEidA);
+  const slotB = findBossSlotByEnemyIdx(w, bossEidB);
+
+  // Player 0 deals damage/dash to Boss A; Player 1 deals damage/dash to Boss B
+  const offA0 = slotA * C.maxPlayers + 0;
+  const offB1 = slotB * C.maxPlayers + 1;
+  w.bossThreat[offA0] = 500;
+  w.bossThreat[offB1] = 500;
+
+  // Boss A targets Player 0, Boss B targets Player 1
+  expect(selectBossThreatTarget(w, slotA, 0, -200)).toBe(0);
+  expect(selectBossThreatTarget(w, slotB, 0, 200)).toBe(1);
+
+  // P0's massive threat on Boss A does NOT pull Boss B
+  const offB0 = slotB * C.maxPlayers + 0;
+  expect(w.bossThreat[offB0]).toBe(0);
+  expect(selectBossThreatTarget(w, slotB, 0, 200)).not.toBe(0);
+});
+
+test('unengaged boss > 350px from all active players falls back to Core (target 8)', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  const base0 = playerBase(0);
+  w.state[base0 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.ACTIVE;
+  w.state[base0 + CYBER_PLAYER_OFFSET.x] = 0;
+  w.state[base0 + CYBER_PLAYER_OFFSET.y] = -380; // > 350px from (0, 0)
+
+  const bossEid = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, 0);
+  const slot = findBossSlotByEnemyIdx(w, bossEid);
+
+  // With 0 threat and distance 380px > 350px (proximityBonus = 0), score = 0
+  // selectBossThreatTarget bestScore starts at 0, so fallback 8 (Core) is chosen
+  expect(selectBossThreatTarget(w, slot, 0, 0)).toBe(8);
+});
+
+test('slot reuse clears previous threat values for that boss slot', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  const eid1 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, -200);
+  const slot = findBossSlotByEnemyIdx(w, eid1);
+  const off = slot * C.maxPlayers + 0;
+  w.bossThreat[off] = 750;
+
+  // Clear or respawn in this slot
+  clearBossSlot(w, slot);
+  expect(w.bossThreat[off]).toBe(0);
+
+  // Spawn new boss in the cleared slot
+  const eid2 = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 0, -200);
+  const slot2 = findBossSlotByEnemyIdx(w, eid2);
+  expect(slot2).toBe(slot);
+  expect(w.bossThreat[slot2 * C.maxPlayers + 0]).toBe(0);
 });

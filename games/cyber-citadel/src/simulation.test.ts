@@ -336,7 +336,7 @@ test(
         expect(stats.activeEnemies).toBeLessThanOrEqual(AUX_LAYOUT.MAX_ENEMIES);
         expect(stats.activeBarricades).toBeLessThanOrEqual(AUX_LAYOUT.MAX_BARRICADES);
 
-        if (tick === 999 || tick === 1999 || tick === 2999) {
+        if (tick === 999 || tick === 1999 || tick === 2999 || tick === profile.ticks - 1) {
           // INV-8 bit-exact determinism across both primary state and 3KB auxState
           expect(
             bytesEqual(
