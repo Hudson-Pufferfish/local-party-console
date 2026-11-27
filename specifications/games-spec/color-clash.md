@@ -346,7 +346,7 @@ No new HTTP endpoints are required beyond the Console OS routes:
 | Current State | Trigger / Condition | Next State | Side Effects |
 | :--- | :--- | :--- | :--- |
 | `SPAWN_LOCKED` | `phase === ROUND_ACTIVE` | `MOVING` | Enables steering, `BOOST`, and normal-radius (`24`) grid stamping. |
-| `MOVING` | `BOOST` rising edge & `boostCooldown <= 0` | `BOOSTING` | Sets `boostActiveTimer = 3.00`, `boostCooldown = 8.00`; expands stamp radius to `54`; sets `BOOSTING` bit; emits `color:boost` + haptic. |
+| `MOVING` | `BOOST` rising edge & `boostCooldown <= 0` | `BOOSTING` | Sets `boostActiveTimer = 3.00`, `boostCooldown = 8.00`; expands stamp radius to `54`; sets `BOOSTING` bit; emits `color:boost`. |
 | `BOOSTING` | `boostActiveTimer <= 0` | `RECHARGING` | Restores normal stamp radius (`24`) and speed cap (`400`); clears `BOOSTING` bit. |
 | `RECHARGING` | `boostCooldown <= 0` | `MOVING` | Re-enables `BOOST` trigger. |
 | `MOVING` / `BOOSTING` / `RECHARGING` | `phase === OVERTIME` & slot is not tied for 1st | `PARKED_NON_CONTENDER` | Clears `ACTIVE` and `CONTENDER` bits; ignores inputs; keeps already-painted cells on the grid. |

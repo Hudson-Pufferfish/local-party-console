@@ -282,7 +282,7 @@ describe('ControllerShell', () => {
     expect(lockedHtml).toMatch(/disabled[^>]*>BUZZED</);
   });
 
-  test('pressing a button with hapticMs vibrates or clicks the iOS switch, and skips when disabled', () => {
+  test('pressing a button with hapticMs vibrates or clicks the iOS switch label, and skips when disabled', () => {
     const hapticLayout: ControllerLayout = {
       preset: 'stick-single',
       buttons: [{ bit: 0, glyph: 'A', label: 'DASH', kind: 'tap', hapticMs: 20 }],
@@ -297,17 +297,23 @@ describe('ControllerShell', () => {
         onButton={() => {}}
       />
     ));
-    expect(html).toContain('controller-taptic-switch');
-    expect(html).toContain('type="checkbox"');
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain('tabindex="-1"');
-    expect(html).toMatch(/\sswitch(?:\s|>|\/)/);
+    const labelMatch = html.match(
+      /<label\b([^>]*class="controller-taptic-switch"[^>]*)>(.*?)<\/label>/s,
+    );
+    expect(labelMatch).not.toBeNull();
+    const labelAttrs = labelMatch?.[1] ?? '';
+    const labelBody = labelMatch?.[2] ?? '';
+    expect(labelAttrs).toContain('aria-hidden="true"');
+    expect(labelBody).toMatch(/<input\b[^>]*type="checkbox"/);
+    expect(labelBody).toContain('tabindex="-1"');
+    expect(labelBody).toMatch(/\sswitch(?:\s|>|\/)/);
 
     const shellCss = fs.readFileSync(
       path.resolve(import.meta.dirname, '../../shared/src/ui/controller-shell.css'),
       'utf8',
     );
     const tapticBlock = shellCss.match(/\.controller-taptic-switch\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(tapticBlock).toContain('overflow: hidden');
     expect(tapticBlock).toContain('opacity: 0');
     expect(tapticBlock).toContain('pointer-events: none');
 

@@ -141,7 +141,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
   );
 
   const timers: Array<ReturnType<typeof setTimeout> | null> = [null, null, null, null];
-  let tapticRef: HTMLInputElement | undefined;
+  let tapticRef: HTMLLabelElement | undefined;
 
   onCleanup(() => {
     for (const t of timers) {
@@ -306,14 +306,19 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
       style={playerStyleVars(props.slot, props.color)}
       {...(props.customBoardAttrs ?? {})}
     >
-      <input
-        ref={tapticRef}
+      <label
         class="controller-taptic-switch"
-        type="checkbox"
         aria-hidden="true"
-        tabindex={-1}
-        {...({ switch: '' } as Record<string, string>)}
-      />
+        ref={(el) => {
+          tapticRef = el;
+        }}
+      >
+        <input
+          type="checkbox"
+          tabindex={-1}
+          {...({ switch: '' } as Record<string, string>)}
+        />
+      </label>
       <header class="controller-shell-bar">
         <PlayerBadge name={title()} label={label()} />
         <Show when={resolvedHud()}>
