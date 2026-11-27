@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.34.9",
   "scripts": {
+    "play": "pnpm --filter @server dev",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
