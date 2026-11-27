@@ -65,11 +65,10 @@ export function createIngest(): Ingest {
       row.received = 1;
     } else {
       const delta = (seq - row.lastSeq) & 0xffff;
-      if (delta >= 1 && delta <= 32767) {
-        if (delta > 1) row.gaps += delta - 1;
-        row.received += 1;
-        row.lastSeq = seq & 0xffff;
-      }
+      if (delta < 1 || delta > 32767) return;
+      if (delta > 1) row.gaps += delta - 1;
+      row.received += 1;
+      row.lastSeq = seq & 0xffff;
     }
     row.times[row.timeWrite] = hostNow;
     row.timeWrite = (row.timeWrite + 1) % RING;
