@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import type { PlayerSlot, RoomPhase, RoomRejectReason } from '@shared/types';
 import {
   normalizeName,
@@ -195,10 +195,9 @@ export function publicPlayers(room: Room): PlayerSlot[] {
 }
 
 function randomRoomId(): string {
-  const bytes = randomBytes(4);
   let roomId = '';
-  for (const byte of bytes) {
-    roomId += ROOM_ALPHABET[byte % ROOM_ALPHABET.length];
+  for (let i = 0; i < 4; i += 1) {
+    roomId += ROOM_ALPHABET[randomInt(0, ROOM_ALPHABET.length)];
   }
   return roomId;
 }
