@@ -732,6 +732,7 @@ export function createCyberCitadelSimulation(
         state[CYBER_HEADER.wave] = nextWave;
         state[CYBER_HEADER.phaseEnum] = CYBER_PHASE.WAVE_ACTIVE;
         state[CYBER_HEADER.phaseTimer] = 0;
+        resetBossState(w);
         populateWaveSpawns(w, nextWave);
       } else {
         state[CYBER_HEADER.phaseTimer] = nextT;

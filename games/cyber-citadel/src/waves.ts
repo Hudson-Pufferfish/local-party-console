@@ -19,13 +19,13 @@ export interface WaveDefinition {
 }
 
 const WAVE_TABLE: readonly WaveDefinition[] = [
-  { wave: 1, flanks: 1, drones: 21, fastDrones: 1, brutes: 1, hasBoss: false, spawnCadenceSec: 0.55 },
-  { wave: 2, flanks: 2, drones: 29, fastDrones: 3, brutes: 2, hasBoss: false, spawnCadenceSec: 0.48 },
-  { wave: 3, flanks: 2, drones: 25, fastDrones: 8, brutes: 3, hasBoss: false, spawnCadenceSec: 0.45 },
-  { wave: 4, flanks: 3, drones: 19, fastDrones: 16, brutes: 6, hasBoss: false, spawnCadenceSec: 0.4 },
-  { wave: 5, flanks: 3, drones: 24, fastDrones: 18, brutes: 7, hasBoss: false, spawnCadenceSec: 0.36 },
-  { wave: 6, flanks: 4, drones: 20, fastDrones: 26, brutes: 10, hasBoss: false, spawnCadenceSec: 0.32 },
-  { wave: 7, flanks: 4, drones: 28, fastDrones: 26, brutes: 12, hasBoss: false, spawnCadenceSec: 0.28 },
+  { wave: 1, flanks: 1, drones: 21, fastDrones: 1, brutes: 1, hasBoss: false, spawnCadenceSec: 0.45 },
+  { wave: 2, flanks: 2, drones: 29, fastDrones: 3, brutes: 2, hasBoss: false, spawnCadenceSec: 0.4 },
+  { wave: 3, flanks: 2, drones: 25, fastDrones: 8, brutes: 3, hasBoss: false, spawnCadenceSec: 0.35 },
+  { wave: 4, flanks: 3, drones: 19, fastDrones: 16, brutes: 6, hasBoss: false, spawnCadenceSec: 0.3 },
+  { wave: 5, flanks: 3, drones: 24, fastDrones: 18, brutes: 7, hasBoss: false, spawnCadenceSec: 0.29 },
+  { wave: 6, flanks: 4, drones: 20, fastDrones: 26, brutes: 10, hasBoss: false, spawnCadenceSec: 0.28 },
+  { wave: 7, flanks: 4, drones: 28, fastDrones: 26, brutes: 12, hasBoss: true, spawnCadenceSec: 0.28 },
   { wave: 8, flanks: 4, drones: 24, fastDrones: 12, brutes: 4, hasBoss: true, spawnCadenceSec: 0.9 },
 ];
 
@@ -76,7 +76,7 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   const brutes = def.brutes > 0 ? Math.max(1, Math.round(def.brutes * countMult)) : 0;
 
   let delay = C.flankTelegraphSec;
-  if (def.hasBoss) {
+  if (def.hasBoss && def.wave !== 7) {
     enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
     delay += 3.5; // Give players time to focus on Boss intro before minion trickle begins
   }
@@ -100,6 +100,10 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
     }
     delay += def.spawnCadenceSec;
     turn += 1;
+  }
+
+  if (def.hasBoss && def.wave === 7) {
+    enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay + 2.0);
   }
 }
 
