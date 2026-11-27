@@ -1,6 +1,6 @@
 # Cyber-Citadel Defense (`cyber-citadel`) — Co-op Wave Defense Game Specification
 
-> **AI Agent Instruction:** Read `../SPEC.md` and `./README.md` first. Cyber-Citadel Defense is a self-contained cooperative game plugin under `/games/cyber-citadel` conforming strictly to the platform `GameDefinition` contract. Never leak game-specific wave, enemy, or barricade logic into shared shells. Status: design only. Nothing in this file is implemented yet.
+> **AI Agent Instruction:** Read `../SPEC.md` and `./README.md` first. Cyber-Citadel Defense is a self-contained cooperative game plugin under `/games/cyber-citadel` conforming strictly to the platform `GameDefinition` contract. Never leak game-specific wave, enemy, or barricade logic into shared shells. Status: implemented under `/games/cyber-citadel`.
 
 ---
 
@@ -32,16 +32,17 @@ export const CYBER_CITADEL_MANIFEST: GameManifest = {
   controllerLayout: {
     preset: 'stick-diamond',
     buttons: [
-      { bit: 0, glyph: 'A', label: 'RAIL', kind: 'tap', cooldownMs: 2500 },
-      { bit: 1, glyph: 'B', label: 'DASH', kind: 'tap' },
-      { bit: 2, glyph: 'X', label: 'SHIELD', kind: 'tap' },
-      { bit: 3, glyph: 'Y', label: 'REVIVE', kind: 'tap' }, // Context label from pad:state (proposal).
+      { bit: 0, glyph: 'A', label: 'LASER', kind: 'tap', cooldownMs: 2500, hapticMs: 25 },
+      { bit: 1, glyph: 'B', label: 'DASH', kind: 'tap', hapticMs: 18 },
+      { bit: 2, glyph: 'X', label: 'WALL', kind: 'tap', hapticMs: 14 },
+      { bit: 3, glyph: 'Y', label: 'REVIVE', kind: 'tap', hapticMs: 18 }, // Dynamic context label via pad:state.
     ],
   },
   themeTokens: {
     '--bg-surface': '#F4F1EA',
     '--ink-primary': '#111111',
-    // Enemy and Core colors: TBD in the renderer PR.
+    '--accent-hazard-alert': '#FF4D00',
+    '--accent-shield-arc': '#E10600',
   },
 };
 ```
@@ -55,13 +56,13 @@ The `stick-diamond` preset and `ButtonSpec` definition exist in `shared/src/cont
 ### FR-1: Arena, Core & $40 \times 40$ Path Grid Geometry
 
 * **Arena Dimensions:** The arena is an 800 x 800 square coordinate space centered at (0, 0). On a 1920 x 1080 host display, it scales to a 1080 x 1080 center square, leaving ample side margin for `<ScoreboardPanel/>` and `<ScoreRulesPanel/>`.
-* **Central Core:** The Core is a solid circular entity situated at (0, 0). Core physical radius and the EMP Core ring radius are TBD (tune in playtest).
+* **Central Core:** The Core is a solid circular entity situated at (0, 0) with `coreRadius: 48` and `empRingRadius: 130` (`coreMaxHp: 1000`).
 * **Path Grid & Flow Field:** A $40 \times 40$ path navigation grid overlays the arena with cell size $800 / 40 = 20$ world units. Kinetic barricades placed by players occupy and block grid cells. Enemy swarms navigate toward the Core using a vector flow field recalculated when barricades change.
 * **Perimeter Containment:** Players and ground enemies cannot exit the outer boundary. Boundary collision stops motion cleanly with zero damage, reusing `shared/src/physics-2d/boundary.ts`.
 
 ### FR-2: Player Movement, Downed State, Revive & Respawn
 
-* **Movement:** Analog joystick input (packet bytes 6 and 7) drives velocity up to a maximum run speed. Player orientation follows the velocity heading vector. Player movement speed is TBD (tune in playtest).
+* **Movement:** Analog joystick input (packet bytes 6 and 7) drives velocity up to `playerSpeed: 300` world units/s. Player orientation follows the velocity heading vector.
 * **Collision & Friendly Fire:**
   * **Friendly Fire:** Strictly disabled across all weapons and abilities. Auto-fire tracers, Button A (Piercing Laser / RAIL), Button B (DASH), and Super Bomb (EMP) never deal damage or apply knockback to teammates.
   * **Player-to-Player Collision (Soft Separation):**
@@ -69,11 +70,11 @@ The `stick-diamond` preset and `ButtonSpec` definition exist in `shared/src/cont
     * **Live vs. Downed (Any):** 100% pass-through (zero collision). Active living players can walk directly over and stand on downed allies to channel revive without physics resistance or tether breaks.
     * **Away Players:** Follows physiological state: living Away players softly separate living teammates; downed Away players allow 100% pass-through.
   * **NOTES(@agents):** Keep friendly fire disabled permanently. Enforce soft separation strictly between `isLive` players (`flags & CYBER_FLAG.JOINED !== 0` and `(flags & (CYBER_FLAG.DOWNED | CYBER_FLAG.RESPAWNING)) === 0`). Downed or respawning slots must be excluded from circle collision so revivers never get displaced.
-* **Downed State:** When player HP drops to 0, the player becomes downed, crawling at 25% speed with a 15-second bleed-out timer. Player max HP is TBD (tune in playtest).
-* **Revive Action:** An active teammate inside revive range can channel a revive by tapping Button Y. Revive requires a 2.5-second channel during which the reviver must remain in proximity. Revive range is TBD (tune in playtest).
+* **Downed State:** When player HP (`playerMaxHp: 100`) drops to 0, the player becomes downed, crawling at 25% speed with a 15-second bleed-out timer.
+* **Revive Action:** An active teammate inside revive range (`reviveRange: 64`) can channel a revive by tapping Button Y. Revive requires a 2.5-second channel during which the reviver must remain in proximity, restoring `reviveRestoreHp: 60` HP.
 * **Bleed-Out & Respawn:** If bleed-out completes without revive, the player enters respawn with an 8-second timer before reappearing at the Core. Each respawn subtracts 3% of Core max HP.
 * **Respawn Protection:** Respawn costs are capped at 12% of Core max HP per wave, and respawn penalties can never reduce Core HP below 1 HP. Only enemy attacks can deliver the final blow to destroy the Core.
-* **Wave Break Resupply:** When a wave concludes, all dead or downed players respawn immediately, and the Core automatically recovers 10% of its max HP.
+* **Wave Break Resupply:** When a wave concludes, all dead or downed players respawn near the Core, all joined players recover to 100% HP (`playerMaxHp: 100`), and the Core automatically recovers +10% of its max HP (`+100 HP`, capped at `1000`).
 * **Solo & Light Squad Rule:** When the weighted squad size $W < 1.5$ (e.g., solo human), bleed-out is shortened to 5 seconds and respawn delay is reduced to 4 seconds, while preserving the 3% Core HP cost. Bot weight contribution is $0.4 + \text{level}/100$ ($0.51 \dots 0.60$ Easy, $0.70 \dots 0.90$ Medium, $0.90 \dots 1.10$ Hard).
 
 ### FR-3: Auto-Fire & Buttons (LASER, DASH, WALL, BOMB/REVIVE)
@@ -82,17 +83,17 @@ Tactical controls follow these explicit rules:
 
 | Input | Rule |
 | :--- | :--- |
-| **Auto-fire** | Automatic. Targets the enemy closest to the Core inside player weapon range and within a 120° forward cone (±60°) along heading. Range and damage: TBD (tune in playtest). Default implementation uses hitscan with a short tracer line without bullet heap allocations. |
-| **A (bit 0) LASER** | Tap. Fires a piercing rail beam in a straight line along the heading vector. Breaks brute frontal shields with knockback. Features a 50° priority snap (±25°) onto shielded targets. Enforces a fixed 2.5s cooldown shown as a button wipe. Thick 48px hitbox beam with zero energy meter and zero spread. |
-| **B (bit 1) DASH** | Tap. Repulsor thrust providing crowd stagger and mobility. Colliding with a shielded brute body-checks it, spinning it for 1.0s to expose its unshielded rear to auto-fire. DASH does not pierce frontal shields. Dash distance, speed, and cooldown: TBD (tune in playtest). |
-| **X (bit 2) WALL** | Tap. Deploys a stationary kinetic barricade. Each player can maintain at most 2 concurrent active barricades, each lasting 8.0s and blocking traversal cells on the $40 \times 40$ path grid. |
+| **Auto-fire** | Automatic. Targets the enemy closest to the Core inside `autoFireRange: 260` and within a 120° forward cone (±60°) along heading. Fires every `0.2s` for `12` damage (`60 DPS`, `0.35×` vs armored boss) using hitscan with a short tracer line and zero heap allocations. |
+| **A (bit 0) LASER** | Tap. Fires a 3-ray V-shape piercing laser fan (`-10°`, `0°`, `+10°` via `railFanHalfAngle`), dealing `90` damage (`0.6×` vs armored boss) once per target per shot. Breaks brute frontal shields for `3.0s` with `140` knockback. Features a 50° priority snap (±25°) onto shielded targets. Fixed `2.5s` cooldown shown as a button wipe. Thick `48px` (`railHalfWidth: 24`) hitbox beam with zero energy meter. |
+| **B (bit 1) DASH** | Tap. Repulsor thrust (`dashSpeed: 680`, `dashDurationSec: 0.16`, `dashCooldownSec: 1.8`) providing crowd stagger (`dashStaggerRadius: 52`, `dashStaggerImpulse: 180`) and mobility. Colliding with a shielded brute body-checks it, spinning it for `1.0s` to expose its unshielded rear to auto-fire. DASH does not pierce frontal shields. |
+| **X (bit 2) WALL** | Tap. Deploys a stationary kinetic barricade (`barricadeHp: 180`, `shieldCooldownSec: 1.5`). Each player can maintain at most 2 concurrent active barricades, each lasting `8.0s` and blocking traversal cells on the $40 \times 40$ path grid. |
 | **Y (bit 3) BOMB / REVIVE** | Tap. Context-sensitive action driven by the Button Y State Machine (below). Displays dynamic label (`BOMB`, `JOINED`, `REVIVE`) sent via slot-scoped `pad:state` events. |
 
 #### Complete Button Y State Machine
 
 Button Y switches dynamically depending on player proximity to downed allies and the Core's blue Super Bomb ring:
 
-| Context / Location | Downed Ally in Reach ($< 60\text{px}$)? | Button Y Label | Button State | Stylistic Treatment / Visual Feedback |
+| Context / Location | Downed Ally in Reach ($\le 64\text{px}$)? | Button Y Label | Button State | Stylistic Treatment / Visual Feedback |
 | :--- | :---: | :---: | :---: | :--- |
 | **Anywhere in Arena** | **YES** | `REVIVE` | Enabled | 100% full opacity, bright theme accent. Highest priority action; revives fallen teammate immediately over bombing. |
 | **Inside Blue Core Ring** | NO | `BOMB` | Enabled | 100% full opacity, glowing prompt. Tap to join the Super Bomb charge. |
@@ -109,22 +110,24 @@ Cooldowns are tracked and enforced in the simulation, not on the phone. Inputs p
 
 The 8-wave escalation sequence:
 
-| Wave | Threats | Flanks |
-| :--- | :--- | :--- |
-| 1–2 | Drone swarms | 1 flank, then 2 flanks |
-| 3 | Drones plus first shielded brutes | 2 flanks |
-| 4 | Fast drones and brutes in coordinated pairs | 3 flanks |
-| 5 | Mixed horde with corridor breach events | 3 flanks |
-| 6–7 | Dense swarms and armored brutes from all directions; Wave 7 adds a gatekeeper Dreadnought boss on flank 0 near the end of minion spawns | 4 flanks |
-| 8 | 4-Dreadnought multi-boss climax (North at 2.0s, South at 20.0s, East at 32.0s, and West at 35.0s) with 0.9s minion cadence | 4 flanks |
+| Wave | Base Counts (Drones / Fast / Brutes) | Base Cadence | Threats | Flanks |
+| :--- | :--- | :---: | :--- | :---: |
+| 1 | `21 / 1 / 5` | `0.45s` | Opening swarm with first fast drone and brutes | 1 |
+| 2 | `29 / 3 / 6` | `0.40s` | Two-flank swarm escalation | 2 |
+| 3 | `25 / 8 / 7` | `0.35s` | Faster drones and heavier brute mix | 2 |
+| 4 | `19 / 16 / 10` | `0.30s` | Three-flank fast drones and brutes | 3 |
+| 5 | `24 / 18 / 10` | `0.29s` | Mixed horde across three flanks | 3 |
+| 6 | `20 / 26 / 13` | `0.28s` | Dense four-flank swarms and brutes | 4 |
+| 7 | `28 / 26 / 15` + 1 Boss | `0.28s` | Four-flank swarm plus gatekeeper Dreadnought on flank 0 at 88% of minion spawns | 4 |
+| 8 | `24 / 12 / 7` + 4 Bosses | `0.90s` | 4-Dreadnought multi-boss climax (North at 2.0s, South at 20.0s, East at 32.0s, and West at 35.0s) with 0.9s minion cadence | 4 |
 
 Enemy mechanics:
 
-* **Drones:** Fast, light swarms that path directly toward the Core to deal melee damage on contact.
-* **Shielded Brutes:** Heavy units that prioritize the nearest player within aggro radius, falling back to the Core. Protected by a frontal arc shield that deflects auto-fire. Frontal shields can only be penetrated by RAIL shots or circumvented after a DASH spin exposes their rear for 1.0s.
-* **Dreadnought Boss (Multi-Boss SoA):** Up to 4 concurrent Dreadnoughts (`MAX_BOSSES = 4`) run on fixed pre-allocated TypedArrays in `CyberWorld` (`bossEnemyIdx`, `bossLaserAngle`, `bossLaserTimer`, `bossLaserActive`, `bossCarrierTimer`, `bossFirstDashSlot`, `bossFirstDashAngle`, `bossDualDashTimer`, `bossVulnerableTimer`, `bossWeakMask`, `bossPhase`, and `bossThreat` 4 × 8 flat array). Wave 7 spawns one gatekeeper Dreadnought near the end of its minion stream. Wave 8 deploys four Dreadnoughts in sequence: North (flank 0) at 2.0s, South (flank 2) at 20.0s, East (flank 1) at 32.0s, and West (flank 3) at 35.0s. Each boss instance independently tracks its 66% (Phase 2 carrier deployment) and 33% (Phase 3 Core enrage) thresholds, laser sweep timers and beam angles, opposite-flank dual-dash vulnerability (two players dashing opposite sides within 1.0s), and isolated aggro threat (accumulated damage dealt + dash hits + proximity, decaying at -10/s, falling back to the Core when all players are unengaged > 350px away). `CYBER_HEADER.bossPhase` syncs the highest active boss phase, `META_BOSS_HP_PCT` syncs aggregate active boss health, and `META_BOSS_SLOTS` (4 × 4 bytes inside the `auxState` meta trailer) carries per-boss weak-point masks and laser angles for the renderer.
-* **Telegraphing:** Flank corridors illuminate with warning glow 2.0s before enemy spawns emerge.
-* **Enemy Parameters:** Speeds, HP values, damage outputs, and counts: TBD (tune in playtest).
+* **Drones:** Fast, light swarms (`droneBaseHp: 30`, speed `115`, `18 DPS`, radius `12`; Fast Drones: `fastDroneBaseHp: 22`, speed `165`, `14 DPS`, radius `10`) that path directly toward the Core to deal melee damage on contact.
+* **Shielded Brutes:** Heavy units (`bruteBaseHp: 220`, speed `72`, `28 DPS`, radius `22`, `bruteAggroRadius: 220`) that prioritize the nearest player within aggro radius, falling back to the Core. Protected by a 120° frontal arc shield that deflects auto-fire. Frontal shields are broken for `3.0s` by LASER shots or bypassed after a DASH spin exposes their rear for `1.0s`.
+* **Drone Carriers:** Boss Phase 2+ escorts (`carrierBaseHp: 110`, speed `58`, `18 DPS`, radius `18`) that spawn a Drone every `3.5s`.
+* **Dreadnought Boss (Multi-Boss SoA):** Up to 4 concurrent Dreadnoughts (`MAX_BOSSES = 4`, `bossBaseHp: 800`, speed `15` / enraged `25`, radius `44`, melee `45 DPS`, sweeping laser `52 DPS` at `340` range and `16` half-width, armor scale `0.35×` auto-fire / `0.6×` LASER) run on fixed pre-allocated TypedArrays in `CyberWorld` (`bossEnemyIdx`, `bossLaserAngle`, `bossLaserTimer`, `bossLaserActive`, `bossCarrierTimer`, `bossFirstDashSlot`, `bossFirstDashAngle`, `bossDualDashTimer`, `bossVulnerableTimer`, `bossWeakMask`, `bossPhase`, and `bossThreat` 4 × 8 flat array). Wave 7 spawns one gatekeeper Dreadnought near the end of its minion stream. Wave 8 deploys four Dreadnoughts in sequence: North (flank 0) at 2.0s, South (flank 2) at 20.0s, East (flank 1) at 32.0s, and West (flank 3) at 35.0s. Each boss instance independently tracks its 66% (Phase 2 carrier deployment, plus every `14.0s`) and 33% (Phase 3 Core enrage) thresholds, laser sweep timers (`1.8s` sweep / `4.2s` cooldown in Phases 1–2; `2.4s` / `3.0s` at `1.35×` speed in Phase 3), opposite-flank dual-dash vulnerability (two players dashing opposite sides within `1.0s` for `5.0s` vulnerability), and isolated aggro threat (accumulated damage dealt + dash hits + proximity, decaying at -10/s, falling back to the Core when all players are unengaged > 350px away). `CYBER_HEADER.bossPhase` syncs the highest active boss phase, `META_BOSS_HP_PCT` syncs aggregate active boss health, and `META_BOSS_SLOTS` (4 × 4 bytes inside the `auxState` meta trailer) carries per-boss weak-point masks and laser angles for the renderer.
+* **Telegraphing:** Flank corridors illuminate with warning glow `2.0s` before enemy spawns emerge.
 
 Dynamic scaling formulas:
 
@@ -141,14 +144,14 @@ Run flow and simulation phases:
   * `2 = WAVE_BREAK` (15.0s respite, respawn, and Core +10% repair).
   * `3 = MATCH_OVER` (victory upon wave 8 clear, or defeat upon Core HP reaching 0).
 * **Phase Progression:** Match begins in `COUNTDOWN` and proceeds directly into Wave 1 without an opening practice phase. A wave completes when all spawned enemies are eliminated. Wave 8 clear triggers `MATCH_OVER` (win). Core HP dropping to 0 at any moment triggers `MATCH_OVER` (loss).
-* **Core Max HP:** TBD (tune in playtest).
+* **Core Max HP:** `1000` (`coreMaxHp: 1000`).
 * **Fixed Step Execution Order:** Each simulation tick executes sub-steps strictly in this order: (1) Process inputs, (2) Apply dashes, (3) Resolve rail beams, (4) Process auto-fire, (5) Update enemy movement, (6) Resolve damage and health.
 
 ### FR-5: Phone Controller Layout & Feedback
 
 * **Layout:** Employs `<ControllerShell/>` configured with the `stick-diamond` preset (`shared/src/ui/controller-shell.tsx`), presenting `<VirtualJoystick label="MOVE"/>` on the left and an A, B, X, Y diamond cluster on the right.
-* **Action Labels:** Button A is labeled `RAIL`, B is labeled `DASH`, X is labeled `SHIELD`, and Y displays dynamic context labels: `REVIVE`, `EMP`, `JOINED`, or dimmed when no action is available.
-* **Cooldown Indication:** Button A renders a radial wipe animation for its 2.5s cooldown. Cooldown states follow host timing through the proposed `pad:state` control message.
+* **Action Labels:** Button A is labeled `LASER`, B is labeled `DASH`, X is labeled `WALL`, and Y displays dynamic context labels: `REVIVE`, `BOMB`, `JOINED`, or dimmed when no action is available.
+* **Cooldown Indication:** Button A renders a radial wipe animation for its 2.5s cooldown. Cooldown states follow host timing through the `pad:state` control message.
 * **Haptics:** Triggers `navigator.vibrate` for rail fire, dash impact, damage intake, and EMP bursts on supported devices. On iOS Safari (which lacks Vibration API), the EMP blast triggers a high-contrast screen flash.
 * **Ergonomics:** All interactive buttons and joysticks are inset at least 36px from screen margins.
 
@@ -182,12 +185,12 @@ Run flow and simulation phases:
 2. **Total Squad Down:** If all players are simultaneously downed or respawning, the run does not instantly fail. The Core remains vulnerable, and enemies continue attacking until either Core HP hits 0 (loss) or players respawn.
 3. **Core HP Depletion Floor:** Respawn penalties never reduce Core HP below 1 HP. Core destruction requires direct enemy attack damage.
 4. **Context Prioritization for Button Y:** Priority resolves in order: (a) If a downed teammate is in reach, Y channels revive; (b) Else if inside the Core ring with EMP ready, Y joins the EMP charge; (c) Otherwise Y does nothing. If two players attempt to revive the same fallen teammate, the first channel owns the revive and the second player falls through to Core EMP.
-5. **Rail Priority Snap Resolution:** When multiple shielded enemies fall within the 15° forward cone, the snap prioritizes the target closest to the Core, breaking ties by nearest to the shooter, then by lowest entity pool index.
+5. **Rail Priority Snap Resolution:** When multiple shielded enemies fall within the 50° forward cone (±25°), the snap prioritizes the target closest to the Core, breaking ties by nearest to the shooter, then by lowest entity pool index.
 6. **Auto-Fire Target Stickiness:** Auto-fire locks onto the eligible target closest to the Core. A new target will not usurp the lock unless it is at least 10% closer to the Core than the current target.
 7. **Dash Physical Interactions:** Dashing into outer walls stops the player with zero damage. Dashing into the Core stops motion cleanly. Dashing through teammates passes through without interaction. Dashing into a barricade halts motion without damaging the barrier. Dashing into a shielded brute from the front triggers a 1.0s spin; additional dashes during the spin reset the duration to 1.0s rather than accumulating time.
 8. **Input Packet Loss Mitigation:** Button taps toggle the upper 4 bits of the input byte, latched deterministically on the host (`screen/src/host-loop.ts:145-156`). Consecutive taps during an active cooldown are discarded.
 9. **Disconnect During Cooldown:** Cooldown timers are managed on the host simulation. Rejoining players receive current remaining cooldowns through `pad:state`.
-10. **Disconnect During Revive:** If the reviver goes AWAY, the channel terminates immediately. If the downed player goes AWAY, their bleed-out pauses while the channel finishes. If an AWAY player is taken over by a bot at 3.0s, the bot inherits the revive.
+10. **Disconnect During Revive:** If the reviver goes AWAY, the channel terminates immediately. If the downed player goes AWAY, their bleed-out pauses while the channel finishes. AWAY human slots sit idle (no standby bot takeover per FR-6).
 11. **Disconnect During EMP Charge:** An AWAY player is immediately removed from the EMP charge count. If the active count falls below the required threshold, the charge pauses and slowly decays at 10% per second.
 12. **Standby Bot Channeling Restrictions:** A standby bot will never initiate an EMP charge on its own, and only participates if at least one human player has joined the charge.
 13. **Late Match Infiltration:** Strangers connecting mid-match receive `MATCH_IN_PROGRESS`.
@@ -207,7 +210,7 @@ Run flow and simulation phases:
 ### Scoreboard, Wave Banner & Run Over
 
 * **Right Scoreboard (`ScoreboardPanel`):** Renders header `WAVE <n>/8`, displaying player tags, `LIVE` / `AWAY` badges, player HP as a proportional ratio bar, and `DOWN` status indicators.
-* **Left Guide (`ScoreRulesPanel`):** Displays dynamic key mapping guide: `A: RAIL`, `B: DASH`, `X: SHIELD`, `Y: REVIVE / EMP`.
+* **Left Guide (`ScoreRulesPanel`):** Displays `HOW TO PLAY` bullets (including `BETWEEN WAVES: Core heals +10% HP; all players recover to 100% HP.`) and control rows: `A: LASER BEAM`, `B: QUICK DASH`, `X: ENERGY WALL`, `Y: REVIVE / BOMB`.
 * **Top Screen Banner:** Shows countdown digits, `WAVE <n>`, `BREAK <s>`, `CORE LOST` upon defeat, and `CITADEL HOLDS` upon wave 8 victory.
 * **End of Match Screen:** Presents total waves survived, squad damage dealt, and standard **PLAY AGAIN** / **RETURN TO LOBBY** controls.
 
@@ -250,14 +253,14 @@ The `cyber` and `pad` message prefixes are allowlisted in `shared/src/types/game
 | Event `type` | Direction | Payload Schema | Purpose |
 | :--- | :--- | :--- | :--- |
 | `game:mount` | Server → All | `{ gameId: 'cyber-citadel', manifest, players, botNames? }` | Existing platform event. |
-| `cyber:wave_start` | Host → All | `{ wave: number }` | **Proposal (not built):** Banner trigger and phone vibration pulse. |
-| `cyber:wave_end` | Host → All | `{ wave: number, coreHp: number }` | **Proposal (not built):** Wave break initiation. |
-| `cyber:downed` | Host → All | `{ slot: number }` | **Proposal (not built):** Signals downed player UI state. |
-| `cyber:revived` | Host → All | `{ slot: number }` | **Proposal (not built):** Restores player to active UI state. |
-| `cyber:emp` | Host → All | `{ wave: number }` | **Proposal (not built):** Synchronized haptic burst and visual screen flash. |
-| `cyber:match_end` | Host → All | `{ won: boolean, wavesCleared: number }` | **Proposal (not built):** Transmits final run results. |
-| `cyber:rematch` | Host → Server | `{ action: 'restart' \| 'lobby' }` | **Proposal (not built):** Post-run rematch action. |
-| `pad:state` | Host → All | `{ slot: number, labels?: string[], disabled?: number, cooldownEndsAt?: number[] }` | **Proposal (not built):** Context labels and cooldown synchronization. |
+| `cyber:wave_start` | Host → All | `{ wave: number, targetSlot?: number }` | Wave start banner sync and phone vibration pulse. |
+| `cyber:wave_end` | Host → All | `{ wave: number, coreHp: number }` | Wave break initiation. |
+| `cyber:downed` | Host → All | `{ slot: number }` | Signals downed player UI state and vibration. |
+| `cyber:revived` | Host → All | `{ slot: number }` | Restores player to active UI state. |
+| `cyber:emp` | Host → All | `{ wave: number }` | Synchronized haptic burst, iOS Taptic switch pulse, and visual screen flash. |
+| `cyber:match_end` | Host → All | `{ won: boolean, wavesCleared: number }` | Transmits final run results. |
+| `cyber:rematch` | Host → Server | `{ action: 'restart' \| 'lobby' }` | Post-run rematch action. |
+| `pad:state` | Host → All | `{ slot: number, labels?: string[], disabled?: number, cooldownEndsAt?: number[] }` | Context labels (`LASER`, `DASH`, `WALL`, dynamic `Y`) and cooldown synchronization. |
 
 ### C. Flat Simulation State Buffer (`Float32Array`) + Entity Pools (`auxState` `Uint8Array`)
 
@@ -269,20 +272,20 @@ Global header (indices 0..7):
   [1] phaseEnum     (0=COUNTDOWN, 1=WAVE_ACTIVE, 2=WAVE_BREAK, 3=MATCH_OVER)
   [2] phaseTimer    (seconds left in COUNTDOWN or WAVE_BREAK)
   [3] wave          (1..8)
-  [4] coreHp        (0..CORE_MAX_HP; CORE_MAX_HP TBD)
+  [4] coreHp        (0..1000; coreMaxHp = 1000)
   [5] empCharge     (0..1)
-  [6] empFiredCount (increments when the EMP fires; drives cyber:emp)
-  [7] bossPhase     (0 = no boss, 1..3)
+  [6] empFiredCount (records wave number when Super Bomb fires; drives cyber:emp & rehydrate)
+  [7] bossPhase     (0 = no boss, 1..3; highest active boss phase)
 
 Per-player stride (10 floats x 8 slots, indices 8..87), base = 8 + i * 10:
   [base + 0] x
   [base + 1] y
   [base + 2] heading       (radians)
-  [base + 3] hp
-  [base + 4] flags         (Bit0=ACTIVE, Bit1=DOWNED, Bit2=IS_BOT, Bit3=DISCONNECTED, Bit4=EMP_JOINED, Bit5=STANDBY_BOT, Bit6=RESPAWNING)
+  [base + 3] hp            (0..100)
+  [base + 4] flags         (Bit0=ACTIVE, Bit1=DOWNED, Bit2=IS_BOT, Bit3=DISCONNECTED, Bit4=EMP_JOINED, Bit5=STANDBY_BOT, Bit6=RESPAWNING, Bit7=JOINED)
   [base + 5] downTimer     (bleed-out or respawn seconds left)
   [base + 6] railCooldown  (0..2.5)
-  [base + 7] dashCooldown  (0..TBD)
+  [base + 7] dashCooldown  (0..1.8)
   [base + 8] reviveChannel (0..2.5)
   [base + 9] barricades    (active count, 0..2)
 ```
@@ -292,14 +295,15 @@ Per-player stride (10 floats x 8 slots, indices 8..87), base = 8 + i * 10:
 Structured as a pre-allocated `Uint8Array` accessed via `DataView`, replicated across ticks via `ScreenSim.auxState` (`screen/src/host-loop.ts:15`, `:77-78`):
 
 ```text
-enemies      160 x 8 B = 1280   x u16, y u16, hp u8, type u8, state u8, target u8
-projectiles  256 x 6 B = 1536   x u16, y u16, owner u8, ttl u8
-barricades    24 x 6 B =  144   fields TBD
-flow field    40 x 40  = 1600   optional, only if the renderer draws it
-total about 3 KB (about 4.5 KB with the flow field)
+enemies      160 x 8 B = 1280   x u16, y u16, hpPct u8, type u8, stateFlags+flank u8, target+facing u8
+projectiles  256 x 6 B = 1536   x u16, y u16, owner+flags u8, ttl u8
+barricades    24 x 6 B =  144   cellX u8, cellY u8, owner u8, hpPct u8, ttlSteps u8, flags u8
+meta trailer             112    flankGlow(4), bossLaserAngle(2), bossWeakMask(1), bossHpPct(1),
+                                squadDamage(4), enemiesRemaining(2), empJoined(1), empRequired(1),
+                                bruteHeadings(32), bossSlots(4x4=16), reserved(48)
+flow field    40 x 40  = 1600   optional debug trailer
+total: 3072 B core (4672 B with debug flow field)
 ```
-
-Coordinate encoding for `u16` fields: TBD (tune in playtest).
 
 #### 3. Snapshot Footprint & Multi-Monitor Seam
 
@@ -332,11 +336,11 @@ MATCH_OVER -> [cyber:rematch action]
 | Current State | Trigger / Condition | Next State | Side Effects |
 | :--- | :--- | :--- | :--- |
 | `ACTIVE` | hp reaches 0 | `DOWNED` | Start 15 s bleed-out; leave EMP charge. |
-| `DOWNED` | ally revive channel completes (2.5 s) | `ACTIVE` | Restore HP (TBD). |
-| `DOWNED` | bleed-out ends | `RESPAWNING` | Start 8 s timer; charge 3% Core HP (cap and floor rules). |
-| `RESPAWNING` | timer ends | `ACTIVE` | Spawn at the Core. |
-| any | disconnected 3 s | same state, `STANDBY_BOT` set | Medium bot drives the slot. Bleed-out pauses if downed. |
-| any with `STANDBY_BOT` | human rejoins | same state, `STANDBY_BOT` cleared | Cancel bot channels; respawn at the Core with no cost if needed. |
+| `DOWNED` | ally revive channel completes (2.5 s) | `ACTIVE` | Restore `60` HP (`reviveRestoreHp`). |
+| `DOWNED` | bleed-out ends | `RESPAWNING` | Start 8 s timer (4 s solo); charge 3% Core HP (cap and floor rules). |
+| `RESPAWNING` | timer ends | `ACTIVE` | Spawn at the Core with `100` HP. |
+| any | disconnected (`AWAY`) | same state, `DISCONNECTED` set | Ship sits idle (zero velocity, zero auto-fire; no bot takeover). Bleed-out pauses if downed. |
+| any with `DISCONNECTED` | human rejoins | same state, `DISCONNECTED` cleared | Control resumes at current position, or respawns at Core with no penalty if dead. |
 | `ACTIVE` | Y tap in Core ring, no downed ally in reach | `ACTIVE`, `EMP_JOINED` set | Joins charge until leaving the ring, downed or AWAY. |
 
 ---
@@ -362,7 +366,7 @@ MATCH_OVER -> [cyber:rematch action]
 
 * **Auto-Fire Target Selection:** Verify auto-fire prioritizes enemies nearest the Core within the 60° forward arc.
 * **Target Stickiness:** Assert current target lock is retained unless an alternate threat is at least 10% closer to the Core.
-* **Rail Snap Priority:** Test rail priority snap onto shielded targets in the 15° cone, verifying Core-distance tie-breaking.
+* **Rail Snap Priority:** Test rail priority snap onto shielded targets in the 50° cone (±25°), verifying Core-distance tie-breaking.
 * **Dash Spin Verification:** Assert dashing into a brute spins it for 1.0s and exposes its vulnerable rear to auto-fire.
 * **Shield Piercing Rules:** Confirm RAIL penetrates frontal shields, while DASH repels without shield penetration.
 * **Button Y Context Resolution:** Validate revive channel takes precedence over Core EMP join when both criteria overlap.
@@ -381,9 +385,9 @@ MATCH_OVER -> [cyber:rematch action]
 
 * **Ergonomics:** Test joystick and diamond buttons on iPhone Safari and Android Chrome with 36px edge clearance.
 * **Visual Cooldown Wipe:** Confirm Button A displays smooth cooldown radial wipe.
-* **Dynamic Y Label:** Verify Button Y toggles between `REVIVE`, `EMP`, and `JOINED`.
-* **Haptic and Visual Cues:** Test vibration on Android and visual flash fallback on iOS during EMP activation.
-* **AWAY Bot Takeover:** Simulate phone disconnect, verify bot takeover at 3.0s, and confirm seamless handback on reconnect.
+* **Dynamic Y Label:** Verify Button Y toggles between `REVIVE`, `BOMB`, and `JOINED`.
+* **Haptic and Visual Cues:** Test vibration on Android and Taptic switch + visual flash fallback on iOS during Super Bomb activation.
+* **AWAY Idle & Rejoin:** Simulate phone disconnect, verify ship sits idle with no bot takeover (bleed-out paused if downed), and confirm seamless handback via `<MatchRejoinQr/>` on reconnect.
 * **Host Exit Integrity:** Confirm host `[x]` button safely halts match and resets to lobby.
 
 ---
@@ -397,29 +401,29 @@ MATCH_OVER -> [cyber:rematch action]
 5. **Late join in wave breaks:** Worth the server and host-loop work for v2? **Default: not in v1.**
 6. **Hitscan auto-fire:** OK visually, or visible bullets? **Default: hitscan with a short tracer.**
 7. **`pad:state` scope:** Game-specific `cyber:pad` or shared `pad:state`? **Default: shared `pad:state`** (`pad` is already allowlisted).
-8. **EMP effect and charge time:** What the EMP does when it fires, how long it charges, and the Core ring radius. **Not decided. Spec writes TBD.**
+8. **EMP (Super Bomb) effect and charge time:** **Resolved:** `empChargeSec: 3.0`, `empRingRadius: 130`, `empBlastRadius: 360`, `empDroneDamage: 250` (and `250` damage + `1.5s` stun to bosses; `125` damage + `4.0s` stun & shield break to brutes).
 9. **Opening practice:** Run a practice phase before wave 1, like the other games? **Default: none.**
 10. **Wave clear condition:** A wave ends when all its enemies are destroyed? **Default: yes.**
 11. **Upgrade vote between waves:** The design page has a squad upgrade vote in each break; earlier review deferred this to later. **Default: later, not v1.**
 
 ---
 
-## 9. Platform Dependencies (Not Built Yet)
+## 9. Platform Dependencies (Status)
 
-| Need | Today | Work left |
+| Need | Status | Notes |
 | :--- | :--- | :--- |
-| **4 buttons** | Done: held bits 0-3 and toggle bits 4-7 latched for all four (`screen/src/host-loop.ts:127-156`). Cap is 4. | None. |
-| **First-packet baseline** | Done (`screen/src/host-loop.ts:130`, PR #10). | None. |
-| **`stick-diamond` layout** | Done (`shared/src/controller/layout.ts`, `shared/src/ui/controller-shell.tsx`). | Declare it in the manifest. |
-| **Host-driven cooldown wipe and Y label** | Wipe is local at press time (`controller-shell.tsx:41-68`). No `pad:state` handler. | Build `pad:state` with a `slot` field. |
-| **Per-button hold masking** | After 100 ms silence the host masks every held bit (`screen/src/host-loop.ts:189-200`). | Not needed while all buttons are taps. |
-| **Lazy controller loading** | `controller/src/register-games.ts:3-8` imports every game eagerly. | Switch to per-game `import()` before a fourth game. |
-| **World state beyond 88 floats** | `auxState` copied each tick (`screen/src/host-loop.ts:64-78`). | Put pools in `auxState`. |
-| **Bots see world state** | `WriteBotInput` gets `auxState` (`screen/src/bot-fill.ts:151`). | None. |
-| **AWAY takeover** | Bot mask fixed at match start. | Per-slot standby bot flag in `bot-fill.ts` and `session.ts`. |
-| **Late join** | `MATCH_IN_PROGRESS` (`server/src/rooms.ts:97-100`). | Nothing in v1. |
-| **Deterministic sim** | Bomb Pass seeded RNG (`games/bomb-pass/src/simulation.ts:710`). | Copy it. |
-| **Spatial broadphase** | `shared/src/physics-2d/` has `circle-collision.ts`, `boundary.ts`, `motion.ts`. | Add a uniform grid hash there. |
+| **4 buttons** | Done | Held bits 0–3 and toggle bits 4–7 latched (`screen/src/host-loop.ts`). |
+| **First-packet baseline** | Done | `screen/src/host-loop.ts` (PR #10). |
+| **`stick-diamond` layout** | Done | Declared in `games/cyber-citadel/src/manifest.ts`. |
+| **Host-driven cooldown wipe and Y label** | Done | `pad:state` emitted in `games/cyber-citadel/src/events.ts` and handled by `<ControllerShell/>`. |
+| **Per-button hold masking** | N/A | All buttons are taps in v1. |
+| **Lazy controller loading** | Pending | `controller/src/register-games.ts` still imports games eagerly; split if bundle grows. |
+| **World state beyond 88 floats** | Done | Pools and meta trailer packed in `auxState` (`3072 B` core, `4672 B` with debug flow field). |
+| **Bots see world state** | Done | `WriteBotInput` receives `auxState` in `heuristic.ts`. |
+| **AWAY behavior** | Done | Real AWAY: idle ship with zero bot takeover (`standbyBotLevel` returns `0`). |
+| **Late join** | Done | `MATCH_IN_PROGRESS` (`server/src/rooms.ts`). |
+| **Deterministic sim** | Done | Mulberry32 PRNG in `games/cyber-citadel/src/world.ts`. |
+| **Spatial broadphase** | Done | `UniformGridHash` in `shared/src/physics-2d/grid-hash.ts`. |
 
 Architecture and optimization defaults:
 
