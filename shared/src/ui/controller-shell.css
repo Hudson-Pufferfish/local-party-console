@@ -69,6 +69,26 @@
   transform: scaleX(1);
 }
 
+.button-cooldown-meter[data-phase] {
+  height: 12px;
+  border-top: 2px solid var(--ink, #111111);
+}
+
+.button-cooldown-meter[data-phase='ready'] {
+  transform: scaleX(1);
+  background: var(--accent-ready, #00c853);
+}
+
+.button-cooldown-meter[data-phase='drain'] {
+  transform: scaleX(0);
+  background: var(--accent-boost, #f5c518);
+}
+
+.button-cooldown-meter[data-phase='fill'] {
+  transform: scaleX(1);
+  background: var(--player-ink, var(--ink, #111111));
+}
+
 /* Preset 2: stick-diamond (4-button diamond layout) */
 .diamond-preset-grid {
   display: grid;

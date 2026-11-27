@@ -23,7 +23,6 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
         glyph: 'A',
         label: 'BOOST',
         kind: 'tap',
-        cooldownMs: 8000,
       },
     ],
   },

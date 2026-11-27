@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { renderToString } from '@solidjs/web';
 import { describe, expect, test } from 'vitest';
 import type { ControllerLayout } from '../../shared/src/controller/layout.ts';
@@ -119,6 +121,36 @@ describe('ControllerShell', () => {
     ));
     expect(htmlWithAlert).toContain('controller-shell-alert');
     expect(htmlWithAlert).toContain('HOLDING BOMB');
+  });
+
+  test('controlled meter renders the drain phase while other buttons keep the local cooldown meter', () => {
+    const html = renderToString(() => (
+      <ControllerShell
+        color="#00C853"
+        name="Hudson"
+        slot={1}
+        layout={diamondLayout}
+        meters={{ 0: { phase: 'drain', ms: 3000 } }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+
+    expect(html).toContain('data-phase="drain"');
+    expect(html).toContain('transition-duration:3000ms');
+    expect(html).toContain('data-active="false"');
+    expect(html).toContain('transition-duration:0ms');
+  });
+
+  test('phased cooldown meter draws an ink top border so the ready bar stays distinct on P2 green', () => {
+    const shellCss = fs.readFileSync(
+      path.resolve(import.meta.dirname, '../../shared/src/ui/controller-shell.css'),
+      'utf8',
+    );
+    const phasedBlock =
+      shellCss.match(/\.button-cooldown-meter\[data-phase\]\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(phasedBlock).toContain('border-top: 2px solid var(--ink, #111111)');
   });
 
   test('button cooldown meter applies 0ms transition duration when inactive', () => {

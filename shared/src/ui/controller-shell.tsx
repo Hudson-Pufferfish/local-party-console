@@ -22,6 +22,49 @@ import './controller-shell.css';
 import { PlayerBadge } from './player-badge.tsx';
 import { VirtualJoystick } from './virtual-joystick.tsx';
 
+function CooldownMeter(props: {
+  readonly meter?: ButtonMeter;
+  readonly active: boolean;
+  readonly showLocal: boolean;
+  readonly durationMs: number;
+}) {
+  return (
+    <Show
+      when={props.meter}
+      fallback={
+        <Show when={props.showLocal}>
+          <div
+            class="button-cooldown-meter"
+            data-active={props.active ? 'true' : 'false'}
+            style={{
+              'transition-duration': props.active ? `${props.durationMs}ms` : '0ms',
+              'transition-property': 'transform',
+              'transition-timing-function': 'linear',
+            }}
+          />
+        </Show>
+      }
+    >
+      {(meter) => (
+        <div
+          class="button-cooldown-meter"
+          data-phase={meter().phase}
+          style={{
+            'transition-duration': meter().phase === 'ready' ? '0ms' : `${meter().ms}ms`,
+            'transition-property': 'transform',
+            'transition-timing-function': 'linear',
+          }}
+        />
+      )}
+    </Show>
+  );
+}
+
+export interface ButtonMeter {
+  readonly phase: 'ready' | 'drain' | 'fill';
+  readonly ms: number;
+}
+
 export interface ControllerShellProps {
   readonly color: string;
   readonly name: string;
@@ -33,6 +76,7 @@ export interface ControllerShellProps {
   readonly padState?: PadStatePayload | null;
   readonly hud?: JSX.Element;
   readonly alert?: JSX.Element;
+  readonly meters?: Partial<Record<ButtonBit, ButtonMeter>>;
   readonly customBoardClass?: string;
   readonly customBoardAttrs?: Record<string, string | boolean | undefined>;
 }
@@ -113,6 +157,7 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
     const count = Math.min(cooldownEndsAt.length, 4);
     for (let i = 0; i < count; i += 1) {
       const bit = i as ButtonBit;
+      if (props.meters?.[bit] !== undefined) continue;
       const endsAt = cooldownEndsAt[bit];
       if (endsAt === undefined || endsAt <= now) {
         clearCooldown(bit);
@@ -181,8 +226,13 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
     const isCool = cooldowns()[bit];
 
     if (down) {
-      // If it's a tap button with cooldown, and not on cooldown, trigger cooldown and optional haptic
-      if (spec.kind === 'tap' && spec.cooldownMs && spec.cooldownMs > 0 && !isCool) {
+      if (
+        props.meters?.[bit] === undefined &&
+        spec.kind === 'tap' &&
+        spec.cooldownMs &&
+        spec.cooldownMs > 0 &&
+        !isCool
+      ) {
         triggerCooldown(bit, spec.cooldownMs);
       }
       if (spec.hapticMs && spec.hapticMs > 0 && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -238,7 +288,6 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
             {(() => {
               const spec = props.layout.buttons[0];
               const bit = spec.bit;
-              const active = () => cooldowns()[bit];
               return (
                 <div class="tap-only-preset">
                   <ArcadeButton
@@ -246,17 +295,12 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                     disabled={buttonDisabled(bit)}
                     onPressedChange={(down, ts) => handleButtonPress(spec, down, ts)}
                   />
-                  <Show when={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[bit] > 0}>
-                    <div
-                      class="button-cooldown-meter"
-                      data-active={active() ? 'true' : 'false'}
-                      style={{
-                        'transition-duration': active() ? `${buttonCooldownMs(spec)}ms` : '0ms',
-                        'transition-property': 'transform',
-                        'transition-timing-function': 'linear',
-                      }}
-                    />
-                  </Show>
+                  <CooldownMeter
+                    meter={props.meters?.[bit]}
+                    active={cooldowns()[bit]}
+                    showLocal={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[bit] > 0}
+                    durationMs={buttonCooldownMs(spec)}
+                  />
                 </div>
               );
             })()}
@@ -266,7 +310,6 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
             {(() => {
               const spec = props.layout.buttons[0];
               const bit = spec.bit;
-              const active = () => cooldowns()[bit];
               return (
                 <div class="dock-preset-single">
                   <ArcadeButton
@@ -274,17 +317,12 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                     disabled={buttonDisabled(bit)}
                     onPressedChange={(down, ts) => handleButtonPress(spec, down, ts)}
                   />
-                  <Show when={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[bit] > 0}>
-                    <div
-                      class="button-cooldown-meter"
-                      data-active={active() ? 'true' : 'false'}
-                      style={{
-                        'transition-duration': active() ? `${buttonCooldownMs(spec)}ms` : '0ms',
-                        'transition-property': 'transform',
-                        'transition-timing-function': 'linear',
-                      }}
-                    />
-                  </Show>
+                  <CooldownMeter
+                    meter={props.meters?.[bit]}
+                    active={cooldowns()[bit]}
+                    showLocal={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[bit] > 0}
+                    durationMs={buttonCooldownMs(spec)}
+                  />
                 </div>
               );
             })()}
@@ -302,7 +340,6 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                         : spec.glyph === 'B'
                           ? 'diamond-right'
                           : 'diamond-bottom'; // 'A'
-                  const active = () => cooldowns()[spec.bit];
 
                   return (
                     <div class={`diamond-slot ${glyphClass}`}>
@@ -311,17 +348,12 @@ export const ControllerShell: VoidComponent<ControllerShellProps> = (props) => {
                         disabled={buttonDisabled(spec.bit)}
                         onPressedChange={(down, ts) => handleButtonPress(spec, down, ts)}
                       />
-                      <Show when={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[spec.bit] > 0}>
-                        <div
-                          class="button-cooldown-meter"
-                          data-active={active() ? 'true' : 'false'}
-                          style={{
-                            'transition-duration': active() ? `${buttonCooldownMs(spec)}ms` : '0ms',
-                            'transition-property': 'transform',
-                            'transition-timing-function': 'linear',
-                          }}
-                        />
-                      </Show>
+                      <CooldownMeter
+                        meter={props.meters?.[spec.bit]}
+                        active={cooldowns()[spec.bit]}
+                        showLocal={(spec.cooldownMs !== undefined && spec.cooldownMs > 0) || cooldownDurations()[spec.bit] > 0}
+                        durationMs={buttonCooldownMs(spec)}
+                      />
                     </div>
                   );
                 }}
