@@ -86,7 +86,18 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
   let bLeft = brutes;
   let turn = 0;
 
+  const totalMinions = drones + fastDrones + brutes;
+  // For Wave 7, spawn boss near the end alongside the final few enemies (~88% through minion spawns)
+  const bossSpawnThreshold = def.wave === 7 ? Math.max(1, Math.round(totalMinions * 0.88)) : -1;
+  let bossSpawnedInWave7 = false;
+
   while (dLeft > 0 || fLeft > 0 || bLeft > 0) {
+    const minionsSpawned = totalMinions - (dLeft + fLeft + bLeft);
+    if (def.hasBoss && def.wave === 7 && !bossSpawnedInWave7 && minionsSpawned >= bossSpawnThreshold) {
+      enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
+      bossSpawnedInWave7 = true;
+    }
+
     const flank = turn % def.flanks;
     if (bLeft > 0 && (turn % 4 === 2 || (dLeft === 0 && fLeft === 0))) {
       enqueueSpawn(w, ENEMY_TYPE.BRUTE, flank, delay);
@@ -102,8 +113,8 @@ export function populateWaveSpawns(w: CyberWorld, wave: number): void {
     turn += 1;
   }
 
-  if (def.hasBoss && def.wave === 7) {
-    enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay + 2.0);
+  if (def.hasBoss && def.wave === 7 && !bossSpawnedInWave7) {
+    enqueueSpawn(w, ENEMY_TYPE.BOSS, 0, delay);
   }
 }
 

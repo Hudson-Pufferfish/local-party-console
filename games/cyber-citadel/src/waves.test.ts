@@ -138,30 +138,30 @@ test('Wave 7 spawns gatekeeper Boss at flank 0 after all minions + 2.0s while Wa
   expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
   expect(findActiveBoss()).toBeNull();
 
-  // Advance until all minions have spawned and we are mid-pause before delay + 2.0s
-  // Total delay after minion loop = C.flankTelegraphSec + expectedMinions * def7.spawnCadenceSec
-  const postMinionDelay = C.flankTelegraphSec + expectedMinions * def7.spawnCadenceSec;
+  // Advance until ~80% through minion spawns: boss has not spawned yet
+  const thresholdMinions = Math.max(1, Math.round(expectedMinions * 0.88));
+  const beforeBossDelay = C.flankTelegraphSec + Math.max(0, thresholdMinions - 2) * def7.spawnCadenceSec;
   const ticksAlreadyRun = 252;
-  const ticksBeforeBoss = Math.floor((postMinionDelay + 1.5) / C.dt);
+  const ticksBeforeBoss = Math.floor(beforeBossDelay / C.dt);
   for (let i = ticksAlreadyRun; i < ticksBeforeBoss; i += 1) {
     if (i % 60 === 0) sim.state[CYBER_HEADER.coreHp] = C.coreMaxHp;
     sim.step(C.dt);
   }
-  expect(sim.getDebugStats().queuedEnemies).toBe(1);
   expect(sim.state[CYBER_HEADER.bossPhase]).toBe(0);
   expect(findActiveBoss()).toBeNull();
 
-  // Advance past delay + 2.0s: gatekeeper Boss spawns at flank 0 (north edge)
-  const ticksAfterBoss = Math.ceil((postMinionDelay + 2.15) / C.dt);
-  for (let i = ticksBeforeBoss; i < ticksAfterBoss; i += 1) {
+  // Advance through 88% threshold: gatekeeper Boss spawns at flank 0 alongside final minions
+  const atBossDelay = C.flankTelegraphSec + (thresholdMinions + 1) * def7.spawnCadenceSec;
+  const ticksAtBoss = Math.ceil((atBossDelay + 0.1) / C.dt);
+  for (let i = ticksBeforeBoss; i < ticksAtBoss; i += 1) {
     if (i % 60 === 0) sim.state[CYBER_HEADER.coreHp] = C.coreMaxHp;
     sim.step(C.dt);
   }
-  expect(sim.getDebugStats().queuedEnemies).toBe(0);
   expect(sim.state[CYBER_HEADER.bossPhase]).toBe(1);
   const w7Boss = findActiveBoss();
   expect(w7Boss).not.toBeNull();
   expect(w7Boss!.y).toBeLessThan(-320);
+  expect(sim.getDebugStats().queuedEnemies).toBeGreaterThan(0);
 
   // Wave 8 keeps Boss spawn at the beginning (delay = C.flankTelegraphSec) before minion trickle
   sim.jumpToWave(8);
