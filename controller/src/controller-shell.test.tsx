@@ -121,6 +121,25 @@ describe('ControllerShell', () => {
     expect(htmlWithAlert).toContain('HOLDING BOMB');
   });
 
+  test('controlled meter renders the drain phase while other buttons keep the local cooldown meter', () => {
+    const html = renderToString(() => (
+      <ControllerShell
+        color="#00C853"
+        name="Hudson"
+        slot={1}
+        layout={diamondLayout}
+        meters={{ 0: { phase: 'drain', ms: 3000 } }}
+        onAxes={() => {}}
+        onButton={() => {}}
+      />
+    ));
+
+    expect(html).toContain('data-phase="drain"');
+    expect(html).toContain('transition-duration:3000ms');
+    expect(html).toContain('data-active="false"');
+    expect(html).toContain('transition-duration:0ms');
+  });
+
   test('button cooldown meter applies 0ms transition duration when inactive', () => {
     const html = renderToString(() => (
       <ControllerShell

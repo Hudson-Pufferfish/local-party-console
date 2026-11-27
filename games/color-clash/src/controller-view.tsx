@@ -1,9 +1,15 @@
 import { createEffect, createSignal, onCleanup, type VoidComponent } from 'solid-js';
-import { ControllerShell } from '../../../shared/src/ui/index.tsx';
+import { ControllerShell, type ButtonMeter } from '../../../shared/src/ui/index.tsx';
 import { COLOR_CLASH_MANIFEST } from './manifest.ts';
 import './controller-view.css';
 
 export type BoostUiState = 'ready' | 'boosting' | 'recharge';
+
+export function boostMeterFor(state: BoostUiState, activeMs: number, cooldownMs: number): ButtonMeter {
+  if (state === 'boosting') return { phase: 'drain', ms: activeMs };
+  if (state === 'recharge') return { phase: 'fill', ms: Math.max(0, cooldownMs - activeMs) };
+  return { phase: 'ready', ms: 0 };
+}
 
 export function formatColorReadout(
   pct: number,
@@ -91,6 +97,8 @@ export const ColorClashController: VoidComponent<{
   const [boostState, setBoostState] = createSignal<BoostUiState>(initial.boostState);
   const [overtime, setOvertime] = createSignal(initial.overtime);
   const [watching, setWatching] = createSignal(initial.watching);
+  const [meterActiveMs, setMeterActiveMs] = createSignal(3000);
+  const [meterCooldownMs, setMeterCooldownMs] = createSignal(8000);
 
   let activeTimer: ReturnType<typeof setTimeout> | null = null;
   let coolTimer: ReturnType<typeof setTimeout> | null = null;
@@ -109,6 +117,8 @@ export const ColorClashController: VoidComponent<{
   function startBoostCycle(activeMs = 3000, cooldownMs = 8000): void {
     clearTimers();
     const rechargeMs = Math.max(0, cooldownMs - activeMs);
+    setMeterActiveMs(activeMs);
+    setMeterCooldownMs(cooldownMs);
     setBoostState('boosting');
     activeTimer = setTimeout(() => {
       activeTimer = null;
@@ -219,6 +229,7 @@ export const ColorClashController: VoidComponent<{
       layout={COLOR_CLASH_MANIFEST.controllerLayout}
       onAxes={props.onAxes}
       onButton={onBoost}
+      meters={{ 0: boostMeterFor(boostState(), meterActiveMs(), meterCooldownMs()) }}
       customBoardClass="color-board"
       hud={
         <>
