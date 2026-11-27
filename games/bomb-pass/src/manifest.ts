@@ -24,6 +24,7 @@ export const BOMB_PASS_MANIFEST: GameManifest = {
         label: 'DASH',
         kind: 'tap',
         cooldownMs: 1500,
+        hapticMs: 20,
       },
     ],
   },

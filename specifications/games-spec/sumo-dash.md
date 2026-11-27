@@ -87,7 +87,7 @@ export const SUMO_DASH_MANIFEST: GameManifest = {
 ### FR-5: Phone Controller Layout & Feedback
 * **Layout (Landscape Forced via Pre-Flight Strip):**
   * **Left Half:** `<VirtualJoystick/>` (continuous $X, Y$ mapped to `Int8` $[-127, 127]$).
-  * **Right Half:** Single oversized `<ArcadeButton label="DASH"/>` (`Bit 0`).
+  * **Right Half:** Single oversized `<ArcadeButton label="DASH"/>` (`Bit 0`, `hapticMs: 20`).
   * **Top Bar (Slim):** `<PlayerBadge/>` showing assigned slot color (`P1`–`P8`), current score, and `ALIVE / OUT` status LED.
 * **Cooldown & State Feedback:**
   * While `dashCooldown > 0`, the `DASH` button renders a crisp hard-edged fill bar synced from lightweight control-plane cooldown events (or local $1.5\text{s}$ visual timer triggered on press to avoid extra network traffic).

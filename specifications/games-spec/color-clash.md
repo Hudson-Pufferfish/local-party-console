@@ -147,7 +147,7 @@ export const COLOR_CLASH_MANIFEST: GameManifest = {
 * **Controls (Strict `/shared/ui` Primitives Only):**
   * **Top Bar:** `<PlayerBadge/>` displaying slot (`P1`–`P8`) and player name, paired with a **Paint Color Splash Indicator** (crisp `2.5px solid #111111` Neo-Brutalist paint-splatter swatch filled with `var(--player-color)` that stamps a solid yellow rim while `BOOST` is active) and tabular percentage + boost readout (`24.5% · READY`, `24.5% · BOOSTING`, `24.5% · RECHARGE`, or `OVERTIME`).
   * **Left Zone:** `<VirtualJoystick label="MOVE"/>` mapping continuous steering to `Int8` `[-127, 127]` (`Bytes 6..7`).
-  * **Right Zone:** Oversized `<ArcadeButton label="BOOST"/>` mapped to `Bit 0` (`Byte 5`), paired with a hard-edged charge/cooldown meter (`3.0s` active yellow drain bar followed by `5.0s` recharge fill bar).
+  * **Right Zone:** Oversized `<ArcadeButton label="BOOST"/>` mapped to `Bit 0` (`Byte 5`, `hapticMs: 20`), paired with a hard-edged charge/cooldown meter (`3.0s` active yellow drain bar followed by `5.0s` recharge fill bar).
 * **Feedback & Haptics:**
   * Local press starts the visual charge/cooldown bar immediately when ready to avoid extra network traffic; host `color:boost` and `color:match_start` / `color:overtime` control-plane messages keep state synchronized.
   * On boost activation, boost shove impact, or Golden Tile capture, the host sends `color:haptic` (`'light' | 'heavy' | 'golden'`) triggering `navigator.vibrate()` / iOS Taptic switch feedback.

@@ -22,6 +22,7 @@ export const LAST_LIGHT_MANIFEST: GameManifest = {
         glyph: 'A',
         label: 'LOCK IN',
         kind: 'tap',
+        hapticMs: 20,
       },
     ],
   },

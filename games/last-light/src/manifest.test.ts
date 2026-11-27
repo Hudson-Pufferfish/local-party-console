@@ -20,7 +20,7 @@ describe('LAST_LIGHT_MANIFEST and state barrier', () => {
     expect(LAST_LIGHT_MANIFEST.supportedOrientations).toEqual(['portrait', 'landscape']);
     expect(LAST_LIGHT_MANIFEST.controllerLayout).toEqual({
       preset: 'tap-only',
-      buttons: [{ bit: 0, glyph: 'A', label: 'LOCK IN', kind: 'tap' }],
+      buttons: [{ bit: 0, glyph: 'A', label: 'LOCK IN', kind: 'tap', hapticMs: 20 }],
     });
 
     const yellow = APP_THEME.yellow.toUpperCase();

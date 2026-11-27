@@ -151,7 +151,7 @@ export const BOMB_PASS_MANIFEST: GameManifest = {
 * **Layout:**
   * **Top Bar:** `<PlayerBadge/>` (slot `P1`–`P8`, name, player color) + tabular monospace readout (`SAFE · 3 PTS`, `BOMB! 08.4s`, or `OUT · 3 PTS`).
   * **Move Zone:** `<VirtualJoystick label="MOVE"/>` mapped to `Int8` `axisX, axisY` (`-127..127`).
-  * **Dash Control:** Single oversized `<ArcadeButton label="DASH"/>` mapped to `Byte 5` `Bit 0` with a hard-edged `1.5s` local cooldown fill bar.
+  * **Dash Control:** Single oversized `<ArcadeButton label="DASH"/>` mapped to `Byte 5` `Bit 0` (`hapticMs: 20`) with a hard-edged `1.5s` local cooldown fill bar.
 * **Bomb Danger Indicator (Phone Screen Alert):**
   * Driven by reliable control-plane messages (`bomb:holder`, `bomb:explosion`, `bomb:round_start`) — **zero continuous `requestAnimationFrame` loops** on the phone.
   * When `holderIndex === slot`:
