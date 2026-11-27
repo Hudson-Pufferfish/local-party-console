@@ -70,7 +70,7 @@ test('a late send window still delivers a held stick and a dash', () => {
 test('route dc sends once on data channel and never on websocket when sendDc succeeds', () => {
   const ctx = setupRoute('dc', true);
   sendAxes(1, 0, ctx.now());
-  ctx.advance(15);
+  ctx.advance(17);
   expect(ctx.dcPackets.length).toBe(1);
   expect(ctx.wsPackets.length).toBe(0);
   expect(ctx.dcPackets[0]!.byteLength).toBe(8);
@@ -79,7 +79,7 @@ test('route dc sends once on data channel and never on websocket when sendDc suc
 test('route dc falls back to websocket with the same 8-byte snapshot when sendDc fails', () => {
   const ctx = setupRoute('dc', false);
   sendAxes(1, 0, ctx.now());
-  ctx.advance(15);
+  ctx.advance(17);
   expect(ctx.dcPackets.length).toBe(1);
   expect(ctx.wsPackets.length).toBe(1);
   expect(ctx.dcPackets[0]!.byteLength).toBe(8);
@@ -91,7 +91,7 @@ test.each<FastInputRoute>(['drop', 'wait', 'ws'])(
   (route) => {
     const ctx = setupRoute(route, true);
     sendAxes(1, 0, ctx.now());
-    ctx.advance(15);
+    ctx.advance(17);
     expect(ctx.dcPackets.length).toBe(0);
     expect(ctx.wsPackets.length).toBe(1);
     expect(ctx.wsPackets[0]!.byteLength).toBe(8);
