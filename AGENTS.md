@@ -31,6 +31,11 @@ Intentionally **not** installed: Phaser Arcade/Matter, Telnyx WebRTC, Socket.IO-
 
 Do not commit `.cursor/mcp.json` or secrets.
 
+## CI / Tooling
+
+- GitHub CodeQL scans `server`, `screen`, `controller`, `shared`, and `games` on push to `main`, on pull requests to `main`, and every Monday. The workflow file is `.github/workflows/codeql.yml`. The query file is `.github/codeql/codeql-config.yml`.
+- When introducing new programming languages (e.g. Rust for tauri-v2/rust-wasm, Python, or Go), update `.github/workflows/codeql.yml` matrix and `.github/codeql/codeql-config.yml` paths/queries to include the new language stack.
+
 ## Writing and tests
 
 - Write prose in ASD-STE100 Simplified Technical English style: short sentences, active voice, simple words, one main idea per sentence. Keep technical names, code, commands, and quoted text exact.

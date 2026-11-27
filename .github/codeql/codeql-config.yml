@@ -1,0 +1,27 @@
+name: "Local Party Console Security Scan"
+
+# security-extended includes the default security queries plus lower-severity queries.
+disable-default-queries: true
+
+queries:
+  - uses: security-extended
+
+paths:
+  - server
+  - screen
+  - controller
+  - shared
+  - games
+
+paths-ignore:
+  - "**/node_modules"
+  - "**/dist"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "plans/**"
+  - "specifications/**"
+
+query-filters:
+  - exclude:
+      problem.severity:
+        - recommendation
