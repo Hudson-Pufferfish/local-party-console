@@ -207,7 +207,8 @@ export const AUX_LAYOUT = {
   META_BRUTE_HEADING: 2976, // 32 x u8
   META_BOSS_SLOTS: 3008, // 4 x 4 B (enemyIdx+1 u8, weakMask u8, laserAngle u16)
   META_BOSS_SLOT_STRIDE: 4,
-  META_RESERVED: 3024, // 48 bytes
+  META_BOSS_LASER_LEN: 3024, // 4 x u16 (8 bytes): clipped laser length per boss slot
+  META_RESERVED: 3032, // 40 bytes
 
   AUX_CORE_BYTES: 3072,
   FLOW_DEBUG_OFFSET: 3072,

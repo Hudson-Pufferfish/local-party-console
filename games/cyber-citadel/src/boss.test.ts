@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { hitsBruteFrontalShield } from './brute.ts';
 import {
+  AUX_LAYOUT,
   BOSS_WEAK_FLAG,
   BUTTON_BIT,
   CYBER_CITADEL_CONSTANTS as C,
@@ -10,10 +11,21 @@ import {
   CYBER_PLAYER_OFFSET,
   ENEMY_STATE_FLAG,
   ENEMY_TYPE,
+  PROJECTILE_FLAG,
 } from './constants.ts';
+import { cellCenter } from './flow-field.ts';
+import { tryPlaceBarricade } from './shield.ts';
 import { createCyberCitadelSimulation } from './simulation.ts';
-import { createAuxView, playerBase, readBossSlotMeta, readEnemy, readMetaTrailer } from './state.ts';
-import { clearBossSlot, createCyberWorld } from './world.ts';
+import {
+  createAuxView,
+  playerBase,
+  readBossLaserLen,
+  readBossSlotMeta,
+  readEnemy,
+  readMetaTrailer,
+  readProjectile,
+} from './state.ts';
+import { clearBossSlot, createCyberWorld, tickAndSyncAuxState } from './world.ts';
 import { findBossSlotByEnemyIdx, onBossDashHit, selectBossThreatTarget, updateBossFsm } from './boss.ts';
 import { spawnEnemyImmediate } from './waves.ts';
 
@@ -450,4 +462,73 @@ test('Dreadnought spawns with 600 base HP scaled by squad weight', () => {
   const duoBoss = spawnEnemyImmediate(duo, ENEMY_TYPE.BOSS, 0, -200, 0);
   expect(duo.eMaxHp[duoBoss]).toBeCloseTo(600 * 1.28, 5);
   expect(duo.eHp[duoBoss]).toBeCloseTo(600 * 1.28, 5);
+});
+
+test('Dreadnought laser stops on barricades, damages wall, blocks end-cap bleed-through, and clips at arena edge', () => {
+  const w = createCyberWorld();
+  w.pJoined[0] = 1;
+  w.pJoined[1] = 1;
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+  w.state[b0 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.JOINED | CYBER_FLAG.ACTIVE;
+  w.state[b1 + CYBER_PLAYER_OFFSET.flags] = CYBER_FLAG.JOINED | CYBER_FLAG.ACTIVE;
+
+  // Place barricade at cell (28, 20): x in [160, 180], y in [0, 20]
+  w.state[b0 + CYBER_PLAYER_OFFSET.x] = cellCenter(28) - (C.playerRadius + C.cellSize * 1.1);
+  w.state[b0 + CYBER_PLAYER_OFFSET.y] = cellCenter(20);
+  w.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+  expect(tryPlaceBarricade(w, 0)).toBe(true);
+  expect(w.bActive[0]).toBe(1);
+
+  // P0 hugs the back of the barricade at x = 195 (within 40px of hit point x = 160, testing end-cap guard)
+  w.state[b0 + CYBER_PLAYER_OFFSET.x] = 195;
+  w.state[b0 + CYBER_PLAYER_OFFSET.y] = 10;
+  // P1 stands uncovered in front of the barricade at x = 100
+  w.state[b1 + CYBER_PLAYER_OFFSET.x] = 100;
+  w.state[b1 + CYBER_PLAYER_OFFSET.y] = 10;
+
+  // Boss at (0, 10) sweeps along exact +X (angle = 0 after sweepSpeed * dt advance)
+  const bossEid = spawnEnemyImmediate(w, ENEMY_TYPE.BOSS, 0, 10, 0);
+  const slot = findBossSlotByEnemyIdx(w, bossEid);
+  w.bossLaserActive[slot] = 1;
+  w.bossLaserTimer[slot] = 1.0;
+  w.bossLaserAngle[slot] = -C.bossLaserSweepSpeed * C.dt;
+  w.state[CYBER_HEADER.tickId] = 0; // divisible by 4 so laser tracer emits
+
+  updateBossFsm(w, C.dt);
+  tickAndSyncAuxState(w);
+
+  // Barricade takes 52 DPS, covered P0 takes 0 damage, uncovered P1 takes 52 DPS
+  expect(w.bPendingDamage[0]).toBeCloseTo(C.bossLaserDps * C.dt, 5);
+  expect(w.pPendingDamage[0]).toBe(0);
+  expect(w.pPendingDamage[1]).toBeCloseTo(C.bossLaserDps * C.dt, 5);
+
+  // Synced laser length and tracer endpoint terminate at barricade front face (x = 160, len = 160)
+  expect(w.bossLaserLen[slot]).toBeCloseTo(160, 2);
+  expect(readBossLaserLen(w.auxView, slot)).toBeCloseTo(160, 1);
+
+  let foundBossTracer = false;
+  for (let i = 0; i < AUX_LAYOUT.MAX_PROJECTILES; i += 1) {
+    const p = readProjectile(w.auxView, i);
+    if (p.ttl > 0 && (p.flags & PROJECTILE_FLAG.BOSS_LASER) !== 0) {
+      expect(p.x).toBeCloseTo(160, 1);
+      expect(p.y).toBeCloseTo(10, 1);
+      foundBossTracer = true;
+      break;
+    }
+  }
+  expect(foundBossTracer).toBe(true);
+
+  // Arena boundary clip: unobstructed boss near +X wall at (300, 10) clips beam length to 100 (x = 400)
+  const wEdge = createCyberWorld();
+  const edgeBossEid = spawnEnemyImmediate(wEdge, ENEMY_TYPE.BOSS, 300, 10, 1);
+  const edgeSlot = findBossSlotByEnemyIdx(wEdge, edgeBossEid);
+  wEdge.bossLaserActive[edgeSlot] = 1;
+  wEdge.bossLaserTimer[edgeSlot] = 1.0;
+  wEdge.bossLaserAngle[edgeSlot] = -C.bossLaserSweepSpeed * C.dt;
+
+  updateBossFsm(wEdge, C.dt);
+  tickAndSyncAuxState(wEdge);
+  expect(wEdge.bossLaserLen[edgeSlot]).toBeCloseTo(100, 2);
+  expect(readBossLaserLen(wEdge.auxView, edgeSlot)).toBeCloseTo(100, 1);
 });

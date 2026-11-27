@@ -15,11 +15,13 @@ import {
   encodeCoordU16,
   encodeHpPctU8,
   readBarricade,
+  readBossLaserLen,
   readBossSlotMeta,
   readEnemy,
   readMetaTrailer,
   readProjectile,
   writeBarricade,
+  writeBossLaserLenRaw,
   writeBossSlotMetaRaw,
   writeEnemy,
   writeMetaTrailer,
@@ -57,27 +59,37 @@ test('AUX_LAYOUT regions are non-overlapping and pack/unpack enemies, projectile
   expect(AUX_LAYOUT.AUX_CORE_BYTES).toBe(3072);
   expect(AUX_LAYOUT.AUX_DEBUG_BYTES).toBe(4672);
 
-  // Verify META_BOSS_SLOTS and META_RESERVED byte bounds
+  // Verify META_BOSS_SLOTS, META_BOSS_LASER_LEN, and META_RESERVED byte bounds
   expect(AUX_LAYOUT.META_BRUTE_HEADING + 32).toBe(AUX_LAYOUT.META_BOSS_SLOTS);
-  expect(AUX_LAYOUT.META_BOSS_SLOTS + 4 * AUX_LAYOUT.META_BOSS_SLOT_STRIDE).toBe(AUX_LAYOUT.META_RESERVED);
-  expect(AUX_LAYOUT.META_RESERVED + 48).toBe(AUX_LAYOUT.AUX_CORE_BYTES);
+  expect(AUX_LAYOUT.META_BOSS_SLOTS + 4 * AUX_LAYOUT.META_BOSS_SLOT_STRIDE).toBe(
+    AUX_LAYOUT.META_BOSS_LASER_LEN,
+  );
+  expect(AUX_LAYOUT.META_BOSS_LASER_LEN + 8).toBe(AUX_LAYOUT.META_RESERVED);
+  expect(AUX_LAYOUT.META_RESERVED + 40).toBe(AUX_LAYOUT.AUX_CORE_BYTES);
   expect(AUX_LAYOUT.META_BOSS_SLOTS).toBe(3008);
   expect(AUX_LAYOUT.META_BOSS_SLOT_STRIDE * 4).toBe(16);
-  expect(AUX_LAYOUT.META_RESERVED).toBe(3024);
-  expect(AUX_LAYOUT.AUX_CORE_BYTES - AUX_LAYOUT.META_RESERVED).toBe(48);
+  expect(AUX_LAYOUT.META_BOSS_LASER_LEN).toBe(3024);
+  expect(AUX_LAYOUT.META_RESERVED).toBe(3032);
+  expect(AUX_LAYOUT.AUX_CORE_BYTES - AUX_LAYOUT.META_RESERVED).toBe(40);
 
   const aux = createAuxBuffer(false);
   expect(aux.bytes.byteLength).toBe(3072);
   const auxDebug = createAuxBuffer(true);
   expect(auxDebug.bytes.byteLength).toBe(4672);
 
-  // Validate boss slot meta packing edge cases (enemyIdx -1, 0, 159)
+  // Validate boss slot meta and clipped laser length packing edge cases
   writeBossSlotMetaRaw(aux.view, 0, -1, 0, 0);
   expect(readBossSlotMeta(aux.view, 0)).toEqual({ enemyIdx: -1, weakMask: 0, laserAngleU16: 0 });
   writeBossSlotMetaRaw(aux.view, 1, 0, 7, 65535);
   expect(readBossSlotMeta(aux.view, 1)).toEqual({ enemyIdx: 0, weakMask: 7, laserAngleU16: 65535 });
   writeBossSlotMetaRaw(aux.view, 2, 159, 3, 32768);
   expect(readBossSlotMeta(aux.view, 2)).toEqual({ enemyIdx: 159, weakMask: 3, laserAngleU16: 32768 });
+  writeBossLaserLenRaw(aux.view, 0, 0);
+  expect(readBossLaserLen(aux.view, 0)).toBe(0);
+  writeBossLaserLenRaw(aux.view, 1, 160);
+  expect(readBossLaserLen(aux.view, 1)).toBeCloseTo(160, 1);
+  writeBossLaserLenRaw(aux.view, 3, 340);
+  expect(readBossLaserLen(aux.view, 3)).toBeCloseTo(340, 1);
 
   writeEnemy(aux.view, 15, {
     x: -128.5,

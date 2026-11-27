@@ -7,6 +7,8 @@ import {
 
 const COORD_SCALE_ENC = 65535 / C.arenaSize;
 const COORD_SCALE_DEC = C.arenaSize / 65535;
+const BOSS_LASER_LEN_ENC = 65535 / C.bossLaserRange;
+const BOSS_LASER_LEN_DEC = C.bossLaserRange / 65535;
 const TWO_PI = Math.PI * 2;
 const ANG_SCALE_ENC = 255 / TWO_PI;
 const ANG_SCALE_DEC = TWO_PI / 255;
@@ -363,6 +365,28 @@ export function readBossSlotMeta(view: DataView, bossSlot: number): BossSlotMeta
     weakMask: view.getUint8(off + 1),
     laserAngleU16: view.getUint16(off + 2, true),
   };
+}
+
+export function encodeBossLaserLenU16(length: number): number {
+  if (!Number.isFinite(length) || length <= 0) return 0;
+  const raw = Math.round(length * BOSS_LASER_LEN_ENC);
+  if (raw <= 0) return 0;
+  if (raw >= 65535) return 65535;
+  return raw;
+}
+
+export function decodeBossLaserLenU16(u16: number): number {
+  return (u16 & 0xffff) * BOSS_LASER_LEN_DEC;
+}
+
+export function writeBossLaserLenRaw(view: DataView, bossSlot: number, length: number): void {
+  const off = AUX_LAYOUT.META_BOSS_LASER_LEN + bossSlot * 2;
+  view.setUint16(off, encodeBossLaserLenU16(length), true);
+}
+
+export function readBossLaserLen(view: DataView, bossSlot: number): number {
+  const off = AUX_LAYOUT.META_BOSS_LASER_LEN + bossSlot * 2;
+  return decodeBossLaserLenU16(view.getUint16(off, true));
 }
 
 export function createFreeList(capacity: number): FreeList {

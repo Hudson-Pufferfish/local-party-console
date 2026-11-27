@@ -17,13 +17,14 @@ import {
   encodeFacingSector4,
   encodeHpPctU8,
   writeBarricadeRaw,
+  writeBossLaserLenRaw,
   writeBossSlotMetaRaw,
   writeEnemyRaw,
   writeMetaTrailerRaw,
   writeProjectileRaw,
   type FreeList,
 } from './state.ts';
-import type { FlowField, Vec2Out } from './types.ts';
+import type { BarricadeRayHitOut, FlowField, Vec2Out } from './types.ts';
 
 export const SPAWN_QUEUE_CAP = 512;
 
@@ -39,6 +40,7 @@ export interface CyberWorld {
   readonly scratchBody: PhysicsBody2D;
   readonly scratchDir: Vec2Out;
   readonly scratchEnd: Vec2Out;
+  readonly scratchRayHit: BarricadeRayHitOut;
 
   // Player runtime SoA (8 slots)
   readonly pJoined: Uint8Array;
@@ -122,6 +124,7 @@ export interface CyberWorld {
   // Multi-Boss runtime SoA (4 fixed pre-allocated boss slots)
   readonly bossEnemyIdx: Int16Array;
   readonly bossLaserAngle: Float32Array;
+  readonly bossLaserLen: Float32Array;
   readonly bossLaserTimer: Float32Array;
   readonly bossLaserActive: Uint8Array;
   readonly bossCarrierTimer: Float32Array;
@@ -171,6 +174,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
     scratchBody: { x: 0, y: 0, vx: 0, vy: 0 },
     scratchDir: { x: 1, y: 0 },
     scratchEnd: { x: 0, y: 0 },
+    scratchRayHit: { dist: 0, barIdx: -1 },
 
     pJoined: new Uint8Array(C.maxPlayers),
     pIsBot: new Uint8Array(C.maxPlayers),
@@ -248,6 +252,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
 
     bossEnemyIdx: new Int16Array(C.maxBosses).fill(-1),
     bossLaserAngle: new Float32Array(C.maxBosses),
+    bossLaserLen: new Float32Array(C.maxBosses),
     bossLaserTimer: new Float32Array(C.maxBosses),
     bossLaserActive: new Uint8Array(C.maxBosses),
     bossCarrierTimer: new Float32Array(C.maxBosses),
@@ -275,6 +280,7 @@ export function createCyberWorld(debugFlowField = false): CyberWorld {
 export function clearBossSlot(w: CyberWorld, bossSlot: number): void {
   w.bossEnemyIdx[bossSlot] = -1;
   w.bossLaserAngle[bossSlot] = 0;
+  w.bossLaserLen[bossSlot] = 0;
   w.bossLaserTimer[bossSlot] = 3.0;
   w.bossLaserActive[bossSlot] = 0;
   w.bossCarrierTimer[bossSlot] = C.bossCarrierCooldownSec;
@@ -398,6 +404,7 @@ export function tickAndSyncAuxState(w: CyberWorld): void {
       const normLaser = ((w.bossLaserAngle[b]! % twoPi) + twoPi) % twoPi;
       const laserU16 = Math.round((normLaser / twoPi) * 65535) & 0xffff;
       writeBossSlotMetaRaw(view, b, bIdx, weak, laserU16);
+      writeBossLaserLenRaw(view, b, w.bossLaserLen[b]!);
 
       if (!hasAnyBoss) {
         repLaserU16 = laserU16;
@@ -409,6 +416,7 @@ export function tickAndSyncAuxState(w: CyberWorld): void {
       }
     } else {
       writeBossSlotMetaRaw(view, b, -1, 0, 0);
+      writeBossLaserLenRaw(view, b, 0);
     }
   }
 

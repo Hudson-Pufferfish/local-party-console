@@ -76,15 +76,15 @@ export function selectRailSnapDirection(
   outDir.y = hy;
 }
 
-export function computeRayToArenaEdge(
+export function computeRayArenaMaxDist(
   px: number,
   py: number,
   dx: number,
   dy: number,
-  outEnd: Vec2Out,
-): void {
+  maxDist = 1200,
+): number {
   const half = C.halfArena;
-  let tMax = 1200;
+  let tMax = maxDist;
   if (dx > 1e-6) {
     const t = (half - px) / dx;
     if (t < tMax) tMax = t;
@@ -99,7 +99,17 @@ export function computeRayToArenaEdge(
     const t = (-half - py) / dy;
     if (t < tMax) tMax = t;
   }
-  if (tMax < 0) tMax = 0;
+  return tMax < 0 ? 0 : tMax;
+}
+
+export function computeRayToArenaEdge(
+  px: number,
+  py: number,
+  dx: number,
+  dy: number,
+  outEnd: Vec2Out,
+): void {
+  const tMax = computeRayArenaMaxDist(px, py, dx, dy, 1200);
   outEnd.x = px + dx * tMax;
   outEnd.y = py + dy * tMax;
 }
