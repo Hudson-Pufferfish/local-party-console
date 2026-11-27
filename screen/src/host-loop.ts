@@ -174,9 +174,10 @@ export function createHostLoop(
   }
 
   function clearSeq(slot: number): void {
-    if (slot < 0 || slot > 7) return;
-    lastSeq[slot] = -1;
-    saw[slot] = 0;
+    if (!Number.isInteger(slot) || slot < 0 || slot > 7) return;
+    const idx = slot | 0;
+    lastSeq[idx] = -1;
+    saw[idx] = 0;
   }
 
   function setConnectedMask(mask: number): void {

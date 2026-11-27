@@ -289,9 +289,10 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
       names[index] = botNames[index] ?? '';
     }
     for (const player of players) {
-      if (player.index < 0 || player.index >= names.length) continue;
+      if (!Number.isInteger(player.index) || player.index < 0 || player.index >= names.length) continue;
+      const idx = player.index | 0;
       const normalized = normalizeName(player.name);
-      if (normalized !== '') names[player.index] = normalized;
+      if (normalized !== '') names[idx] = normalized;
     }
     return names;
   }
@@ -390,8 +391,9 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     const was = connected.slice();
     connected.fill(0);
     for (const player of next) {
-      if (player.index < 0 || player.index > 7) continue;
-      if (player.connected) connected[player.index] = 1;
+      if (!Number.isInteger(player.index) || player.index < 0 || player.index > 7) continue;
+      const idx = player.index | 0;
+      if (player.connected) connected[idx] = 1;
     }
     let reconnected = false;
     for (let slot = 0; slot < connected.length; slot += 1) {
@@ -908,10 +910,18 @@ function readPlayers(payload: unknown): PlayerSlot[] | null {
       teamId?: unknown;
       connected?: unknown;
     };
-    if (typeof row.index !== 'number' || typeof row.name !== 'string') continue;
+    if (
+      typeof row.index !== 'number'
+      || !Number.isInteger(row.index)
+      || row.index < 0
+      || row.index > 7
+      || typeof row.name !== 'string'
+    ) {
+      continue;
+    }
     if (typeof row.color !== 'string' || typeof row.connected !== 'boolean') continue;
     players.push({
-      index: row.index,
+      index: row.index | 0,
       name: row.name,
       color: row.color,
       teamId: typeof row.teamId === 'number' ? row.teamId : null,
@@ -952,8 +962,8 @@ function readBotNames(payload: unknown): string[] | null {
 function readIndex(payload: unknown): number | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const index = (payload as { index?: unknown }).index;
-  if (typeof index !== 'number' || index < 0 || index > 7) return null;
-  return index;
+  if (typeof index !== 'number' || !Number.isInteger(index) || index < 0 || index > 7) return null;
+  return index | 0;
 }
 
 function readAction(payload: unknown): string {
