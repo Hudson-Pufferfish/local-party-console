@@ -108,7 +108,18 @@ If a restrictive router blocks UDP peer-to-peer traffic altogether:
 | **Failure Mode** | Network drops UDP packets | Buffers behind TCP head-of-line blocking |
 | **When Used** | Normal gameplay on standard Wi-Fi | Guest Wi-Fi / client-isolation enabled |
 
-Each fast-path input packet uses one transport at a time. When the DataChannel is open and `bufferedAmount <= 64`, the controller sends on the DataChannel only. The controller uses the binary WebSocket only when the channel is not open, is still in the `'wait'` window, has `bufferedAmount > 64`, or `dc.send` fails.
+#### Fast-Path Single-Transport & Fallback Strategy
+
+Each fast-path input packet is sent over **one transport at a time**. Under healthy conditions (`channelOpen` and `bufferedAmount <= 64`), inputs are dispatched exclusively over WebRTC (UDP) to prevent duplicate packets, avoid TCP airtime overhead, and eliminate head-of-line blocking.
+
+The controller temporarily or permanently falls back to sending an input packet over the binary WebSocket (TCP) only under four specific scenarios:
+
+| Scenario / Trigger | Root Cause | Fallback Behavior |
+| :--- | :--- | :--- |
+| **1. ICE Negotiation (`wait`)** | Initial WebRTC handshake in progress (`channelAgeMs < 3000ms`). | Sends over WebSocket immediately so players can control their pucks without freezing during connection setup. |
+| **2. P2P Timeout (`ws`)** | DataChannel fails to open after 3s, or permanently closes. | Switches to WebSocket fallback for environments where peer-to-peer UDP is blocked (e.g., guest Wi-Fi isolation). |
+| **3. Queue Congestion (`drop`)** | Outbound WebRTC buffer exceeds 64 bytes (`bufferedAmount > 64`). | Routes packet over WebSocket rather than dropping player inputs on the floor during temporary UDP congestion. |
+| **4. Direct Send Failure (`sendDc` throws/fails)** | Underlying `DataChannel.send()` fails or throws an exception. | Immediately falls back to WebSocket on that exact packet (`!queued`) so the input tick is not lost. |
 
 ### References
 
