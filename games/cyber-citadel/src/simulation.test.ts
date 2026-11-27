@@ -764,3 +764,52 @@ test('friendly weapons (auto-fire, RAIL, EMP) continue to pass through barricade
   sim.step(C.dt);
   expect(readEnemy(view, empTarget).hpPct).toBeLessThan(255);
 });
+
+test('two players firing RAIL on the same tick at a shared enemy both deal 90 damage', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0, 1], 9);
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  const b0 = playerBase(0);
+  const b1 = playerBase(1);
+  // Place both players facing +X at a drone 450 units away (outside 260 auto-fire range)
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = -250;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = -30;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.x] = -250;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.y] = 30;
+  sim.state[b1 + CYBER_PLAYER_OFFSET.heading] = 0;
+
+  sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, 200, 0, 0, 1000);
+  const before = sim.getDebugStats().squadDamage;
+
+  sim.applyInput(0, BUTTON_BIT.RAIL, 0, 0);
+  sim.applyInput(1, BUTTON_BIT.RAIL, 0, 0);
+  sim.step(C.dt);
+
+  expect(sim.getDebugStats().squadDamage - before).toBe(C.railDamage * 2);
+});
+
+test('single player RAIL shot damages each enemy at most once across all 3 V-fan rays', () => {
+  const sim = createCyberCitadelSimulation();
+  sim.startMatch([0], 10);
+  sim.jumpToWave(1);
+  sim.clearSpawnQueueForTest();
+
+  const b0 = playerBase(0);
+  sim.state[b0 + CYBER_PLAYER_OFFSET.x] = -300;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.y] = 0;
+  sim.state[b0 + CYBER_PLAYER_OFFSET.heading] = 0;
+
+  // Drone 100 units ahead sits inside all 3 V-fan rays (100 * sin(10 deg) = 17.4 < hitRadius 36)
+  sim.spawnEnemyForTest(ENEMY_TYPE.DRONE, -200, 0, 0, 1000);
+  // Step once so auto-fire enters its 0.2s cooldown and isolates RAIL damage on the next tick
+  sim.step(C.dt);
+
+  const before = sim.getDebugStats().squadDamage;
+  sim.applyInput(0, BUTTON_BIT.RAIL, 0, 0);
+  sim.step(C.dt);
+
+  expect(sim.getDebugStats().squadDamage - before).toBe(C.railDamage);
+});

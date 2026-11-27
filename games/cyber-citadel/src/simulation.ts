@@ -53,6 +53,7 @@ function resetAllPools(w: CyberWorld): void {
   w.eShieldBreakTimer.fill(0);
   w.eKnockX.fill(0);
   w.eKnockY.fill(0);
+  w.eHitRailTick.fill(0);
 
   w.projTtl.fill(0);
   w.projCursor = 0;
