@@ -53,7 +53,7 @@ When 8 friends sit in a living room to play a party game on a TV or laptop scree
 
 ### 3. High-Level Connection Architecture: Zero-Config LAN WebRTC
 
-Instead of relying on cloud STUN servers or asking users for microphone permissions, the local Fastify server tells devices the real LAN IP address, and rewrites the WebRTC handshake (SDP) on the fly:
+Instead of relying on cloud STUN servers or asking users for microphone permissions, the local Fastify server gives the host screen tab its real LAN IP address, and the host tab rewrites the WebRTC Offer SDP on the fly:
 
 ```mermaid
 sequenceDiagram
@@ -62,21 +62,23 @@ sequenceDiagram
     participant Server as ⚡ Fastify Server (:8443)
     participant Host as 💻 Screen Tab (Chrome)
 
-    Note over Player,Host: Step 1: Scan & Fetch Config
-    Player->>Server: 1. Scan QR Code -> GET /api/host
-    Server-->>Player: Return { lanIp: "192.168.1.150", port: 8443 }
-    
+    Note over Player,Host: Step 1: Host Fetch Config & QR Pairing
+    Host->>Server: GET /api/host
+    Server-->>Host: Return { lanIp: "192.168.1.150", port: 8443 }
+    Host-->>Player: Display QR Code (https://192.168.1.150:8443/controller?room=...)
+
     Note over Player,Host: Step 2: Establish Fastify Signaling Channel
-    Player->>Server: Connect WebSocket (Signaling & Fallback Input)
     Host->>Server: Connect WebSocket (Host Screen Relay)
+    Player->>Server: Scan QR -> Connect WebSocket (Signaling & Fallback Input)
 
     Note over Player,Host: Step 3: WebRTC Handshake with SDP Filtering
     Host->>Host: Create WebRTC Offer (iceServers: [])
     Host->>Host: mungeLanSdp(): Replace .local with "192.168.1.150", drop IPv6/VPNs
     Host->>Server: Send Filtered Offer SDP
     Server->>Player: Relay Filtered Offer SDP
-    Player->>Host: Send Answer SDP directly via Relay
-    
+    Player->>Server: Send Answer SDP
+    Server->>Host: Relay Answer SDP
+
     Note over Player,Host: Step 4: Direct Peer-to-Peer Game Transport
     Player-->>Host: Direct WebRTC DataChannel Connected!<br/>(8-byte binary UDP input at 60Hz)
 ```
