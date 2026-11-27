@@ -47,13 +47,13 @@ it('default bot count is 0 and difficulty is medium', () => {
 
 it('bot toggle is a no-op when no human is connected', () => {
   const state = createBotLobby();
-  const next = nextBotCount(state, 2, 0, 0, 8, true);
+  const next = nextBotCount(state, { requested: 2, humans: 0, occupied: 0, maxPlayers: 8, supportsBots: true });
   expect(next).toBe(state);
   expect(next.botCount).toBe(0);
 });
 
 it('one human and one bot enables start', () => {
-  const state = nextBotCount(createBotLobby(), 1, 1, 1, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 1, humans: 1, occupied: 1, maxPlayers: 8, supportsBots: true });
   expect(reason(1, state.botCount)).toBeNull();
   const roster = rosterForStart([player(0, true)], SUMO, state.botCount);
   expect(roster).not.toBeNull();
@@ -71,13 +71,13 @@ it('one human and zero bots disables start', () => {
 });
 
 it('four humans and four bots enable start', () => {
-  const state = nextBotCount(createBotLobby(), 4, 4, 4, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 4, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
   expect(reason(4, state.botCount)).toBeNull();
   expect(rosterForStart(humans(4), SUMO, state.botCount)?.slots).toHaveLength(8);
 });
 
 it('fifth human over cap disables start', () => {
-  const state = nextBotCount(createBotLobby(), 4, 4, 4, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 4, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
   const block = reason(5, state.botCount);
   expect(block).toBe('over-cap');
   expect(startNotice(block)).toBe(OVER_CAP);
@@ -86,7 +86,7 @@ it('fifth human over cap disables start', () => {
 });
 
 it('fifth human quitting enables start again', () => {
-  const state = nextBotCount(createBotLobby(), 4, 4, 4, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 4, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
   expect(reason(5, state.botCount)).toBe('over-cap');
   expect(state.botCount).toBe(4);
   expect(reason(4, state.botCount)).toBeNull();
@@ -94,14 +94,14 @@ it('fifth human quitting enables start again', () => {
 });
 
 it('locked bot count ignores a change', () => {
-  const state = lockBotCount(nextBotCount(createBotLobby(), 1, 1, 1, 8, true));
-  const next = nextBotCount(state, 4, 1, 1, 8, true);
+  const state = lockBotCount(nextBotCount(createBotLobby(), { requested: 1, humans: 1, occupied: 1, maxPlayers: 8, supportsBots: true }));
+  const next = nextBotCount(state, { requested: 4, humans: 1, occupied: 1, maxPlayers: 8, supportsBots: true });
   expect(next).toBe(state);
   expect(next).toEqual({ botCount: 1, difficulty: 'medium', locked: true });
 });
 
 it('last human leaving disables start', () => {
-  const state = nextBotCount(createBotLobby(), 2, 1, 1, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 2, humans: 1, occupied: 1, maxPlayers: 8, supportsBots: true });
   const block = reason(0, state.botCount);
   expect(block).toBe('no-human');
   expect(startNotice(block)).toBe(NO_HUMAN);
@@ -117,36 +117,36 @@ it('bots alone do not enable start', () => {
 });
 
 it('lowering bots after over cap enables start', () => {
-  const stored = nextBotCount(createBotLobby(), 4, 4, 4, 8, true);
+  const stored = nextBotCount(createBotLobby(), { requested: 4, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
   expect(reason(5, stored.botCount)).toBe('over-cap');
-  const state = nextBotCount(stored, 3, 5, 5, 8, true);
+  const state = nextBotCount(stored, { requested: 3, humans: 5, occupied: 5, maxPlayers: 8, supportsBots: true });
   expect(state.botCount).toBe(3);
   expect(reason(5, state.botCount)).toBeNull();
   expect(rosterForStart(humans(5), SUMO, state.botCount)).not.toBeNull();
 });
 
 it('minus walks a count down when it is more than one over the cap', () => {
-  const stored = nextBotCount(createBotLobby(), 4, 4, 4, 8, true);
-  const once = nextBotCount(stored, 3, 6, 6, 8, true);
+  const stored = nextBotCount(createBotLobby(), { requested: 4, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
+  const once = nextBotCount(stored, { requested: 3, humans: 6, occupied: 6, maxPlayers: 8, supportsBots: true });
   expect(once.botCount).toBe(3);
   expect(reason(6, once.botCount)).toBe('over-cap');
-  const twice = nextBotCount(once, 2, 6, 6, 8, true);
+  const twice = nextBotCount(once, { requested: 2, humans: 6, occupied: 6, maxPlayers: 8, supportsBots: true });
   expect(twice.botCount).toBe(2);
   expect(reason(6, twice.botCount)).toBeNull();
-  expect(nextBotCount(stored, 5, 6, 6, 8, true).botCount).toBe(4);
+  expect(nextBotCount(stored, { requested: 5, humans: 6, occupied: 6, maxPlayers: 8, supportsBots: true }).botCount).toBe(4);
 });
 
 it('a raise above remaining seats is rejected', () => {
   expect(clampBotCount(5, 4, 8)).toBe(4);
-  const state = nextBotCount(createBotLobby(), 4, 4, 4, 8, true);
-  const next = nextBotCount(state, 5, 4, 4, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 4, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
+  const next = nextBotCount(state, { requested: 5, humans: 4, occupied: 4, maxPlayers: 8, supportsBots: true });
   expect(next).toBe(state);
   expect(next.botCount).toBe(4);
   expect(reason(4, next.botCount)).toBeNull();
 });
 
 it('play again keeps the frozen count and the lobby unlocks at that count', () => {
-  const locked = lockBotCount(nextBotCount(createBotLobby(), 2, 2, 2, 8, true));
+  const locked = lockBotCount(nextBotCount(createBotLobby(), { requested: 2, humans: 2, occupied: 2, maxPlayers: 8, supportsBots: true }));
   const roster = rosterForStart(humans(2), SUMO, locked.botCount);
   expect(locked.locked).toBe(true);
   expect(roster?.slots).toHaveLength(4);
@@ -160,7 +160,7 @@ it('play again keeps the frozen count and the lobby unlocks at that count', () =
 });
 
 it('a human leave during a match does not add a bot', () => {
-  const state = lockBotCount(nextBotCount(createBotLobby(), 1, 2, 2, 8, true));
+  const state = lockBotCount(nextBotCount(createBotLobby(), { requested: 1, humans: 2, occupied: 2, maxPlayers: 8, supportsBots: true }));
   const roster = rosterForStart(humans(2), SUMO, state.botCount);
   const mask = roster?.botMask ?? new Uint8Array(8);
   const next = botMaskAfterHumanLeave(mask, 0);
@@ -174,7 +174,7 @@ it('a human leave during a match does not add a bot', () => {
 });
 
 it('a second human does not change the bot count', () => {
-  const state = nextBotCount(createBotLobby(), 1, 1, 1, 8, true);
+  const state = nextBotCount(createBotLobby(), { requested: 1, humans: 1, occupied: 1, maxPlayers: 8, supportsBots: true });
   expect(state).toEqual({ botCount: 1, difficulty: 'medium', locked: false });
   expect(reason(2, state.botCount)).toBeNull();
   const roster = rosterForStart(humans(2), SUMO, state.botCount);
@@ -215,7 +215,7 @@ it('bot fill calls applyInput', () => {
 it('supportsBots false adds no bots', () => {
   const off = { minPlayers: 2, maxPlayers: 8, supportsBots: false };
   expect(reason(1, 4, false)).toBe('below-min');
-  expect(nextBotCount(createBotLobby(), 3, 2, 2, 8, false).botCount).toBe(0);
+  expect(nextBotCount(createBotLobby(), { requested: 3, humans: 2, occupied: 2, maxPlayers: 8, supportsBots: false }).botCount).toBe(0);
   const roster = rosterForStart([player(0, true), player(1, true)], off, 3);
   expect(roster?.slots).toEqual([0, 1]);
   expect(Array.from(roster?.botMask ?? [])).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
@@ -327,9 +327,21 @@ it('AWAY players count as seats: 4 LIVE + 2 AWAY caps bots at 2', () => {
   // stores the clamped value when requested is within the remaining seats.
   // That is the same rule as "a raise above remaining seats is rejected".
   expect(clampBotCount(4, 6, 8)).toBe(2);
-  const withinCap = nextBotCount(createBotLobby(), 2, 4, 6, 8, true);
+  const withinCap = nextBotCount(createBotLobby(), {
+    requested: 2,
+    humans: 4,
+    occupied: 6,
+    maxPlayers: 8,
+    supportsBots: true,
+  });
   expect(withinCap.botCount).toBe(2);
-  const raiseAboveCap = nextBotCount(createBotLobby(), 4, 4, 6, 8, true);
+  const raiseAboveCap = nextBotCount(createBotLobby(), {
+    requested: 4,
+    humans: 4,
+    occupied: 6,
+    maxPlayers: 8,
+    supportsBots: true,
+  });
   expect(raiseAboveCap.botCount).toBe(0);
 });
 
@@ -384,4 +396,50 @@ it('kicking AWAY players makes a previously over-cap lobby startable again', () 
   });
   expect(block).toBeNull();
   expect(startNotice(block)).toBe('');
+});
+
+it('all joined players AWAY keeps nextBotCount a no-op and blocks start with no-human', () => {
+  const awayPlayers = [player(0, false), player(1, false)];
+  const empty = createBotLobby();
+  const raised = nextBotCount(empty, {
+    requested: 2,
+    humans: 0,
+    occupied: awayPlayers.length,
+    maxPlayers: SUMO.maxPlayers,
+    supportsBots: SUMO.supportsBots,
+  });
+  expect(raised).toBe(empty);
+  expect(raised.botCount).toBe(0);
+
+  const stored = { botCount: 4, difficulty: 'medium' as const, locked: false };
+  const lowered = nextBotCount(stored, {
+    requested: 1,
+    humans: 0,
+    occupied: awayPlayers.length,
+    maxPlayers: SUMO.maxPlayers,
+    supportsBots: SUMO.supportsBots,
+  });
+  expect(lowered).toBe(stored);
+
+  const block = startBlockReason({
+    humans: 0,
+    occupied: awayPlayers.length,
+    bots: 2,
+    minPlayers: SUMO.minPlayers,
+    maxPlayers: SUMO.maxPlayers,
+    supportsBots: SUMO.supportsBots,
+  });
+  expect(block).toBe('no-human');
+  expect(startNotice(block)).toBe(NO_HUMAN);
+  expect(rosterForStart(awayPlayers, SUMO, 2)).toBeNull();
+
+  const overCapBlock = startBlockReason({
+    humans: 0,
+    occupied: 6,
+    bots: 4,
+    minPlayers: SUMO.minPlayers,
+    maxPlayers: SUMO.maxPlayers,
+    supportsBots: SUMO.supportsBots,
+  });
+  expect(overCapBlock).toBe('no-human');
 });

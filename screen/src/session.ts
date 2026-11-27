@@ -638,14 +638,13 @@ export function startSession(handlers: SessionHandlers): ScreenSession {
     },
     setBotCount(requested: number): void {
       const entry = screenGames.get(selectedId);
-      botLobby = nextBotCount(
-        botLobby,
+      botLobby = nextBotCount(botLobby, {
         requested,
-        connectedHumans(),
-        players.length,
-        entry?.manifest.maxPlayers ?? 8,
-        entry?.manifest.supportsBots === true,
-      );
+        humans: connectedHumans(),
+        occupied: players.length,
+        maxPlayers: entry?.manifest.maxPlayers ?? 8,
+        supportsBots: entry?.manifest.supportsBots === true,
+      });
       handlers.setBotLobby(botLobby);
     },
     setBotDifficulty(difficulty: BotDifficulty): void {
