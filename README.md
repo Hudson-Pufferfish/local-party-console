@@ -1,8 +1,18 @@
-# local-party-console
+# Local Party Arcade
 
 A living-room party console that turns your laptop and phones into a multiplayer arcade.
 
 The main screen (your laptop or connected TV/monitor) runs the games in Chrome, while players use their own smartphone browsers as wireless controllers—no app installs required. Up to 8 players can jump in instantly via a QR code.
+
+## Available Games
+
+- **Sumo Dash — 1 to 8 players:** Slide, collide, and time powerful dashes to knock rival pucks from a shrinking ring. Solo players can add bots, and bots can fill open places or be turned off.
+- **Bomb Pass — 1 to 8 players:** Chase opponents and pass a live bomb before its fuse ends in a fast hot-potato showdown. Solo players can add bots, and bots can fill open places or be turned off.
+- **Color Clash — 1 to 8 players:** Paint the floor, steal rival territory, and race for the golden tile when a round ends in a tie. Solo players can add bots, and bots can fill open places or be turned off.
+- **Last Light — 1 to 8 players:** Lock in as late as you dare before a lamp blows out at a secret moment. Solo players can add bots, and bots can fill open places or be turned off.
+- **Citadel Defense — 1 to 8 players:** Work together through eight waves to defend the Core with lasers, dashes, walls, revives, and a squad EMP. Play truly solo, add bots, or turn bots off for a local squad.
+
+**[Read the full Games Guide (docs/games.md)](docs/games.md)**
 
 ## Quick Start / Setup
 
