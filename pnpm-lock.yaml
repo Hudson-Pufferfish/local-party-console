@@ -18,27 +18,27 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       '@solidjs/vite-plugin':
         specifier: 3.0.1
-        version: 3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 3.0.1(@solidjs/web@2.0.4(solid-js@2.0.4))(solid-js@2.0.4)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@tailwindcss/vite':
         specifier: 4.3.5
-        version: 4.3.5(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 4.3.5(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       tailwindcss:
         specifier: 4.3.5
         version: 4.3.5
       vite:
         specifier: 8.3.8
-        version: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
+        version: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
 
   controller:
     dependencies:
@@ -49,21 +49,21 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       '@solidjs/vite-plugin':
         specifier: 3.0.1
-        version: 3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 3.0.1(@solidjs/web@2.0.4(solid-js@2.0.4))(solid-js@2.0.4)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@tailwindcss/vite':
         specifier: 4.3.5
-        version: 4.3.5(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 4.3.5(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@types/node':
-        specifier: 26.6.6
-        version: 26.6.6
+        specifier: 26.6.10
+        version: 26.6.10
       tailwindcss:
         specifier: 4.3.5
         version: 4.3.5
@@ -72,114 +72,114 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   games/bomb-pass:
     dependencies:
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       phaser:
         specifier: 4.2.1
         version: 4.2.1
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       '@solidjs/vite-plugin':
         specifier: 3.0.1
-        version: 3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 3.0.1(@solidjs/web@2.0.4(solid-js@2.0.4))(solid-js@2.0.4)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@types/node':
-        specifier: 26.6.6
-        version: 26.6.6
+        specifier: 26.6.10
+        version: 26.6.10
       typescript:
         specifier: 7.0.2
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   games/color-clash:
     dependencies:
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       phaser:
         specifier: 4.2.1
         version: 4.2.1
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   games/cyber-citadel:
     dependencies:
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       phaser:
         specifier: 4.2.1
         version: 4.2.1
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   games/last-light:
     dependencies:
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       phaser:
         specifier: 4.2.1
         version: 4.2.1
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       '@solidjs/vite-plugin':
         specifier: 3.0.1
-        version: 3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 3.0.1(@solidjs/web@2.0.4(solid-js@2.0.4))(solid-js@2.0.4)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@types/node':
-        specifier: 26.6.6
-        version: 26.6.6
+        specifier: 26.6.10
+        version: 26.6.10
       typescript:
         specifier: 7.0.2
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   games/sumo-dash:
     dependencies:
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       phaser:
         specifier: 4.2.1
         version: 4.2.1
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   screen:
     dependencies:
@@ -190,8 +190,8 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@solidjs/web':
-        specifier: 2.0.3
-        version: 2.0.3(solid-js@2.0.3)
+        specifier: 2.0.4
+        version: 2.0.4(solid-js@2.0.4)
       phaser:
         specifier: 4.2.1
         version: 4.2.1
@@ -199,18 +199,18 @@ importers:
         specifier: 1.5.4
         version: 1.5.4
       solid-js:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       '@solidjs/vite-plugin':
         specifier: 3.0.1
-        version: 3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 3.0.1(@solidjs/web@2.0.4(solid-js@2.0.4))(solid-js@2.0.4)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@tailwindcss/vite':
         specifier: 4.3.5
-        version: 4.3.5(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 4.3.5(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       '@types/node':
-        specifier: 26.6.6
-        version: 26.6.6
+        specifier: 26.6.10
+        version: 26.6.10
       tailwindcss:
         specifier: 4.3.5
         version: 4.3.5
@@ -219,7 +219,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   server:
     dependencies:
@@ -234,8 +234,8 @@ importers:
         version: 8.23.0
     devDependencies:
       '@types/node':
-        specifier: 26.6.6
-        version: 26.6.6
+        specifier: 26.6.10
+        version: 26.6.10
       '@types/ws':
         specifier: 8.18.2
         version: 8.18.2
@@ -244,22 +244,22 @@ importers:
         version: 7.0.2
       vite:
         specifier: 8.3.8
-        version: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
+        version: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
   shared:
     devDependencies:
       '@types/node':
-        specifier: 26.6.6
-        version: 26.6.6
+        specifier: 26.6.10
+        version: 26.6.10
       typescript:
         specifier: 7.0.2
         version: 7.0.2
       vitest:
         specifier: 5.1.1
-        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
 packages:
 
@@ -482,8 +482,8 @@ packages:
   '@solidjs/compiler@2.0.2':
     resolution: {integrity: sha512-z7ZlbBQaCeNt4wt12xLS86pdgwet2QwAjyB/+enhDkPL2LUF4jWt7Q8NIlLkXVxm6RJWvZRL5hwcVmrH6JZhZA==}
 
-  '@solidjs/signals@2.0.3':
-    resolution: {integrity: sha512-M6+kiJflqSvJRHRcmdsdIXpPLPkQrY817zWKKfxZ3z3ZRE5eEtddtWPrDXY4IM1Wz3zAqG+3Fx/HQIkAtpRwnA==}
+  '@solidjs/signals@2.0.4':
+    resolution: {integrity: sha512-U/Z0DOsoJO18Wsw/5piSrJhtj85nMOOD/ldn8ZP+CCA5RVcu4GDheNTOECOZwxCS+l7BVIzIakToJC91Q6lMXQ==}
     engines: {node: '>=22.12.0'}
 
   '@solidjs/vite-plugin@3.0.1':
@@ -507,11 +507,11 @@ packages:
       '@testing-library/jest-dom':
         optional: true
 
-  '@solidjs/web@2.0.3':
-    resolution: {integrity: sha512-XYl9JGOtQ8yJSZRnd6uC+5gYXsYvnIRNxhn89m+F1v6D4d4ZFdTJY2Lq/8XJ3YcjckkCrK/mNfd3kIiqqgnG7w==}
+  '@solidjs/web@2.0.4':
+    resolution: {integrity: sha512-E7bEnI/+z5Lj8fthibMbud8zXbdn5fc0/QJpC4kruxmVIwj/FyrkgiMVqfBmILjaYtKXD3QNEZCKyTV3agbH5A==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
-      solid-js: ^2.0.3
+      solid-js: ^2.0.4
 
   '@tailwindcss/node@4.3.5':
     resolution: {integrity: sha512-yT53FzV4ke0cr/BguDxhWMpm5MJu1O2muzk+tKw6lKHjODAsYArBbWwFbJiaksfzFv1tpkO9QHGzmfs1hJT66g==}
@@ -618,8 +618,8 @@ packages:
   '@types/estree@1.0.10':
     resolution: {integrity: sha512-lTyOMnOcmRBzdCv6/4zUZCrEhV0xrqQiUZBZtVcbmLHBXKLnN8q89v/wKRF/Q0HbwVsqbIG3o5HDoFl9sduM+g==}
 
-  '@types/node@26.6.6':
-    resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
+  '@types/node@26.6.10':
+    resolution: {integrity: sha512-WJuPHoGB8WNQuTksNF7SOQpnH02PXeDYz4iueWbBT6/hTWnShY5F3T/hoJA3fY9+uYReDZ7pyTKKx83jQa7aGg==}
 
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
@@ -1153,8 +1153,8 @@ packages:
   set-cookie-parser@3.2.3:
     resolution: {integrity: sha512-bDO7NdAkLprNt3BNl3LAh0oVnOS5+WspzxOxiboo7vRIyTqj2pvFmNWYEFynSGQgpJ+7yG/9nc/aSG20UDBUpg==}
 
-  solid-js@2.0.3:
-    resolution: {integrity: sha512-XOHstv+GAJjfcSGZU9xfX5q6Mbqmv72IcdWh2JuMx3KvBbfpQPdy/Yl00A1ouk7A0etjqhNe799CPdr6i7koWg==}
+  solid-js@2.0.4:
+    resolution: {integrity: sha512-RaBVDtzYGgQEAcMa9QgyT8UdzOayFgXJ1w1/f8vz7aoeF5tQDZwrHLfM1PDTIuprb8RdMWFGZwwyKCXtXEUX0w==}
     engines: {node: '>=22.12.0'}
 
   sonic-boom@4.2.1:
@@ -1542,25 +1542,25 @@ snapshots:
       '@solidjs/compiler-wasm32-wasi': 2.0.2
       '@solidjs/compiler-win32-x64-msvc': 2.0.2
 
-  '@solidjs/signals@2.0.3': {}
+  '@solidjs/signals@2.0.4': {}
 
-  '@solidjs/vite-plugin@3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
+  '@solidjs/vite-plugin@3.0.1(@solidjs/web@2.0.4(solid-js@2.0.4))(solid-js@2.0.4)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@solidjs/compiler': 2.0.2
-      '@solidjs/web': 2.0.3(solid-js@2.0.3)
+      '@solidjs/web': 2.0.4(solid-js@2.0.4)
       magic-string: 0.30.21
       merge-anything: 5.1.7
-      solid-js: 2.0.3
-      vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
-      vitefu: 1.1.4(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+      solid-js: 2.0.4
+      vite: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
+      vitefu: 1.1.4(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
 
-  '@solidjs/web@2.0.3(solid-js@2.0.3)':
+  '@solidjs/web@2.0.4(solid-js@2.0.4)':
     dependencies:
       csstype: 3.2.4
       seroval: 1.8.2
       seroval-plugins: 1.8.0(seroval@1.8.2)
-      solid-js: 2.0.3
+      solid-js: 2.0.4
 
   '@tailwindcss/node@4.3.5':
     dependencies:
@@ -1623,12 +1623,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.5
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.5
 
-  '@tailwindcss/vite@4.3.5(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
+  '@tailwindcss/vite@4.3.5(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))':
     dependencies:
       '@tailwindcss/node': 4.3.5
       '@tailwindcss/oxide': 4.3.5
       tailwindcss: 4.3.5
-      vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
+      vite: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
 
   '@tybys/wasm-util@0.10.5':
     dependencies:
@@ -1644,13 +1644,13 @@ snapshots:
 
   '@types/estree@1.0.10': {}
 
-  '@types/node@26.6.6':
+  '@types/node@26.6.10':
     dependencies:
       undici-types: 8.9.0
 
   '@types/ws@8.18.2':
     dependencies:
-      '@types/node': 26.6.6
+      '@types/node': 26.6.10
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
@@ -1712,14 +1712,14 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@vitest/mocker@5.1.1(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
+  '@vitest/mocker@5.1.1(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@vitest/spy': 5.1.1
       estree-walker: 3.0.3
       magic-string: 1.4.5
     optionalDependencies:
-      vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
+      vite: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
 
   '@vitest/spy@5.1.1': {}
 
@@ -2071,9 +2071,9 @@ snapshots:
 
   set-cookie-parser@3.2.3: {}
 
-  solid-js@2.0.3:
+  solid-js@2.0.4:
     dependencies:
-      '@solidjs/signals': 2.0.3
+      '@solidjs/signals': 2.0.4
       seroval: 1.8.2
       seroval-plugins: 1.8.0(seroval@1.8.2)
 
@@ -2144,7 +2144,7 @@ snapshots:
 
   undici-types@8.9.0: {}
 
-  vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0):
+  vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -2152,18 +2152,18 @@ snapshots:
       rolldown: 1.2.19
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 26.6.6
+      '@types/node': 26.6.10
       fsevents: 2.3.3
       jiti: 2.7.0
 
-  vitefu@1.1.4(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0)):
+  vitefu@1.1.4(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0)):
     optionalDependencies:
-      vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
+      vite: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
 
-  vitest@5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0)):
+  vitest@5.1.1(@types/node@26.6.10)(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0)):
     dependencies:
       '@types/chai': 5.2.3
-      '@vitest/mocker': 5.1.1(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+      '@vitest/mocker': 5.1.1(vite@8.3.8(@types/node@26.6.10)(jiti@2.7.0))
       chai: 6.3.0
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
@@ -2174,10 +2174,10 @@ snapshots:
       tinybench: 6.2.5
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
-      vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
+      vite: 8.3.8(@types/node@26.6.10)(jiti@2.7.0)
       why-is-node-running: 3.2.1
     optionalDependencies:
-      '@types/node': 26.6.6
+      '@types/node': 26.6.10
     transitivePeerDependencies:
       - msw
 
