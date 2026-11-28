@@ -138,3 +138,8 @@ The mkcert root certificate and phone trust stay installed across restarts. Rege
   - **GitHub Actions CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): Runs on pushes to `main` and every pull request. Installs with the frozen lockfile, typechecks and tests every workspace package, and builds the `controller` and `screen` apps with Vite. It does not start the HTTPS relay, so it does not need `mkcert` or `certs/*.pem`.
   - **CodeQL** ([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml), [`.github/codeql/codeql-config.yml`](.github/codeql/codeql-config.yml)): Runs automated `security-extended` scans across `server`, `screen`, `controller`, `shared`, and `games` on pushes to `main`, pull requests to `main`, and every Monday.
   - **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)): Checks weekly for npm workspace dependency and GitHub Actions workflow updates.
+
+## Future Plan & Roadmap
+
+- [Modular Party Game Engine Architecture & 2D/3D Extensibility RFC](https://github.com/Hudson-Pufferfish/local-party-console/issues/83)
+- Expand party games catalog (new 2D & 3D titles)
