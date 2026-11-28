@@ -152,5 +152,4 @@ The mkcert root certificate and phone trust stay installed across restarts. Rege
 ## Future Plan & Roadmap
 
 - [Modular Party Game Engine Architecture & 2D/3D Extensibility RFC](https://github.com/Hudson-Pufferfish/local-party-console/issues/83)
-- [Rust/Wasm SIMD Party Engine Core & Zero-Copy Rendering Roadmap](https://github.com/Hudson-Pufferfish/local-party-console/issues/84): Plan `crates/party-core` as the shared simulation core for high-density 2D physics and a zero-copy state bridge to Three.js `InstancedMesh` and future WebGPU render paths.
 - Expand party games catalog (new 2D & 3D titles)
