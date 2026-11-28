@@ -16,28 +16,58 @@ Pushes to `main` and every pull request run GitHub Actions. The workflow install
 
 From the repo root. Node 22 (`/.nvmrc`). Use corepack's pnpm.
 
+Install dependencies and `mkcert`:
+
+**macOS**
+
 ```sh
 corepack pnpm install
 brew install mkcert
 mkcert -install
 ```
 
-`mkcert -install` asks for your Mac password. It trusts this Mac only. It does not trust a phone.
+**Windows (PowerShell)**
 
-Find the LAN IPv4. Prefer the dock Ethernet address when that adapter is up. Otherwise use Wi-Fi.
+```powershell
+corepack pnpm install
+winget install FiloSottile.mkcert
+# Or with Chocolatey: choco install mkcert
+mkcert -install
+```
+
+Open a new PowerShell window if `mkcert` is not on `PATH` after install. `mkcert -install` asks for administrator approval. It trusts the host computer only. It does not trust a phone.
+
+Find the LAN IPv4. Prefer Ethernet when that adapter is up. Otherwise use Wi-Fi.
+
+**macOS**
 
 ```sh
 ipconfig getifaddr en0
 ```
 
+**Windows (PowerShell)**
+
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback' -and $_.IPAddress -notlike '169.254.*' } | Select-Object InterfaceAlias, IPAddress
+```
+
 Create the cert. Replace `<lan-ip>` with that address.
+
+**macOS**
 
 ```sh
 mkdir -p certs
 mkcert -key-file certs/dev-key.pem -cert-file certs/dev.pem localhost 127.0.0.1 <lan-ip>
 ```
 
-`certs/*.pem` stays untracked. Phones need the steps in [Phone trust](#phone-trust). The same steps are in [server/README.md](server/README.md).
+**Windows (PowerShell)**
+
+```powershell
+New-Item -ItemType Directory -Force -Path certs
+mkcert -key-file certs/dev-key.pem -cert-file certs/dev.pem localhost 127.0.0.1 <lan-ip>
+```
+
+`certs/*.pem` stays untracked. Phones need the steps in [Phone trust](#phone-trust). Server runtime details are in [server/README.md](server/README.md).
 
 ## When I want to play
 
@@ -95,23 +125,29 @@ The LAN IP can change on the next network. If it does, recreate `certs/dev.pem` 
 
 ## Phone trust
 
-`mkcert -install` trusts this Mac only. Each phone needs `rootCA.pem`.
+`mkcert -install` trusts the host computer only. Each phone needs `rootCA.pem`.
 
-On the Mac, the folder is:
+Find the folder that contains `rootCA.pem`:
 
 ```sh
 mkcert -CAROOT
 ```
 
-The file in that folder is `rootCA.pem`.
+Run the command for your OS. It prints the phone URL and serves `rootCA.pem` on port `8080`:
 
-This command prints the phone URL, then serves the file:
+**macOS**
 
 ```sh
 LAN=$(ipconfig getifaddr en0 || ipconfig getifaddr en1); echo "Phone: http://${LAN}:8080/rootCA.pem"; cd "$(mkcert -CAROOT)" && python3 -m http.server 8080
 ```
 
-The terminal prints that address. Open it on the phone. The phone and the Mac must be on the same Wi-Fi.
+**Windows (PowerShell)**
+
+```powershell
+$lan = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|vEthernet' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress; Write-Host "Phone: http://${lan}:8080/rootCA.pem"; python -m http.server 8080 --directory "$(mkcert -CAROOT)"
+```
+
+The terminal prints that address. Open it on the phone. The phone and the host must be on the same network. If Windows Defender Firewall prompts for `python`, allow access on Private networks.
 
 When the file is on the phone, press Ctrl+C in that terminal.
 
