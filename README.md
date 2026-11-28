@@ -1,27 +1,24 @@
 # local-party-console
 
-Local party shell for this Mac. The host is an Apple Silicon M5 Pro MacBook, 16 GB. The display is an external monitor on the Kensington DisplayLink 4K dock (K33621NA). A TV is not required. Chrome on the Mac runs the game. Phones are the controllers.
+A living-room party console that turns your laptop and phones into a multiplayer arcade.
 
-Screen and controller are SolidJS. The relay is Fastify on port 8443.
-
-## Architecture Decisions
-
-Durable platform choices, network protocols, and trade-offs are documented in [docs/architecture-decision.md](docs/architecture-decision.md).
-
-## CI
-
-Pushes to `main` and every pull request run GitHub Actions. The workflow installs with the frozen lockfile, typechecks and tests every workspace package, then Vite-builds the controller and screen apps. It does not start the HTTPS relay, so it does not need mkcert or `certs/*.pem`. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+The main screen (your laptop or connected TV/monitor) runs the games in Chrome, while players use their own smartphone browsers as wireless controllers—no app installs required. Up to 8 players can jump in instantly via a QR code.
 
 ## Quick Start / Setup
 
-From the repo root. Node 22 (`/.nvmrc`). Use corepack's pnpm.
+Run all commands from the repo root. Use Node 22 (`/.nvmrc`) and corepack's `pnpm`.
 
-Install dependencies and `mkcert`:
+Install workspace dependencies first:
+
+```sh
+corepack pnpm install
+```
+
+### 1. Install mkcert
 
 **macOS**
 
 ```sh
-corepack pnpm install
 brew install mkcert
 mkcert -install
 ```
@@ -29,7 +26,6 @@ mkcert -install
 **Windows (PowerShell)**
 
 ```powershell
-corepack pnpm install
 winget install FiloSottile.mkcert
 # Or with Chocolatey: choco install mkcert
 mkcert -install
@@ -37,7 +33,9 @@ mkcert -install
 
 Open a new PowerShell window if `mkcert` is not on `PATH` after install. `mkcert -install` asks for administrator approval. It trusts the host computer only. It does not trust a phone.
 
-Find the LAN IPv4. Prefer Ethernet when that adapter is up. Otherwise use Wi-Fi.
+### 2. Find LAN IPv4
+
+Prefer Ethernet when that adapter is up. Otherwise use Wi-Fi.
 
 **macOS**
 
@@ -51,7 +49,9 @@ ipconfig getifaddr en0
 Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback' -and $_.IPAddress -notlike '169.254.*' } | Select-Object InterfaceAlias, IPAddress
 ```
 
-Create the cert. Replace `<lan-ip>` with that address.
+### 3. Generate Dev Certificate
+
+Replace `<lan-ip>` with the LAN IPv4 address from step 2.
 
 **macOS**
 
@@ -67,73 +67,13 @@ New-Item -ItemType Directory -Force -Path certs
 mkcert -key-file certs/dev-key.pem -cert-file certs/dev.pem localhost 127.0.0.1 <lan-ip>
 ```
 
-`certs/*.pem` stays untracked. Phones need the steps in [Phone trust](#phone-trust). Server runtime details are in [server/README.md](server/README.md).
+`certs/*.pem` stays untracked.
 
-## When I want to play
+### 4. Install Certificate on Phones (One-Time)
 
-```sh
-corepack pnpm --filter @server dev
-```
+`mkcert -install` trusts the host computer only. Each phone needs `rootCA.pem` from the folder printed by `mkcert -CAROOT`.
 
-The process listens on `0.0.0.0:8443`. When the server is running, `GET https://<lan-ip>:8443/api/host` returns `lanIp`.
-
-In a normal Chrome window on the monitor, open:
-
-```text
-https://<lan-ip>:8443/screen/
-```
-
-Scan the QR code with each phone. Open the controller page in the browser that trusts the CA below. Pick Sumo Dash. With the bot count at 0, Start stays off until at least 2 players have joined.
-
-Do not open `/screen/` in Incognito. That window has no saved host token, so the page says `HOST ACCESS MISSING — OPEN IN THE ORIGINAL BROWSER WINDOW` and the QR stays empty.
-
-If the LAN IP is missing from the cert, Chrome blocks the page before it loads. Recreate the cert with the current LAN IP.
-
-### Telemetry HUD
-
-Click the host screen window. Press Tab to open the overlay. Press Tab again, or Escape, to close it.
-
-The overlay prints:
-
-```text
-VIEWPORTS: THIS <fps>fps | OTHERS —
-VIEWPORT SYNC: TICK DELTA — | CLOCK SKEW — | DISPLAYLINK COMP +0ms | FLIGHT REC —
-P<n> [T<team>] <name> | <transport> | Hz: <hz> <tier> | Touch: <ms>ms | Net p50/p99/J: <p50>/<p99>/<jitter>ms | Loss: <percent>% | LongTasks: <count>
-```
-
-`VIEWPORTS` shows this tab's FPS. `OTHERS`, `TICK DELTA`, `CLOCK SKEW`, and `FLIGHT REC` stay `—`. `DISPLAYLINK COMP` reads `+0ms`.
-
-Phone rows appear on the primary tab. A normal `/screen/` window is that tab. Another screen tab shows `PHONE TELEMETRY AVAILABLE ON PRIMARY TAB ONLY`.
-
-Each row is one connected player:
-
-- `P1`–`P8` is the player slot. `[T<team>]` is the team. A missing team is `[T-]`.
-- Transport is `UDP-DIRECT`, `WS-FALLBACK`, or `IDLE`.
-- `Hz` is that phone's input rate. The tier is `[TIER 60]` or `[ULP/LOW-POWER]`.
-- `Touch` is touch lag in milliseconds.
-- `Net p50/p99/J` is the median, the p99, and the jitter, in milliseconds. The field stays `—` until that phone has a clock offset.
-- `Loss` is the dropped-packet percent.
-- `LongTasks` is the long-task count.
-
-A red value marks high Touch, high Net p99, or Loss above 0.
-
-## When I close the laptop
-
-In the terminal that is running the server, press Ctrl+C. The mkcert root and the phone trust stay installed.
-
-The LAN IP can change on the next network. If it does, recreate `certs/dev.pem` with the new address before you play.
-
-## Phone trust
-
-`mkcert -install` trusts the host computer only. Each phone needs `rootCA.pem`.
-
-Find the folder that contains `rootCA.pem`:
-
-```sh
-mkcert -CAROOT
-```
-
-Run the command for your OS. It prints the phone URL and serves `rootCA.pem` on port `8080`:
+Run the one-liner for your OS. It prints the phone URL and serves `rootCA.pem` on port `8080`:
 
 **macOS**
 
@@ -147,21 +87,54 @@ LAN=$(ipconfig getifaddr en0 || ipconfig getifaddr en1); echo "Phone: http://${L
 $lan = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|vEthernet' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress; Write-Host "Phone: http://${lan}:8080/rootCA.pem"; python -m http.server 8080 --directory "$(mkcert -CAROOT)"
 ```
 
-The terminal prints that address. Open it on the phone. The phone and the host must be on the same network. If Windows Defender Firewall prompts for `python`, allow access on Private networks.
+Open that URL on each phone. The phone and host must be on the same network. If Windows Defender Firewall prompts for `python`, allow access on Private networks. Press `Ctrl+C` in that terminal when the file is on the phone.
 
-When the file is on the phone, press Ctrl+C in that terminal.
-
-### iPhone
+#### iPhone
 
 1. Open the downloaded profile. If iOS only saves the file, go to Settings → General → VPN & Device Management and install the profile.
 2. Go to Settings → General → About → Certificate Trust Settings. Turn on full trust for the mkcert root.
 
-Chrome on iPhone uses that system trust. Full trust is required. Proceed on the certificate warning does not trust the game socket (`wss`).
+Chrome on iPhone uses that system trust. Full trust is required. Clicking Proceed on a certificate warning does not trust the game socket (`wss`).
 
-### Samsung and Android
+#### Samsung and Android
 
-On One UI: Settings → Security and privacy → More security settings → Encryption and credentials → Install a certificate → CA certificate.
+1. On One UI, go to Settings → Security and privacy → More security settings → Encryption and credentials → Install a certificate → CA certificate.
+2. Confirm the install warning and choose `rootCA.pem`.
 
-Confirm the install warning and choose `rootCA.pem`.
+Install the CA for the browser that scans the QR code. Chrome and Samsung Internet are separate. A warning accepted in one does not cover the other. Clicking Proceed on the page does not trust `wss`.
 
-Install the CA for the app that will scan the QR. Chrome and Samsung Internet are separate. A warning you accept in one of them does not cover the other. Proceed on the page does not trust `wss`.
+## When I Want to Play
+
+Start the server from the repo root:
+
+```sh
+pnpm play
+```
+
+The server listens on `0.0.0.0:8443`. When running, `GET https://<lan-ip>:8443/api/host` returns `lanIp`.
+
+Open this URL in a normal Chrome window on the main screen:
+
+```text
+https://<lan-ip>:8443/screen/
+```
+
+Scan the QR code with each phone and open the controller page in the browser that trusts the mkcert CA. Pick a game and start. With the bot count at 0, Start stays off until at least 2 players join.
+
+- Do not open `/screen/` in Incognito. That window has no saved host token, so the page shows `HOST ACCESS MISSING — OPEN IN THE ORIGINAL BROWSER WINDOW` and the QR stays empty.
+- If Chrome blocks the page before it loads, the LAN IP is missing from the certificate. Regenerate `certs/dev.pem` with the current LAN IP.
+
+## When I Close the Laptop
+
+Press `Ctrl+C` in the terminal running the server.
+
+The mkcert root certificate and phone trust stay installed across restarts. Regenerate `certs/dev.pem` only when your LAN IP changes on a new Wi-Fi network.
+
+## Developer Guide
+
+- **Telemetry HUD:** On-screen FPS and phone transport diagnostics are documented in [docs/telemetry.md](docs/telemetry.md).
+- **Architecture Decisions:** Durable platform choices, network protocols, and trade-offs are documented in [docs/architecture-decision.md](docs/architecture-decision.md). Server runtime details live in [server/README.md](server/README.md).
+- **CI & Security Verification:**
+  - **GitHub Actions CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): Runs on pushes to `main` and every pull request. Installs with the frozen lockfile, typechecks and tests every workspace package, and builds the `controller` and `screen` apps with Vite. It does not start the HTTPS relay, so it does not need `mkcert` or `certs/*.pem`.
+  - **CodeQL** ([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml), [`.github/codeql/codeql-config.yml`](.github/codeql/codeql-config.yml)): Runs automated `security-extended` scans across `server`, `screen`, `controller`, `shared`, and `games` on pushes to `main`, pull requests to `main`, and every Monday.
+  - **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)): Checks weekly for npm workspace dependency and GitHub Actions workflow updates.

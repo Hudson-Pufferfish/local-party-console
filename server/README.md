@@ -20,7 +20,7 @@ Open the host screen in a normal Chrome window. Incognito has no saved host toke
 
 ## Phone CA
 
-`mkcert -install` trusts the host computer only. Follow the macOS, Windows, iPhone, and Android steps in the root [README](../README.md#phone-trust) to install `rootCA.pem` on each phone.
+`mkcert -install` trusts the host computer only. Follow the macOS, Windows, iPhone, and Android steps in the root [README](../README.md#4-install-certificate-on-phones-one-time) to install `rootCA.pem` on each phone.
 
 ## Tests
 
