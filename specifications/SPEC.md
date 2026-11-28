@@ -120,6 +120,8 @@ Enforce two boundaries on Day 1 so v1.1 heuristic bots, Stretch 2 (SharedWorker 
 | **Stretch 3** | **Input buffer modes, flight recorder, replay** | `zero-buffer` vs `adaptive-1tick`, 5MB circular **Binary Flight Recorder**, "Replay last 30s", and optional state-rewind or WGSL compute. |
 | **Stretch 4** | **ONNX / WebGPU bots** | Inference worker reads sim state and injects `applyInput` for empty slots. Heuristic bots (v1.1) stay available. |
 
+The [Rust/Wasm SIMD Party Engine Core roadmap](https://github.com/Hudson-Pufferfish/local-party-console/issues/84) expands the Stretch 2 design. It plans `crates/party-core` as the authoritative simulation core for high-density 2D physics. It also plans shared typed-memory views as a zero-copy bridge to Three.js `InstancedMesh` and future WebGPU render pipelines. The core must preserve the `GameSimulation` seam and the existing read-only viewport rules.
+
 ---
 
 ## Part 2: Platform Functionalities & Game Roster Spec (Up to 8 Players)
